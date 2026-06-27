@@ -113,14 +113,17 @@ neste projeto, respeite rigorosamente o dominio e as regras a seguir.
 - Compile e valide com o JDK 21 antes de concluir. Faca commits pequenos e
   faca push para o `origin/main`.
 
-## Concluido (sessao 2026-06-26)
+## Concluido (sessoes 2026-06-26/27)
 - Checklists VISUAIS do fluxo com barra de progresso e "o que falta".
 - Textos de e-mail prontos por etapa (envio aos medicos oculta dados do paciente).
-- Relatorio Final em PDF (RelatorioService/OpenPDF, GET /processos/{id}/relatorio).
-- Editar e excluir processo.
+- Relatorio Final em PDF (RelatorioService/OpenPDF, GET /processos/{id}/relatorio)
+  + geracao AUTOMATICA e anexada ao decidir (TipoAnexo.RELATORIO_FINAL).
+- Editar e excluir processo; remover anexo individual.
 - Registro de envio aos avaliadores (data por parecer).
+- Busca + filtro por status na lista; painel mostra "aguardando acao" + pendencia.
 - Usuarios persistidos no banco (login via DB) + gestao restrita a ADMIN.
-- Testes unitarios das regras de negocio (mvn test: 7 ok). README criado.
+- Pagina de erro amigavel (error.html, autossuficiente).
+- Testes: ProcessoServiceTest (7) + FluxoProcessoServiceTest (4) = 11 ok. README.
 
 ## Pendencias / ideias futuras (backlog)
 - Editar/remover anexo; anexar o Relatorio Final no encerramento.
