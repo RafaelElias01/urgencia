@@ -36,3 +36,6 @@ application-local.yml
 ### Deploy (segredos do servidor) ###
 deploy/sgpur.env
 
+### Pacote distribuivel (gerado) ###
+/dist/
+
