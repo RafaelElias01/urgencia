@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: sgpur
+  profiles:
+    active: dev
+  thymeleaf:
+    cache: false
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true   # permite <input _method=PUT/DELETE> em formularios
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+app:
+  # Diretorio de armazenamento dos anexos
+  anexos:
+    dir: ./data/anexos
+  # Usuario administrador inicial (sobrescreva por variaveis de ambiente em producao)
+  admin:
+    username: ${SGPUR_ADMIN_USER:admin}
+    password: ${SGPUR_ADMIN_PASSWORD:admin123}
