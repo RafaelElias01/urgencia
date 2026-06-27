@@ -1,7 +1,9 @@
 package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
+import br.gov.saude.sgpur.domain.ResultadoParecer;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.repository.ParecerRepository;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,19 +11,35 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Controller
 @RequestMapping("/membros")
 public class MembroController {
 
     private final MembroUrgenciaRenalRepository repo;
+    private final ParecerRepository parecerRepo;
 
-    public MembroController(MembroUrgenciaRenalRepository repo) {
+    public MembroController(MembroUrgenciaRenalRepository repo, ParecerRepository parecerRepo) {
         this.repo = repo;
+        this.parecerRepo = parecerRepo;
     }
 
     @GetMapping
     public String listar(Model model) {
-        model.addAttribute("membros", repo.findAll());
+        var membros = repo.findAll();
+        model.addAttribute("membros", membros);
+        // Estatisticas por membro: [0]=designados, [1]=avaliados, [2]=favoraveis
+        Map<Long, long[]> stats = new LinkedHashMap<>();
+        for (MembroUrgenciaRenal m : membros) {
+            stats.put(m.getId(), new long[]{
+                parecerRepo.countByMembroId(m.getId()),
+                parecerRepo.countByMembroIdAndResultadoNotNull(m.getId()),
+                parecerRepo.countByMembroIdAndResultado(m.getId(), ResultadoParecer.FAVORAVEL)
+            });
+        }
+        model.addAttribute("stats", stats);
         return "membros/lista";
     }
 
