@@ -39,8 +39,9 @@
                     <div class="text-danger small" th:errors="*{pacienteNome}"></div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">RGCT / SNT</label>
-                    <input type="text" th:field="*{pacienteRgct}" class="form-control" placeholder="364963-4360">
+                    <label class="form-label">RGCT / SNT *</label>
+                    <input type="text" th:field="*{pacienteRgct}" class="form-control" placeholder="123456789-12345" required>
+                    <div class="text-danger small" th:errors="*{pacienteRgct}"></div>
                 </div>
             </div>
 

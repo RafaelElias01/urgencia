@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.EmailTemplateService;
@@ -39,6 +40,7 @@ public class ProcessoController {
     private final RelatorioService relatorioService;
     private final OficioService oficioService;
     private final MembroUrgenciaRenalRepository membroRepository;
+    private final ParecerRepository parecerRepository;
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
 
@@ -48,6 +50,7 @@ public class ProcessoController {
                               RelatorioService relatorioService,
                               OficioService oficioService,
                               MembroUrgenciaRenalRepository membroRepository,
+                              ParecerRepository parecerRepository,
                               AnexoStorageService anexoStorage,
                               AuditoriaService auditoria) {
         this.processoService = processoService;
@@ -56,6 +59,7 @@ public class ProcessoController {
         this.relatorioService = relatorioService;
         this.oficioService = oficioService;
         this.membroRepository = membroRepository;
+        this.parecerRepository = parecerRepository;
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
     }
@@ -165,6 +169,12 @@ public class ProcessoController {
         model.addAttribute("sugestao", sugestao.orElse(null));
         model.addAttribute("favoraveis", processoService.contarFavoraveis(p));
         model.addAttribute("emails", emailTemplateService.gerar(p));
+        // IDs dos pareceres que ja possuem e-mail de resposta anexado
+        java.util.Set<Long> pareceresComResposta = p.getAnexos().stream()
+            .filter(a -> a.getParecer() != null)
+            .map(a -> a.getParecer().getId())
+            .collect(java.util.stream.Collectors.toSet());
+        model.addAttribute("pareceresComResposta", pareceresComResposta);
         return "processos/detalhe";
     }
 
@@ -192,7 +202,7 @@ public class ProcessoController {
         Processo p = processoService.buscar(id);
         String numero = p.getNumero();
         processoService.excluir(id);
-        anexoStorage.removerPastaProcesso(id);
+        anexoStorage.removerPastaProcesso(p);
         auditoria.registrar("PROCESSO_EXCLUIDO", "Processo " + numero);
         ra.addFlashAttribute("msg", "Processo " + numero + " excluido.");
         return "redirect:/processos";
@@ -229,21 +239,35 @@ public class ProcessoController {
         }
         processoService.salvar(p);
         ra.addFlashAttribute("msg", "Pareceres atualizados.");
-        return "redirect:/processos/" + id + "#pareceres";
+        return "redirect:/processos/" + id + "#respostas";
     }
 
-    /** Registra a data de envio de hoje para todos os medicos do processo. */
+    /**
+     * Registra a data de envio de hoje para TODOS os 3 medicos do processo
+     * (acao unica). Opcionalmente aceita o PDF do e-mail de envio como anexo.
+     */
     @PostMapping("/{id}/registrar-envio")
-    public String registrarEnvio(@PathVariable Long id, RedirectAttributes ra) {
+    public String registrarEnvio(@PathVariable Long id,
+                                 @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
+                                 RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
-        p.getPareceres().forEach(par -> {
-            if (par.getDataEnvio() == null) {
-                par.setDataEnvio(LocalDate.now());
-            }
-        });
+        LocalDate hoje = LocalDate.now();
+        p.getPareceres().forEach(par -> par.setDataEnvio(hoje));
         processoService.salvar(p);
-        ra.addFlashAttribute("msg", "Envio aos medicos registrado.");
-        return "redirect:/processos/" + id + "#pareceres";
+        if (arquivo != null && !arquivo.isEmpty()) {
+            try {
+                anexoStorage.salvar(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES,
+                    "E-mail de envio aos avaliadores (" + hoje + ")", arquivo);
+                auditoria.registrar("ANEXO_ADICIONADO",
+                    "Processo " + p.getNumero() + " - " + TipoAnexo.EMAIL_ENVIADO_AVALIADORES.getDescricao());
+            } catch (IOException e) {
+                ra.addFlashAttribute("erro", "Envio registrado, mas falhou ao anexar o arquivo: " + e.getMessage());
+                return "redirect:/processos/" + id + "#envio";
+            }
+        }
+        auditoria.registrar("ENVIO_AVALIADORES_REGISTRADO", "Processo " + p.getNumero());
+        ra.addFlashAttribute("msg", "Envio aos avaliadores registrado em " + hoje.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ".");
+        return "redirect:/processos/" + id + "#envio";
     }
 
     @PostMapping("/{id}/decidir")
@@ -328,6 +352,33 @@ public class ProcessoController {
             ra.addFlashAttribute("erro", "Falha ao anexar: " + e.getMessage());
         }
         return "redirect:/processos/" + id + "#anexos";
+    }
+
+    /**
+     * Faz upload do e-mail de resposta de um avaliador especifico, vinculando
+     * ao Parecer correspondente (identificado por parecerId).
+     */
+    @PostMapping("/{id}/resposta-avaliador")
+    public String respostaAvaliador(@PathVariable Long id,
+                                    @RequestParam Long parecerId,
+                                    @RequestParam("arquivo") MultipartFile arquivo,
+                                    @RequestParam(required = false) String descricao,
+                                    RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        Parecer parecer = parecerRepository.findById(parecerId)
+            .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado: " + parecerId));
+        try {
+            String desc = (descricao != null && !descricao.isBlank())
+                ? descricao
+                : "Resposta de " + parecer.getMembro().getNome();
+            anexoStorage.salvarRespostaAvaliador(p, parecer, desc, arquivo);
+            auditoria.registrar("ANEXO_ADICIONADO",
+                "Processo " + p.getNumero() + " - Resposta de " + parecer.getMembro().getNome());
+            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome() + " anexada.");
+        } catch (IllegalArgumentException | IOException e) {
+            ra.addFlashAttribute("erro", "Falha ao anexar resposta: " + e.getMessage());
+        }
+        return "redirect:/processos/" + id + "#respostas";
     }
 
     @GetMapping("/{id}/relatorio")

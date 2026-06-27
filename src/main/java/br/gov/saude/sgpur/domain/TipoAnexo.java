@@ -9,6 +9,7 @@ public enum TipoAnexo {
     DOCUMENTO_PACIENTE("Documento do paciente"),
     EMAIL_ENVIADO_AVALIADORES("Copia do e-mail enviado aos avaliadores"),
     EMAIL_PARECER_RECEBIDO("Copia do e-mail de parecer recebido do avaliador"),
+    RESPOSTA_AVALIADOR("Copia do e-mail de resposta de avaliador especifico"),
     OFICIO_INDEFERIMENTO("Oficio de indeferimento"),
     EMAIL_RESPOSTA_SOLICITANTE("Copia do e-mail de resposta ao solicitante"),
     RELATORIO_FINAL("Relatorio final do processo"),

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout :: head('Processo ' + ${processo.numero})}"></head>
+<head th:replace="~{layout :: head('Processo ' + ${processo.identificacao()})}"></head>
 <body>
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
@@ -9,14 +9,13 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
             <h1 class="h3 mb-1">
-                Processo <span th:text="${processo.numero}">00/0000</span>
+                <span th:text="${processo.identificacao()}">00/0000 - Paciente - RGCT</span>
                 <span class="badge align-middle"
                       th:classappend="${processo.status.name() == 'DEFERIDO'} ? 'bg-success' :
                                       (${processo.status.name() == 'INDEFERIDO'} ? 'bg-danger' :
                                       (${processo.status.name() == 'CANCELADO'} ? 'bg-secondary' : 'bg-warning text-dark'))"
                       th:text="${processo.status.descricao}">status</span>
             </h1>
-            <div class="text-muted" th:text="${processo.pacienteNome}">Paciente</div>
         </div>
         <div class="d-flex gap-2">
             <a th:href="@{/processos/{id}/relatorio(id=${processo.id})}" target="_blank"
@@ -106,30 +105,60 @@
                 </div>
             </div>
 
-            <!-- Pareceres -->
-            <div class="card mb-4" id="pareceres">
+            <!-- Secao: Envio aos Avaliadores -->
+            <div class="card mb-4" id="envio">
+                <div class="card-header"><i class="bi bi-send"></i> Envio aos Avaliadores</div>
+                <div class="card-body">
+                    <!-- Data de envio (exibe se ja registrada) -->
+                    <div th:if="${processo.pareceres[0].dataEnvio != null}" class="alert alert-success py-2 mb-3">
+                        <i class="bi bi-check-circle"></i>
+                        Envio registrado em
+                        <strong th:text="${#temporals.format(processo.pareceres[0].dataEnvio, 'dd/MM/yyyy')}"></strong>
+                        para os 3 avaliadores.
+                    </div>
+                    <div th:if="${processo.pareceres[0].dataEnvio == null}" class="alert alert-warning py-2 mb-3">
+                        <i class="bi bi-hourglass"></i> Envio ainda nao registrado.
+                    </div>
+                    <!-- Acao unica de registro de envio -->
+                    <form th:action="@{/processos/{id}/registrar-envio(id=${processo.id})}" method="post"
+                          enctype="multipart/form-data" class="row g-2 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label">PDF do e-mail de envio aos 3 avaliadores (opcional)</label>
+                            <input type="file" name="arquivo" class="form-control form-control-sm" accept=".pdf,.eml,.msg">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button class="btn btn-primary btn-sm">
+                                <i class="bi bi-calendar-check"></i> Registrar envio (data de hoje)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Secao: Respostas dos Avaliadores -->
+            <div class="card mb-4" id="respostas"
+                 th:classappend="${processo.pareceres[0].dataEnvio == null} ? 'd-none' : ''">
                 <div class="card-header d-flex justify-content-between">
-                    <span><i class="bi bi-chat-square-text"></i> Pareceres dos medicos</span>
+                    <span><i class="bi bi-chat-square-text"></i> Respostas dos Avaliadores</span>
                     <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
                 </div>
                 <div class="card-body">
+                    <!-- Formulario de pareceres (resultado + data por medico) -->
                     <form th:action="@{/processos/{id}/pareceres(id=${processo.id})}" method="post">
                         <table class="table align-middle">
                             <thead><tr>
                                 <th>Medico</th>
-                                <th style="width: 160px">Enviado em</th>
                                 <th style="width: 200px">Parecer</th>
-                                <th>Resposta</th>
+                                <th style="width: 130px">Data resposta</th>
+                                <th style="width: 140px">Resposta anexada</th>
                             </tr></thead>
                             <tbody>
                             <tr th:each="par : ${processo.pareceres}">
                                 <td th:text="${par.membro.rotulo}">Medico</td>
                                 <td>
                                     <input type="hidden" name="parecerId" th:value="${par.id}">
-                                    <input type="date" name="dataEnvio" class="form-control form-control-sm data-envio"
-                                           th:value="${par.dataEnvio}">
-                                </td>
-                                <td>
+                                    <!-- dataEnvio oculto para preservar o valor ao salvar pareceres -->
+                                    <input type="hidden" name="dataEnvio" th:value="${par.dataEnvio}">
                                     <select name="resultado" class="form-select form-select-sm">
                                         <option value="">-- pendente --</option>
                                         <option th:each="r : ${resultadoValores}"
@@ -140,16 +169,38 @@
                                 </td>
                                 <td class="small text-muted"
                                     th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</td>
+                                <td>
+                                    <!-- Verifica se ja tem anexo de resposta para este parecer -->
+                                    <span th:if="${pareceresComResposta.contains(par.id)}" class="badge bg-success">
+                                        <i class="bi bi-paperclip"></i> Sim
+                                    </span>
+                                    <span th:unless="${pareceresComResposta.contains(par.id)}" class="badge bg-secondary">Nao</span>
+                                </td>
                             </tr>
                             </tbody>
                         </table>
-                        <div class="d-flex justify-content-between">
-                            <button type="button" id="btnEnvioHoje" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-calendar-check"></i> Marcar envio de hoje em todos
-                            </button>
+                        <div class="text-end">
                             <button class="btn btn-primary btn-sm">Salvar pareceres</button>
                         </div>
                     </form>
+
+                    <!-- Upload individual de e-mail de resposta por avaliador -->
+                    <hr>
+                    <h6 class="text-muted small">Anexar e-mail de resposta por avaliador</h6>
+                    <div th:each="par : ${processo.pareceres}" class="row g-2 align-items-end mb-2">
+                        <div class="col-md-4 small fw-semibold" th:text="${par.membro.rotulo}">Medico</div>
+                        <form th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
+                              method="post" enctype="multipart/form-data"
+                              class="col-md-8 d-flex gap-2 align-items-center">
+                            <input type="hidden" name="parecerId" th:value="${par.id}">
+                            <input type="file" name="arquivo" class="form-control form-control-sm"
+                                   accept=".pdf,.eml,.msg" required>
+                            <button class="btn btn-outline-primary btn-sm text-nowrap">
+                                <i class="bi bi-upload"></i> Anexar
+                            </button>
+                        </form>
+                    </div>
+
                     <div class="alert alert-info py-2 mb-0 mt-2" th:if="${sugestao != null}">
                         <i class="bi bi-lightbulb"></i>
                         Sugestao automatica: <strong th:text="${sugestao.descricao}"></strong>
@@ -318,17 +369,6 @@
     }
     sel.addEventListener('change', toggleMotivo);
     toggleMotivo();
-
-    // Preenche a data de hoje nos campos de envio vazios
-    var btnEnvio = document.getElementById('btnEnvioHoje');
-    if (btnEnvio) {
-        btnEnvio.addEventListener('click', function () {
-            var hoje = new Date().toISOString().slice(0, 10);
-            document.querySelectorAll('.data-envio').forEach(function (inp) {
-                if (!inp.value) inp.value = hoje;
-            });
-        });
-    }
 
     // Copiar textos de e-mail
     document.querySelectorAll('.btn-copiar').forEach(function (btn) {

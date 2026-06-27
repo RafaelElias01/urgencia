@@ -38,7 +38,8 @@ public class Processo {
     @Column(name = "paciente_nome", nullable = false, length = 200)
     private String pacienteNome;
 
-    /** Registro RGCT / SNT do paciente. */
+    /** Registro RGCT / SNT do paciente. Obrigatorio via @NotBlank (validacao de formulario). */
+    @NotBlank
     @Column(name = "paciente_rgct", length = 60)
     private String pacienteRgct;
 
@@ -91,6 +92,23 @@ public class Processo {
     private List<Anexo> anexos = new ArrayList<>();
 
     public Processo() {
+    }
+
+    /**
+     * Identificacao padrao do processo para exibicao em telas, PDFs e nomes
+     * de pasta. Formato: "NN/AAAA - Nome do Paciente - RGCT XXXXXXXXX".
+     * Quando o RGCT ainda nao foi preenchido, omite a parte do RGCT.
+     */
+    public String identificacao() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(numero != null ? numero : "?/?");
+        if (pacienteNome != null && !pacienteNome.isBlank()) {
+            sb.append(" - ").append(pacienteNome);
+        }
+        if (pacienteRgct != null && !pacienteRgct.isBlank()) {
+            sb.append(" - RGCT ").append(pacienteRgct);
+        }
+        return sb.toString();
     }
 
     public void addParecer(Parecer parecer) {

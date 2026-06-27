@@ -46,7 +46,7 @@ public class OficioService {
 
             // Numero do oficio e data
             LocalDate dataEmissao = p.getDataEmissaoOficio() != null ? p.getDataEmissaoOficio() : LocalDate.now();
-            Paragraph titulo = new Paragraph("OFICIO DE INDEFERIMENTO - Processo " + p.getNumero(), fTitulo);
+            Paragraph titulo = new Paragraph("OFICIO DE INDEFERIMENTO - " + p.identificacao(), fTitulo);
             titulo.setSpacingAfter(6);
             doc.add(titulo);
 

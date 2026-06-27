@@ -51,7 +51,7 @@ public class RelatorioService {
             doc.add(titulo);
 
             Paragraph sub = new Paragraph(
-                "Processo " + p.getNumero() + "  |  Situacao: " + p.getStatus().getDescricao()
+                p.identificacao() + "  |  Situacao: " + p.getStatus().getDescricao()
                     + "  |  Emitido em " + java.time.LocalDateTime.now().format(DATA_HORA), fSub);
             sub.setAlignment(Element.ALIGN_CENTER);
             sub.setSpacingAfter(14);

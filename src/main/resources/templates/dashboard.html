@@ -60,7 +60,7 @@
             <li class="list-group-item" th:each="p : ${pendentes}">
                 <div class="d-flex justify-content-between">
                     <a th:href="@{/processos/{id}(id=${p.id})}" class="text-decoration-none fw-semibold"
-                       th:text="${p.numero} + ' - ' + ${p.pacienteNome}">00/0000</a>
+                       th:text="${p.identificacao()}">00/0000 - Paciente - RGCT</a>
                 </div>
                 <small class="text-muted">
                     <i class="bi bi-arrow-right-short"></i>
@@ -82,8 +82,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center"
                 th:each="p : ${ultimos}">
                 <a th:href="@{/processos/{id}(id=${p.id})}" class="text-decoration-none">
-                    <strong th:text="${p.numero}">00/0000</strong>
-                    <span class="text-muted" th:text="' - ' + ${p.pacienteNome}"></span>
+                    <strong th:text="${p.identificacao()}">00/0000 - Paciente - RGCT</strong>
                 </a>
                 <span class="badge"
                       th:classappend="${p.status.name() == 'DEFERIDO'} ? 'bg-success' :
