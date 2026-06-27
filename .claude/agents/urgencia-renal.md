@@ -80,21 +80,27 @@ neste projeto, respeite rigorosamente o dominio e as regras a seguir.
     (mostrar so o necessario para analise clinica) - PENDENTE.
 
 ## Mapa do codigo (estado atual)
-- `domain/`: `Processo`, `MembroUrgenciaRenal`, `Parecer`, `Anexo` +
+- `domain/`: `Processo`, `MembroUrgenciaRenal`, `Parecer`, `Anexo`, `Usuario` +
   enums `StatusProcesso`, `ResultadoParecer` (FAVORAVEL, NAO_FAVORAVEL,
-  SOLICITA_INFORMACAO, SEM_RESPOSTA), `TipoAnexo`.
+  SOLICITA_INFORMACAO, SEM_RESPOSTA), `TipoAnexo`, `Perfil` (ADMIN/OPERADOR).
 - `repository/`: `ProcessoRepository`, `MembroUrgenciaRenalRepository`,
-  `AnexoRepository`.
-- `service/`: `ProcessoService` (numeracao, 3 medicos, regra 2/3, decisao),
-  `FluxoProcessoService` + `EtapaFluxo` (etapas em tempo real),
-  `AnexoStorageService` (arquivos em disco `app.anexos.dir=./data/anexos`).
+  `AnexoRepository`, `UsuarioRepository`.
+- `service/`: `ProcessoService` (numeracao, 3 medicos, regra 2/3, decisao,
+  editar/excluir, valida numero duplicado), `FluxoProcessoService` +
+  `EtapaFluxo` (etapas em tempo real), `EmailTemplateService` + `EmailTemplate`
+  (textos prontos), `RelatorioService` (PDF via OpenPDF),
+  `AnexoStorageService` (arquivos em `app.anexos.dir=./data/anexos`),
+  `UsuarioService` + `UsuarioDetailsService` (login via banco).
 - `web/`: `HomeController` (dashboard + login), `ProcessoController`
-  (lista/novo/detalhe/pareceres/decidir/finalizacao/anexos/download),
-  `MembroController` (CRUD).
-- `config/`: `SecurityConfig` (login em formulario, admin em memoria),
-  `DataSeed` (8 membros).
+  (lista/novo/detalhe/editar/excluir/pareceres/registrar-envio/decidir/
+  finalizacao/anexos/download/relatorio), `MembroController` (CRUD),
+  `UsuarioController` (CRUD, restrito a ADMIN).
+- `config/`: `SecurityConfig` (login em formulario, usuarios do banco,
+  /usuarios so ADMIN), `DataSeed` (8 membros + admin inicial).
 - `templates/`: `layout.html` (fragments), `login`, `dashboard`,
-  `processos/{lista,form,detalhe}`, `membros/{lista,form}`.
+  `processos/{lista,form,editar,detalhe}`, `membros/{lista,form}`,
+  `usuarios/{lista,form}`.
+- `src/test/`: `ProcessoServiceTest` (7 testes das regras de negocio).
 
 ## Como trabalhar
 - Antes de codar mudancas de dominio, releia a planilha de referencia
@@ -107,13 +113,17 @@ neste projeto, respeite rigorosamente o dominio e as regras a seguir.
 - Compile e valide com o JDK 21 antes de concluir. Faca commits pequenos e
   faca push para o `origin/main`.
 
-## Pendencias conhecidas (backlog)
-- **Checklists VISUAIS do fluxo** ate o deferimento/indeferimento (caixas que
-  marcam conforme cada etapa conclui, com barra de progresso e "o que falta").
-- **Textos de e-mail prontos** (copiar/colar) por etapa, pre-preenchidos:
-  envio aos 3 medicos (ocultando dados do paciente), resposta ao solicitante
-  deferido/indeferido. Ver `EmailTemplateService`.
-- Relatorio Final em PDF do processo.
-- Ocultar dados pessoais do paciente no envio aos medicos.
-- Registro de envio aos avaliadores (data por parecer) com UI dedicada.
-- Persistir usuarios no banco (hoje admin e em memoria).
+## Concluido (sessao 2026-06-26)
+- Checklists VISUAIS do fluxo com barra de progresso e "o que falta".
+- Textos de e-mail prontos por etapa (envio aos medicos oculta dados do paciente).
+- Relatorio Final em PDF (RelatorioService/OpenPDF, GET /processos/{id}/relatorio).
+- Editar e excluir processo.
+- Registro de envio aos avaliadores (data por parecer).
+- Usuarios persistidos no banco (login via DB) + gestao restrita a ADMIN.
+- Testes unitarios das regras de negocio (mvn test: 7 ok). README criado.
+
+## Pendencias / ideias futuras (backlog)
+- Editar/remover anexo; anexar o Relatorio Final no encerramento.
+- Filtro/busca e paginacao na lista de processos.
+- Deploy do app Java (Railway/Render/Fly) + pipeline.
+- Auditoria/log de acoes por usuario.
