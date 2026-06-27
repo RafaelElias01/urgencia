@@ -95,8 +95,10 @@ neste projeto, respeite rigorosamente o dominio e as regras a seguir.
   (lista/novo/detalhe/editar/excluir/pareceres/registrar-envio/decidir/
   finalizacao/anexos/download/relatorio), `MembroController` (CRUD),
   `UsuarioController` (CRUD, restrito a ADMIN).
+- `domain/LogAuditoria` + `repository/LogAuditoriaRepository` +
+  `service/AuditoriaService` + `web/AuditoriaController` (/auditoria, ADMIN).
 - `config/`: `SecurityConfig` (login em formulario, usuarios do banco,
-  /usuarios so ADMIN), `DataSeed` (8 membros + admin inicial).
+  /usuarios e /auditoria so ADMIN), `DataSeed` (8 membros + admin inicial).
 - `templates/`: `layout.html` (fragments), `login`, `dashboard`,
   `processos/{lista,form,editar,detalhe}`, `membros/{lista,form}`,
   `usuarios/{lista,form}`.
@@ -123,7 +125,12 @@ neste projeto, respeite rigorosamente o dominio e as regras a seguir.
 - Busca + filtro por status na lista; painel mostra "aguardando acao" + pendencia.
 - Usuarios persistidos no banco (login via DB) + gestao restrita a ADMIN.
 - Pagina de erro amigavel (error.html, autossuficiente).
-- Testes: ProcessoServiceTest (7) + FluxoProcessoServiceTest (4) = 11 ok. README.
+- Log de AUDITORIA (quem/o-que/quando) com tela /auditoria (ADMIN) - entidade
+  LogAuditoria, AuditoriaService instrumentando processo/anexos/usuarios.
+- Numero sugerido no cadastro manual + validacao do formato NN/AAAA.
+- Testes: ProcessoService(7) + FluxoProcessoService(4) + EmailTemplate(3) = 14 ok.
+  README criado. Deploy preparado (deploy/) para Oracle Always Free - PAUSADO
+  (cartao recusado; ver memoria deploy-sgpur-oracle).
 
 ## Pendencias / ideias futuras (backlog)
 - Editar/remover anexo; anexar o Relatorio Final no encerramento.
