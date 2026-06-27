@@ -88,6 +88,24 @@ public class ProcessoService {
         return processoRepository.save(processo);
     }
 
+    /** Atualiza apenas os dados descritivos do processo (numero e medicos nao mudam). */
+    @Transactional
+    public Processo atualizarDados(Long id, Processo form) {
+        Processo p = buscar(id);
+        p.setPacienteNome(form.getPacienteNome());
+        p.setPacienteRgct(form.getPacienteRgct());
+        p.setSolicitanteEquipe(form.getSolicitanteEquipe());
+        p.setSolicitanteEmail(form.getSolicitanteEmail());
+        p.setDataSituacaoEspecial(form.getDataSituacaoEspecial());
+        p.setObservacoes(form.getObservacoes());
+        return processoRepository.save(p);
+    }
+
+    @Transactional
+    public void excluir(Long id) {
+        processoRepository.delete(buscar(id));
+    }
+
     public long contarFavoraveis(Processo processo) {
         return processo.getPareceres().stream()
             .filter(p -> p.getResultado() == ResultadoParecer.FAVORAVEL)

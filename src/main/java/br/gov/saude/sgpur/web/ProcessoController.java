@@ -137,6 +137,34 @@ public class ProcessoController {
         return "processos/detalhe";
     }
 
+    @GetMapping("/{id}/editar")
+    public String editar(@PathVariable Long id, Model model) {
+        model.addAttribute("processo", processoService.buscar(id));
+        return "processos/editar";
+    }
+
+    @PostMapping("/{id}/editar")
+    public String atualizar(@PathVariable Long id,
+                            @Valid @ModelAttribute("processo") Processo form,
+                            BindingResult result, RedirectAttributes ra) {
+        if (result.hasErrors()) {
+            return "processos/editar";
+        }
+        processoService.atualizarDados(id, form);
+        ra.addFlashAttribute("msg", "Processo atualizado.");
+        return "redirect:/processos/" + id;
+    }
+
+    @PostMapping("/{id}/excluir")
+    public String excluir(@PathVariable Long id, RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        String numero = p.getNumero();
+        processoService.excluir(id);
+        anexoStorage.removerPastaProcesso(id);
+        ra.addFlashAttribute("msg", "Processo " + numero + " excluido.");
+        return "redirect:/processos";
+    }
+
     /** Salva os pareceres (resultado/datas) editados na tela de detalhe. */
     @PostMapping("/{id}/pareceres")
     public String salvarPareceres(@PathVariable Long id,

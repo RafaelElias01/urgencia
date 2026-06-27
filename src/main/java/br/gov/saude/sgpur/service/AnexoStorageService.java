@@ -67,4 +67,19 @@ public class AnexoStorageService {
         return anexoRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Anexo nao encontrado: " + id));
     }
+
+    /** Remove a pasta de anexos de um processo (usado ao excluir o processo). */
+    public void removerPastaProcesso(Long processoId) {
+        Path pasta = raiz.resolve("processo-" + processoId).normalize();
+        try {
+            if (Files.exists(pasta)) {
+                try (var paths = Files.walk(pasta)) {
+                    paths.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) { } });
+                }
+            }
+        } catch (IOException ignored) {
+            // best-effort: metadados ja removidos do banco
+        }
+    }
 }

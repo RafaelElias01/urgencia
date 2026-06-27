@@ -23,6 +23,15 @@
                class="btn btn-danger btn-sm">
                 <i class="bi bi-file-earmark-pdf"></i> Relatorio Final (PDF)
             </a>
+            <a th:href="@{/processos/{id}/editar(id=${processo.id})}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil"></i> Editar
+            </a>
+            <form th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
+                  onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash"></i> Excluir
+                </button>
+            </form>
             <a th:href="@{/processos}" class="btn btn-outline-secondary btn-sm">Voltar</a>
         </div>
     </div>
