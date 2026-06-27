@@ -3,6 +3,7 @@ package br.gov.saude.sgpur.web;
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
+import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import jakarta.validation.Valid;
@@ -31,15 +32,18 @@ public class ProcessoController {
 
     private final ProcessoService processoService;
     private final FluxoProcessoService fluxoService;
+    private final EmailTemplateService emailTemplateService;
     private final MembroUrgenciaRenalRepository membroRepository;
     private final AnexoStorageService anexoStorage;
 
     public ProcessoController(ProcessoService processoService,
                               FluxoProcessoService fluxoService,
+                              EmailTemplateService emailTemplateService,
                               MembroUrgenciaRenalRepository membroRepository,
                               AnexoStorageService anexoStorage) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
+        this.emailTemplateService = emailTemplateService;
         this.membroRepository = membroRepository;
         this.anexoStorage = anexoStorage;
     }
@@ -116,10 +120,16 @@ public class ProcessoController {
     public String detalhe(@PathVariable Long id, Model model) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);
-        model.addAttribute("etapas", fluxoService.montarEtapas(p));
+        var etapas = fluxoService.montarEtapas(p);
+        model.addAttribute("etapas", etapas);
+        long concluidas = etapas.stream().filter(e -> e.estado().name().equals("CONCLUIDA")).count();
+        model.addAttribute("etapasConcluidas", concluidas);
+        model.addAttribute("etapasTotal", etapas.size());
+        model.addAttribute("progresso", etapas.isEmpty() ? 0 : Math.round(concluidas * 100.0 / etapas.size()));
         Optional<StatusProcesso> sugestao = processoService.sugerirDecisao(p);
         model.addAttribute("sugestao", sugestao.orElse(null));
         model.addAttribute("favoraveis", processoService.contarFavoraveis(p));
+        model.addAttribute("emails", emailTemplateService.gerar(p));
         return "processos/detalhe";
     }
 

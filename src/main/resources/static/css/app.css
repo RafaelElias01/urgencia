@@ -28,3 +28,10 @@ body {
 .etapa.pendente { color: #6c757d; }
 
 .card-stat .display-6 { font-weight: 600; }
+
+/* Checklist do processo */
+.etapa .check-box { font-size: 1.25rem; line-height: 1.2; }
+.etapa.concluida .check-box { color: #198754; }
+.etapa.atual .check-box { color: #fd7e14; }
+.etapa.pendente .check-box { color: #adb5bd; }
+.etapa.atual { background: #fff8f1; border-radius: .375rem; }

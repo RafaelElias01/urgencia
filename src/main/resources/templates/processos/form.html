@@ -8,12 +8,11 @@
 <div class="container my-4">
     <h1 class="h3 mb-3">Novo processo</h1>
 
-    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
-        <div th:each="e : ${#fields.globalErrors()}" th:text="${e}"></div>
-    </div>
-
     <form th:action="@{/processos}" th:object="${processo}" method="post" class="card">
         <div class="card-body">
+            <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+                <div th:each="e : ${#fields.globalErrors()}" th:text="${e}"></div>
+            </div>
             <div class="row g-3">
                 <div class="col-md-3" th:unless="${numeracaoAutomatica}">
                     <label class="form-label">Numero (NN/AAAA) *</label>

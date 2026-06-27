@@ -25,17 +25,39 @@
         <!-- Coluna esquerda: etapas em tempo real -->
         <div class="col-lg-4">
             <div class="card">
-                <div class="card-header"><i class="bi bi-list-check"></i> Andamento do processo</div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-list-check"></i> Checklist do processo</span>
+                    <span class="badge bg-light text-dark">
+                        <span th:text="${etapasConcluidas}">0</span>/<span th:text="${etapasTotal}">0</span>
+                    </span>
+                </div>
                 <div class="card-body">
-                    <div th:each="etapa : ${etapas}" class="etapa"
+                    <!-- Barra de progresso -->
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar"
+                             th:classappend="${progresso == 100} ? 'bg-success' : 'bg-primary'"
+                             role="progressbar"
+                             th:style="'width:' + ${progresso} + '%'"
+                             th:aria-valuenow="${progresso}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="text-center small text-muted mb-3">
+                        <span th:text="${progresso}">0</span>% concluido
+                    </div>
+
+                    <!-- Checklist visual -->
+                    <div th:each="etapa : ${etapas}" class="etapa d-flex align-items-start"
                          th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' :
                                          (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
-                        <span class="etapa-icone">
-                            <i class="bi"
-                               th:classappend="${etapa.concluida} ? 'bi-check-lg' : 'bi-' + ${etapa.icone}"></i>
+                        <span class="check-box me-2">
+                            <i class="bi" th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'bi-check-square-fill' :
+                                          (${etapa.estado.name() == 'ATUAL'} ? 'bi-arrow-right-square-fill' : 'bi-square')"></i>
                         </span>
-                        <div class="fw-semibold" th:text="${etapa.titulo}">Etapa</div>
-                        <div class="small" th:text="${etapa.detalhe}">detalhe</div>
+                        <span>
+                            <span class="fw-semibold" th:text="${etapa.titulo}"
+                                  th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'text-decoration-line-through' : ''">Etapa</span>
+                            <span class="badge bg-warning text-dark ms-1" th:if="${etapa.estado.name() == 'ATUAL'}">agora</span>
+                            <div class="small text-muted" th:text="${etapa.detalhe}">detalhe</div>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -163,6 +185,45 @@
                 </div>
             </div>
 
+            <!-- E-mails prontos -->
+            <div class="card mb-4" id="emails">
+                <div class="card-header"><i class="bi bi-envelope-paper"></i> Textos de e-mail prontos</div>
+                <div class="card-body">
+                    <p class="small text-muted">Textos pre-preenchidos para copiar e colar no seu e-mail.
+                        No envio aos medicos os dados pessoais do paciente sao omitidos.</p>
+                    <div class="accordion" id="accEmails">
+                        <div class="accordion-item" th:each="mail, it : ${emails}">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" th:data-bs-target="'#mail' + ${it.index}">
+                                    <i class="bi me-2" th:classappend="'bi-' + ${mail.icone}"></i>
+                                    <span th:text="${mail.titulo}">titulo</span>
+                                </button>
+                            </h2>
+                            <div th:id="'mail' + ${it.index}" class="accordion-collapse collapse"
+                                 data-bs-parent="#accEmails">
+                                <div class="accordion-body">
+                                    <label class="form-label small fw-semibold">Assunto</label>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="text" class="form-control" th:id="'assunto' + ${it.index}"
+                                               th:value="${mail.assunto}" readonly>
+                                        <button class="btn btn-outline-secondary btn-copiar"
+                                                type="button" th:data-alvo="'assunto' + ${it.index}">Copiar</button>
+                                    </div>
+                                    <label class="form-label small fw-semibold">Corpo</label>
+                                    <textarea class="form-control mb-2" th:id="'corpo' + ${it.index}"
+                                              rows="10" readonly th:text="${mail.corpo}"></textarea>
+                                    <button class="btn btn-primary btn-sm btn-copiar"
+                                            type="button" th:data-alvo="'corpo' + ${it.index}">
+                                        <i class="bi bi-clipboard"></i> Copiar corpo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Anexos -->
             <div class="card" id="anexos">
                 <div class="card-header"><i class="bi bi-paperclip"></i> Anexos (e-mails e documentos)</div>
@@ -217,6 +278,19 @@
     }
     sel.addEventListener('change', toggleMotivo);
     toggleMotivo();
+
+    // Copiar textos de e-mail
+    document.querySelectorAll('.btn-copiar').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var alvo = document.getElementById(btn.getAttribute('data-alvo'));
+            if (!alvo) return;
+            navigator.clipboard.writeText(alvo.value).then(function () {
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check2"></i> Copiado!';
+                setTimeout(function () { btn.innerHTML = orig; }, 1500);
+            });
+        });
+    });
 </script>
 </body>
 </html>
