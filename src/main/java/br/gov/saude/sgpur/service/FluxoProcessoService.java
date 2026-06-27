@@ -1,0 +1,138 @@
+package br.gov.saude.sgpur.service;
+
+import br.gov.saude.sgpur.domain.*;
+import br.gov.saude.sgpur.service.EtapaFluxo.Estado;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Monta, em tempo real, a lista de etapas do processo, sinalizando o que ja
+ * foi concluido, qual e a etapa atual e o que ainda falta. Reflete o fluxo:
+ * Recebimento -> Envio aos 3 medicos -> Respostas -> Decisao
+ * -> (Oficio de indeferimento, se reprovado) -> Resposta ao solicitante.
+ */
+@Service
+public class FluxoProcessoService {
+
+    private final ProcessoService processoService;
+
+    public FluxoProcessoService(ProcessoService processoService) {
+        this.processoService = processoService;
+    }
+
+    public List<EtapaFluxo> montarEtapas(Processo p) {
+        List<EtapaFluxo> etapas = new ArrayList<>();
+        boolean anterioresConcluidas = true;
+
+        // 1. Recebimento da solicitacao
+        boolean recebimento = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
+        etapas.add(montar("Recebimento do e-mail", "inbox-fill", recebimento, anterioresConcluidas,
+            recebimento ? "Solicitacao recebida anexada."
+                        : "Anexe o e-mail/documento da solicitacao recebida."));
+        anterioresConcluidas = anterioresConcluidas && recebimento;
+
+        // 2. Envio aos 3 medicos
+        int totalMedicos = p.getPareceres().size();
+        boolean enviado = totalMedicos == ProcessoService.AVALIADORES_POR_PROCESSO
+            && temAnexo(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
+        String detEnvio;
+        if (totalMedicos != ProcessoService.AVALIADORES_POR_PROCESSO) {
+            detEnvio = "Processo deve ter " + ProcessoService.AVALIADORES_POR_PROCESSO
+                + " medicos (atual: " + totalMedicos + ").";
+        } else if (!temAnexo(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES)) {
+            detEnvio = "Registre o envio anexando a copia do e-mail aos medicos.";
+        } else {
+            detEnvio = "Enviado aos " + totalMedicos + " medicos.";
+        }
+        etapas.add(montar("Envio aos 3 medicos", "send-fill", enviado, anterioresConcluidas, detEnvio));
+        anterioresConcluidas = anterioresConcluidas && enviado;
+
+        // 3. Respostas dos medicos
+        long respondidos = processoService.contarRespondidos(p);
+        long favoraveis = processoService.contarFavoraveis(p);
+        boolean respostasOk = totalMedicos > 0 && respondidos == totalMedicos;
+        String detResp;
+        if (totalMedicos == 0) {
+            detResp = "Aguardando definicao dos medicos.";
+        } else if (!respostasOk) {
+            detResp = "Faltam " + (totalMedicos - respondidos) + " de " + totalMedicos
+                + " pareceres. Favoraveis ate agora: " + favoraveis + ".";
+        } else {
+            detResp = respondidos + " pareceres recebidos. Favoraveis: " + favoraveis + ".";
+        }
+        etapas.add(montar("Respostas dos medicos", "chat-square-text-fill",
+            respostasOk, anterioresConcluidas, detResp));
+        anterioresConcluidas = anterioresConcluidas && respostasOk;
+
+        // 4. Decisao final
+        boolean decidido = p.getStatus().isFinalizado();
+        String detDecisao;
+        if (decidido) {
+            detDecisao = "Processo " + p.getStatus().getDescricao() + ".";
+        } else {
+            var sugestao = processoService.sugerirDecisao(p);
+            detDecisao = sugestao
+                .map(s -> "Sugestao automatica: " + s.getDescricao()
+                    + " (regra " + ProcessoService.FAVORAVEIS_PARA_DEFERIR + " de "
+                    + ProcessoService.AVALIADORES_POR_PROCESSO + " favoraveis).")
+                .orElse("Aguardando pareceres suficientes para decidir.");
+        }
+        etapas.add(montar("Decisao final", "scale", decidido, anterioresConcluidas, detDecisao));
+        anterioresConcluidas = anterioresConcluidas && decidido;
+
+        // 5. Oficio de indeferimento (apenas quando indeferido)
+        if (p.getStatus() == StatusProcesso.INDEFERIDO) {
+            boolean oficioOk = p.getMotivoIndeferimento() != null && !p.getMotivoIndeferimento().isBlank()
+                && temAnexo(p, TipoAnexo.OFICIO_INDEFERIMENTO)
+                && p.getDataEmissaoOficio() != null;
+            List<String> faltas = new ArrayList<>();
+            if (p.getMotivoIndeferimento() == null || p.getMotivoIndeferimento().isBlank())
+                faltas.add("motivo da reprova");
+            if (!temAnexo(p, TipoAnexo.OFICIO_INDEFERIMENTO)) faltas.add("anexo do oficio");
+            if (p.getDataEmissaoOficio() == null) faltas.add("data de emissao");
+            String detOficio = oficioOk ? "Oficio de indeferimento completo."
+                : "Falta: " + String.join(", ", faltas) + ".";
+            etapas.add(montar("Oficio de indeferimento", "file-earmark-text-fill",
+                oficioOk, anterioresConcluidas, detOficio));
+            anterioresConcluidas = anterioresConcluidas && oficioOk;
+        }
+
+        // 6. Resposta ao solicitante
+        boolean respostaOk = p.isEmailEnviadoSolicitante();
+        etapas.add(montar("Resposta ao solicitante", "envelope-check-fill",
+            respostaOk, anterioresConcluidas,
+            respostaOk ? "Resposta enviada ao solicitante."
+                       : "Envie a resposta ao solicitante e marque como enviada."));
+
+        return etapas;
+    }
+
+    /** Mensagem curta de "o que falta" para o processo (etapa atual pendente). */
+    public String resumoPendencia(Processo p) {
+        for (EtapaFluxo e : montarEtapas(p)) {
+            if (e.estado() == Estado.ATUAL) {
+                return e.titulo() + ": " + e.detalhe();
+            }
+        }
+        return "Processo concluido.";
+    }
+
+    private EtapaFluxo montar(String titulo, String icone, boolean concluida,
+                              boolean anterioresConcluidas, String detalhe) {
+        Estado estado;
+        if (concluida) {
+            estado = Estado.CONCLUIDA;
+        } else if (anterioresConcluidas) {
+            estado = Estado.ATUAL;
+        } else {
+            estado = Estado.PENDENTE;
+        }
+        return new EtapaFluxo(titulo, icone, estado, detalhe);
+    }
+
+    private boolean temAnexo(Processo p, TipoAnexo tipo) {
+        return p.getAnexos().stream().anyMatch(a -> a.getTipo() == tipo);
+    }
+}
