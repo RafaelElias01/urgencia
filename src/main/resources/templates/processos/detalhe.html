@@ -18,7 +18,13 @@
             </h1>
             <div class="text-muted" th:text="${processo.pacienteNome}">Paciente</div>
         </div>
-        <a th:href="@{/processos}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/processos/{id}/relatorio(id=${processo.id})}" target="_blank"
+               class="btn btn-danger btn-sm">
+                <i class="bi bi-file-earmark-pdf"></i> Relatorio Final (PDF)
+            </a>
+            <a th:href="@{/processos}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+        </div>
     </div>
 
     <div class="row g-4">

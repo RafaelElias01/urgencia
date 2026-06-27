@@ -6,6 +6,7 @@ import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.ProcessoService;
+import br.gov.saude.sgpur.service.RelatorioService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -33,17 +34,20 @@ public class ProcessoController {
     private final ProcessoService processoService;
     private final FluxoProcessoService fluxoService;
     private final EmailTemplateService emailTemplateService;
+    private final RelatorioService relatorioService;
     private final MembroUrgenciaRenalRepository membroRepository;
     private final AnexoStorageService anexoStorage;
 
     public ProcessoController(ProcessoService processoService,
                               FluxoProcessoService fluxoService,
                               EmailTemplateService emailTemplateService,
+                              RelatorioService relatorioService,
                               MembroUrgenciaRenalRepository membroRepository,
                               AnexoStorageService anexoStorage) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
+        this.relatorioService = relatorioService;
         this.membroRepository = membroRepository;
         this.anexoStorage = anexoStorage;
     }
@@ -215,6 +219,17 @@ public class ProcessoController {
             ra.addFlashAttribute("erro", "Falha ao anexar: " + e.getMessage());
         }
         return "redirect:/processos/" + id + "#anexos";
+    }
+
+    @GetMapping("/{id}/relatorio")
+    public ResponseEntity<byte[]> relatorio(@PathVariable Long id) {
+        Processo p = processoService.buscar(id);
+        byte[] pdf = relatorioService.gerar(p);
+        String nome = "relatorio-processo-" + p.getNumero().replace("/", "-") + ".pdf";
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
+            .body(pdf);
     }
 
     @GetMapping("/anexos/{anexoId}/download")
