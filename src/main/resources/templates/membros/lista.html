@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Membros')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Membros da Urgencia Renal</h1>
+        <a th:href="@{/membros/novo}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Novo membro
+        </a>
+    </div>
+
+    <div class="card">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr><th>Instituicao</th><th>Nome</th><th>E-mail</th><th>Situacao</th><th></th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="m : ${membros}">
+                <td th:text="${m.instituicao}">SIGLA</td>
+                <td th:text="${m.nome}">Nome</td>
+                <td class="small text-muted" th:text="${m.email} ?: '-'"></td>
+                <td>
+                    <span class="badge" th:classappend="${m.ativo} ? 'bg-success' : 'bg-secondary'"
+                          th:text="${m.ativo} ? 'Ativo' : 'Inativo'">Ativo</span>
+                </td>
+                <td class="text-end">
+                    <a th:href="@{/membros/{id}/editar(id=${m.id})}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                    <form th:action="@{/membros/{id}/alternar-ativo(id=${m.id})}" method="post" class="d-inline">
+                        <button class="btn btn-sm btn-outline-warning"
+                                th:text="${m.ativo} ? 'Inativar' : 'Ativar'">Inativar</button>
+                    </form>
+                </td>
+            </tr>
+            <tr th:if="${membros.isEmpty()}">
+                <td colspan="5" class="text-center text-muted py-4">Nenhum membro cadastrado.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

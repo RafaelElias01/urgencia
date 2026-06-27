@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Processo ' + ${processo.numero})}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1 class="h3 mb-1">
+                Processo <span th:text="${processo.numero}">00/0000</span>
+                <span class="badge align-middle"
+                      th:classappend="${processo.status.name() == 'DEFERIDO'} ? 'bg-success' :
+                                      (${processo.status.name() == 'INDEFERIDO'} ? 'bg-danger' :
+                                      (${processo.status.name() == 'CANCELADO'} ? 'bg-secondary' : 'bg-warning text-dark'))"
+                      th:text="${processo.status.descricao}">status</span>
+            </h1>
+            <div class="text-muted" th:text="${processo.pacienteNome}">Paciente</div>
+        </div>
+        <a th:href="@{/processos}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Coluna esquerda: etapas em tempo real -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header"><i class="bi bi-list-check"></i> Andamento do processo</div>
+                <div class="card-body">
+                    <div th:each="etapa : ${etapas}" class="etapa"
+                         th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' :
+                                         (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
+                        <span class="etapa-icone">
+                            <i class="bi"
+                               th:classappend="${etapa.concluida} ? 'bi-check-lg' : 'bi-' + ${etapa.icone}"></i>
+                        </span>
+                        <div class="fw-semibold" th:text="${etapa.titulo}">Etapa</div>
+                        <div class="small" th:text="${etapa.detalhe}">detalhe</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna direita -->
+        <div class="col-lg-8">
+            <!-- Dados -->
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-person-vcard"></i> Dados</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Paciente</dt>
+                        <dd class="col-sm-8" th:text="${processo.pacienteNome}"></dd>
+                        <dt class="col-sm-4">RGCT / SNT</dt>
+                        <dd class="col-sm-8" th:text="${processo.pacienteRgct} ?: '-'"></dd>
+                        <dt class="col-sm-4">Equipe solicitante</dt>
+                        <dd class="col-sm-8" th:text="${processo.solicitanteEquipe}"></dd>
+                        <dt class="col-sm-4">E-mail solicitante</dt>
+                        <dd class="col-sm-8" th:text="${processo.solicitanteEmail} ?: '-'"></dd>
+                        <dt class="col-sm-4">Data situacao especial</dt>
+                        <dd class="col-sm-8" th:text="${#temporals.format(processo.dataSituacaoEspecial, 'dd/MM/yyyy')}"></dd>
+                        <dt class="col-sm-4" th:if="${processo.observacoes}">Observacoes</dt>
+                        <dd class="col-sm-8" th:if="${processo.observacoes}" th:text="${processo.observacoes}"></dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Pareceres -->
+            <div class="card mb-4" id="pareceres">
+                <div class="card-header d-flex justify-content-between">
+                    <span><i class="bi bi-chat-square-text"></i> Pareceres dos medicos</span>
+                    <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/processos/{id}/pareceres(id=${processo.id})}" method="post">
+                        <table class="table align-middle">
+                            <thead><tr><th>Medico</th><th style="width: 220px">Parecer</th><th>Resposta</th></tr></thead>
+                            <tbody>
+                            <tr th:each="par : ${processo.pareceres}">
+                                <td th:text="${par.membro.rotulo}">Medico</td>
+                                <td>
+                                    <input type="hidden" name="parecerId" th:value="${par.id}">
+                                    <select name="resultado" class="form-select form-select-sm">
+                                        <option value="">-- pendente --</option>
+                                        <option th:each="r : ${resultadoValores}"
+                                                th:value="${r.name()}"
+                                                th:text="${r.descricao}"
+                                                th:selected="${par.resultado != null and par.resultado.name() == r.name()}"></option>
+                                    </select>
+                                </td>
+                                <td class="small text-muted"
+                                    th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <div class="text-end">
+                            <button class="btn btn-primary btn-sm">Salvar pareceres</button>
+                        </div>
+                    </form>
+                    <div class="alert alert-info py-2 mb-0 mt-2" th:if="${sugestao != null}">
+                        <i class="bi bi-lightbulb"></i>
+                        Sugestao automatica: <strong th:text="${sugestao.descricao}"></strong>
+                        (2 de 3 favoraveis defere o processo).
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decisao -->
+            <div class="card mb-4" id="decisao">
+                <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
+                <div class="card-body">
+                    <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Decisao</label>
+                                <select name="decisao" class="form-select" id="decisaoSelect">
+                                    <option th:each="s : ${statusValores}"
+                                            th:value="${s.name()}" th:text="${s.descricao}"
+                                            th:selected="${processo.status.name() == s.name()}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-8" id="motivoBox">
+                                <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
+                                <input type="text" name="motivoIndeferimento" class="form-control"
+                                       th:value="${processo.motivoIndeferimento}">
+                            </div>
+                        </div>
+                        <div class="text-end mt-2">
+                            <button class="btn btn-primary btn-sm">Registrar decisao</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Finalizacao / oficio / resposta -->
+            <div class="card mb-4" id="finalizacao">
+                <div class="card-header"><i class="bi bi-flag"></i> Finalizacao</div>
+                <div class="card-body">
+                    <form th:action="@{/processos/{id}/finalizacao(id=${processo.id})}" method="post">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label">Data emissao do oficio</label>
+                                <input type="date" name="dataEmissaoOficio" class="form-control"
+                                       th:value="${processo.dataEmissaoOficio}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Data envio do oficio</label>
+                                <input type="date" name="dataEnvioOficio" class="form-control"
+                                       th:value="${processo.dataEnvioOficio}">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input type="checkbox" name="emailEnviadoSolicitante" value="true"
+                                           class="form-check-input" id="emailEnv"
+                                           th:checked="${processo.emailEnviadoSolicitante}">
+                                    <label class="form-check-label" for="emailEnv">E-mail enviado ao solicitante</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-2">
+                            <button class="btn btn-primary btn-sm">Salvar finalizacao</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Anexos -->
+            <div class="card" id="anexos">
+                <div class="card-header"><i class="bi bi-paperclip"></i> Anexos (e-mails e documentos)</div>
+                <div class="card-body">
+                    <ul class="list-group mb-3" th:if="${!processo.anexos.isEmpty()}">
+                        <li class="list-group-item d-flex justify-content-between align-items-center"
+                            th:each="a : ${processo.anexos}">
+                            <span>
+                                <i class="bi bi-file-earmark"></i>
+                                <a th:href="@{/processos/anexos/{id}/download(id=${a.id})}" th:text="${a.nomeArquivo}">arquivo</a>
+                                <span class="badge bg-light text-dark ms-1" th:text="${a.tipo.descricao}">tipo</span>
+                            </span>
+                            <small class="text-muted" th:text="${#temporals.format(a.dataUpload, 'dd/MM/yyyy HH:mm')}"></small>
+                        </li>
+                    </ul>
+                    <p class="text-muted small" th:if="${processo.anexos.isEmpty()}">Nenhum anexo ainda.</p>
+
+                    <form th:action="@{/processos/{id}/anexos(id=${processo.id})}" method="post"
+                          enctype="multipart/form-data" class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Tipo</label>
+                            <select name="tipo" class="form-select form-select-sm">
+                                <option th:each="t : ${tipoAnexoValores}"
+                                        th:value="${t.name()}" th:text="${t.descricao}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Arquivo</label>
+                            <input type="file" name="arquivo" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Descricao</label>
+                            <input type="text" name="descricao" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-primary btn-sm w-100">Enviar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+<script>
+    // Mostra/oculta o motivo conforme a decisao
+    const sel = document.getElementById('decisaoSelect');
+    const box = document.getElementById('motivoBox');
+    function toggleMotivo() {
+        box.style.display = (sel.value === 'INDEFERIDO') ? '' : 'none';
+    }
+    sel.addEventListener('change', toggleMotivo);
+    toggleMotivo();
+</script>
+</body>
+</html>

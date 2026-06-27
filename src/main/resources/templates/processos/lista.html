@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Processos')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Processos</h1>
+        <a th:href="@{/processos/novo}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Novo processo
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Numero</th>
+                    <th>Paciente</th>
+                    <th>Solicitante</th>
+                    <th>Situacao</th>
+                    <th>O que falta</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}">
+                    <td>
+                        <a th:href="@{/processos/{id}(id=${p.id})}"
+                           class="text-decoration-none fw-semibold" th:text="${p.numero}">00/0000</a>
+                    </td>
+                    <td th:text="${p.pacienteNome}">Paciente</td>
+                    <td class="small text-muted" th:text="${p.solicitanteEquipe}">Equipe</td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${p.status.name() == 'DEFERIDO'} ? 'bg-success' :
+                                              (${p.status.name() == 'INDEFERIDO'} ? 'bg-danger' :
+                                              (${p.status.name() == 'CANCELADO'} ? 'bg-secondary' : 'bg-warning text-dark'))"
+                              th:text="${p.status.descricao}">status</span>
+                    </td>
+                    <td class="small" th:text="${pendencias.get(p.id)}">pendencia</td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}">
+                    <td colspan="5" class="text-center text-muted py-4">Nenhum processo cadastrado.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

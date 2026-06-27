@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Painel')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Painel</h1>
+        <a th:href="@{/processos/novo}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Novo processo
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md">
+            <div class="card card-stat text-center h-100"><div class="card-body">
+                <div class="display-6" th:text="${totalProcessos}">0</div>
+                <div class="text-muted small">Total</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card card-stat text-center h-100 border-warning"><div class="card-body">
+                <div class="display-6 text-warning" th:text="${emAnalise}">0</div>
+                <div class="text-muted small">Em analise</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card card-stat text-center h-100 border-success"><div class="card-body">
+                <div class="display-6 text-success" th:text="${deferidos}">0</div>
+                <div class="text-muted small">Deferidos</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card card-stat text-center h-100 border-danger"><div class="card-body">
+                <div class="display-6 text-danger" th:text="${indeferidos}">0</div>
+                <div class="text-muted small">Indeferidos</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card card-stat text-center h-100"><div class="card-body">
+                <div class="display-6 text-secondary" th:text="${cancelados}">0</div>
+                <div class="text-muted small">Cancelados</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between">
+            <span>Ultimos processos</span>
+            <a th:href="@{/processos}" class="small">ver todos</a>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between align-items-center"
+                th:each="p : ${ultimos}">
+                <a th:href="@{/processos/{id}(id=${p.id})}" class="text-decoration-none">
+                    <strong th:text="${p.numero}">00/0000</strong>
+                    <span class="text-muted" th:text="' - ' + ${p.pacienteNome}"></span>
+                </a>
+                <span class="badge"
+                      th:classappend="${p.status.name() == 'DEFERIDO'} ? 'bg-success' :
+                                      (${p.status.name() == 'INDEFERIDO'} ? 'bg-danger' :
+                                      (${p.status.name() == 'CANCELADO'} ? 'bg-secondary' : 'bg-warning text-dark'))"
+                      th:text="${p.status.descricao}">status</span>
+            </li>
+            <li class="list-group-item text-muted" th:if="${ultimos.isEmpty()}">Nenhum processo cadastrado.</li>
+        </ul>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

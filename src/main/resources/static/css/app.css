@@ -1,0 +1,30 @@
+body {
+    background-color: #f6f8fa;
+}
+
+.etapa {
+    border-left: 3px solid #dee2e6;
+    padding: .5rem 0 .5rem 1rem;
+    position: relative;
+}
+.etapa .etapa-icone {
+    position: absolute;
+    left: -15px;
+    top: .5rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #dee2e6;
+    color: #fff;
+    font-size: .9rem;
+}
+.etapa.concluida { border-left-color: #198754; }
+.etapa.concluida .etapa-icone { background: #198754; }
+.etapa.atual { border-left-color: #fd7e14; }
+.etapa.atual .etapa-icone { background: #fd7e14; }
+.etapa.pendente { color: #6c757d; }
+
+.card-stat .display-6 { font-weight: 600; }
