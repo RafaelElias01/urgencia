@@ -1,6 +1,10 @@
 spring:
   application:
     name: sgpur
+  # Carrega overrides locais (ex.: credenciais do Postgres) se o arquivo existir.
+  # application-local.yml esta no .gitignore e NUNCA deve ser commitado.
+  config:
+    import: optional:classpath:application-local.yml
   profiles:
     active: dev
   thymeleaf:

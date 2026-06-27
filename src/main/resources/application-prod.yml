@@ -1,15 +1,10 @@
-# Perfil de producao - PostgreSQL (ex.: Vercel Postgres / Neon).
-# Defina a connection string via variavel de ambiente DATABASE_URL ou
-# as variaveis SPRING_DATASOURCE_* no servidor de hospedagem.
+# Perfil de producao - PostgreSQL (Neon / Vercel Postgres).
 #
-# Exemplo de URL JDBC para Vercel Postgres / Neon:
-#   jdbc:postgresql://<host>/<db>?user=<user>&password=<pwd>&sslmode=require
+# O datasource (url/username/password) NAO fica aqui. Ele vem de:
+#  - application-local.yml (gitignored) para rodar localmente contra o Neon, OU
+#  - variaveis de ambiente no servidor de hospedagem:
+#       SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
 spring:
-  datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sgpur}
-    driver-class-name: org.postgresql.Driver
-    username: ${DATABASE_USER:sgpur}
-    password: ${DATABASE_PASSWORD:sgpur}
   jpa:
     hibernate:
       ddl-auto: update
