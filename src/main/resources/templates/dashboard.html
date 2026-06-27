@@ -15,34 +15,39 @@
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-md">
+            <a th:href="@{/processos}" class="text-decoration-none">
             <div class="card card-stat text-center h-100"><div class="card-body">
                 <div class="display-6" th:text="${totalProcessos}">0</div>
                 <div class="text-muted small">Total</div>
-            </div></div>
+            </div></div></a>
         </div>
         <div class="col-6 col-md">
+            <a th:href="@{/processos(status='EM_ANALISE')}" class="text-decoration-none">
             <div class="card card-stat text-center h-100 border-warning"><div class="card-body">
                 <div class="display-6 text-warning" th:text="${emAnalise}">0</div>
                 <div class="text-muted small">Em analise</div>
-            </div></div>
+            </div></div></a>
         </div>
         <div class="col-6 col-md">
+            <a th:href="@{/processos(status='DEFERIDO')}" class="text-decoration-none">
             <div class="card card-stat text-center h-100 border-success"><div class="card-body">
                 <div class="display-6 text-success" th:text="${deferidos}">0</div>
                 <div class="text-muted small">Deferidos</div>
-            </div></div>
+            </div></div></a>
         </div>
         <div class="col-6 col-md">
+            <a th:href="@{/processos(status='INDEFERIDO')}" class="text-decoration-none">
             <div class="card card-stat text-center h-100 border-danger"><div class="card-body">
                 <div class="display-6 text-danger" th:text="${indeferidos}">0</div>
                 <div class="text-muted small">Indeferidos</div>
-            </div></div>
+            </div></div></a>
         </div>
         <div class="col-6 col-md">
+            <a th:href="@{/processos(status='CANCELADO')}" class="text-decoration-none">
             <div class="card card-stat text-center h-100"><div class="card-body">
                 <div class="display-6 text-secondary" th:text="${cancelados}">0</div>
                 <div class="text-muted small">Cancelados</div>
-            </div></div>
+            </div></div></a>
         </div>
     </div>
 
