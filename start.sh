@@ -5,18 +5,25 @@
 set -e
 PERFIL="${1:-dev}"
 
-# --- Java 21: usa o JAVA_HOME atual se valido; senao tenta caminhos comuns ---
-if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
+# --- Java 21: garante a versao 21 (ignora um JAVA_HOME de outra versao) ---
+is_java21() { [ -x "$1/bin/java" ] && "$1/bin/java" -version 2>&1 | head -1 | grep -q '"21'; }
+
+if ! { [ -n "${JAVA_HOME:-}" ] && is_java21 "$JAVA_HOME"; }; then
   for c in \
       "/c/Users/rafae/Tools/jdk-21.0.11+10" \
       "$HOME/Tools/jdk-21" \
       "/usr/lib/jvm/temurin-21-jdk-amd64" \
       "/usr/lib/jvm/java-21-openjdk" \
+      "/usr/lib/jvm/java-21-openjdk-amd64" \
       "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home"; do
-    if [ -x "$c/bin/java" ]; then export JAVA_HOME="$c"; break; fi
+    if is_java21 "$c"; then export JAVA_HOME="$c"; break; fi
   done
 fi
-[ -n "${JAVA_HOME:-}" ] && export PATH="$JAVA_HOME/bin:$PATH"
+if [ -z "${JAVA_HOME:-}" ] || ! is_java21 "$JAVA_HOME"; then
+  echo "JDK 21 nao encontrado. Instale o Temurin 21 ou defina JAVA_HOME para um JDK 21." >&2
+  exit 1
+fi
+export PATH="$JAVA_HOME/bin:$PATH"
 
 # --- Maven (PATH ou caminho conhecido) ---
 MVN="$(command -v mvn || true)"
