@@ -1,0 +1,17 @@
+[Unit]
+Description=SGPUR - Sistema de Gestao de Processos de Urgencia Renal
+After=network.target
+
+[Service]
+User=sgpur
+WorkingDirectory=/opt/sgpur
+EnvironmentFile=/opt/sgpur/sgpur.env
+ExecStart=/usr/bin/java -jar /opt/sgpur/sgpur.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+# Limites de memoria amigaveis para a VM Always Free
+Environment=JAVA_TOOL_OPTIONS=-Xmx512m
+
+[Install]
+WantedBy=multi-user.target

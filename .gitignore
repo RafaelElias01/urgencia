@@ -33,3 +33,6 @@ application-local.yml
 ### Dados locais (banco H2 e anexos) ###
 /data/
 
+### Deploy (segredos do servidor) ###
+deploy/sgpur.env
+
