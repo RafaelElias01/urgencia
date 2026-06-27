@@ -46,6 +46,10 @@ public class ProcessoService {
         return ano >= ANO_NUMERACAO_AUTOMATICA;
     }
 
+    public boolean numeroJaExiste(String numero) {
+        return numero != null && processoRepository.findByNumero(numero).isPresent();
+    }
+
     /** Proximo numero NN/AAAA para um ano (quando automatico). */
     public String proximoNumero(int ano) {
         Integer max = processoRepository.findMaxSequencialByAno(ano);

@@ -104,6 +104,9 @@ public class ProcessoController {
         // Numero so e obrigatorio quando a numeracao for manual
         if (!automatica && (processo.getNumero() == null || processo.getNumero().isBlank())) {
             result.rejectValue("numero", "obrigatorio", "Informe o numero do processo (NN/AAAA).");
+        } else if (!automatica && processoService.numeroJaExiste(processo.getNumero())) {
+            result.rejectValue("numero", "duplicado",
+                "Ja existe um processo com o numero " + processo.getNumero() + ".");
         }
         if (medicoIds == null || medicoIds.size() != ProcessoService.AVALIADORES_POR_PROCESSO) {
             result.reject("medicos", "Selecione exatamente "
