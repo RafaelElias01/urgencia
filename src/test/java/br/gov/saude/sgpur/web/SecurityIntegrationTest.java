@@ -53,4 +53,18 @@ class SecurityIntegrationTest {
         // mas acessa a area operacional normal
         mvc.perform(get("/processos")).andExpect(status().isOk());
     }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void operadorAcessaRelatorioAnual() throws Exception {
+        // A pagina deve renderizar mesmo sem processos cadastrados.
+        mvc.perform(get("/relatorios/anual")).andExpect(status().isOk());
+    }
+
+    @Test
+    void relatorioAnualExigeAutenticacao() throws Exception {
+        mvc.perform(get("/relatorios/anual"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrlPattern("**/login"));
+    }
 }

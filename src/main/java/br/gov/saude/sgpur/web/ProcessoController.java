@@ -73,6 +73,18 @@ public class ProcessoController {
         return StatusProcesso.values();
     }
 
+    /**
+     * Status que o operador pode escolher como DECISAO final na tela de
+     * detalhe. So as decisoes reais entram aqui - SOLICITADO/ENVIADO/
+     * EM_ANALISE/SOLICITA_INFORMACAO sao estados de andamento, nao decisoes.
+     */
+    @ModelAttribute("decisaoValores")
+    public StatusProcesso[] decisaoValores() {
+        return new StatusProcesso[]{
+            StatusProcesso.DEFERIDO, StatusProcesso.INDEFERIDO, StatusProcesso.CANCELADO
+        };
+    }
+
     @ModelAttribute("resultadoValores")
     public ResultadoParecer[] resultadoValores() {
         return ResultadoParecer.values();
@@ -305,6 +317,13 @@ public class ProcessoController {
                           @RequestParam StatusProcesso decisao,
                           @RequestParam(required = false) String motivoIndeferimento,
                           RedirectAttributes ra) {
+        // So aceita decisoes reais; estados de andamento nao sao "decisoes".
+        if (decisao != StatusProcesso.DEFERIDO
+                && decisao != StatusProcesso.INDEFERIDO
+                && decisao != StatusProcesso.CANCELADO) {
+            ra.addFlashAttribute("erro", "Decisao invalida: escolha Deferido, Indeferido ou Cancelado.");
+            return "redirect:/processos/" + id;
+        }
         if (decisao == StatusProcesso.INDEFERIDO
                 && (motivoIndeferimento == null || motivoIndeferimento.isBlank())) {
             ra.addFlashAttribute("erro", "Indeferimento exige o motivo.");

@@ -107,7 +107,7 @@
                 <div class="card-header"><i class="bi bi-send"></i> Envio aos Avaliadores</div>
                 <div class="card-body">
                     <!-- Data de envio (exibe se ja registrada) -->
-                    <div th:if="${processo.pareceres[0].dataEnvio != null}" class="alert alert-success py-2 mb-3">
+                    <div th:if="${!processo.pareceres.isEmpty() and processo.pareceres[0].dataEnvio != null}" class="alert alert-success py-2 mb-3">
                         <i class="bi bi-check-circle"></i>
                         Envio registrado em
                         <strong th:text="${#temporals.format(processo.pareceres[0].dataEnvio, 'dd/MM/yyyy')}"></strong>
@@ -119,7 +119,7 @@
                             </a>
                         </span>
                     </div>
-                    <div th:if="${processo.pareceres[0].dataEnvio == null}" class="alert alert-warning py-2 mb-3">
+                    <div th:if="${processo.pareceres.isEmpty() or processo.pareceres[0].dataEnvio == null}" class="alert alert-warning py-2 mb-3">
                         <i class="bi bi-hourglass"></i> Envio ainda nao registrado.
                     </div>
                     <!-- Acao unica de registro de envio -->
@@ -140,7 +140,7 @@
 
             <!-- Secao: Respostas dos Avaliadores -->
             <div class="card mb-4" id="respostas"
-                 th:classappend="${processo.pareceres[0].dataEnvio == null} ? 'd-none' : ''">
+                 th:classappend="${processo.pareceres.isEmpty() or processo.pareceres[0].dataEnvio == null} ? 'd-none' : ''">
                 <div class="card-header d-flex justify-content-between">
                     <span><i class="bi bi-chat-square-text"></i> Respostas dos Avaliadores</span>
                     <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
@@ -221,7 +221,7 @@
                             <div class="col-md-4">
                                 <label class="form-label">Decisao</label>
                                 <select name="decisao" class="form-select" id="decisaoSelect">
-                                    <option th:each="s : ${statusValores}"
+                                    <option th:each="s : ${decisaoValores}"
                                             th:value="${s.name()}" th:text="${s.descricao}"
                                             th:selected="${processo.status.name() == s.name()}"></option>
                                 </select>
