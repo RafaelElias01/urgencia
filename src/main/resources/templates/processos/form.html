@@ -54,8 +54,9 @@
                     <div class="text-danger small" th:errors="*{solicitanteEquipe}"></div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">E-mail do solicitante</label>
-                    <input type="email" th:field="*{solicitanteEmail}" class="form-control">
+                    <label class="form-label">E-mail do solicitante *</label>
+                    <input type="email" th:field="*{solicitanteEmail}" class="form-control" required>
+                    <div class="text-danger small" th:errors="*{solicitanteEmail}"></div>
                 </div>
             </div>
 

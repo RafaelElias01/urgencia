@@ -1,6 +1,7 @@
 package br.gov.saude.sgpur.domain;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -48,6 +49,8 @@ public class Processo {
     @Column(name = "solicitante_equipe", nullable = false, length = 200)
     private String solicitanteEquipe;
 
+    @NotBlank
+    @Email
     @Column(name = "solicitante_email", length = 150)
     private String solicitanteEmail;
 
