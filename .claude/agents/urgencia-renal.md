@@ -35,6 +35,11 @@ o dominio e as regras a seguir.
 - **Prod (Neon):** `.\start.ps1 prod` (usa `application-local.yml` gitignored).
 - **Desktop (standalone):** perfil `desktop` — H2 em `~/.sgpur`, abre navegador
   automaticamente. Empacotar: `.\package-desktop.ps1` (jpackage -> SGPUR.exe).
+- **Release completo:** `.\release.ps1` = pull main + build `.exe` + gera
+  `SGPUR-Setup.exe` (Inno Setup) + **reinstala** em `C:\Program Files\SGPUR`
+  (silencioso, RunAs). Use-o ao mexer em telas/CSS: so `package-desktop.ps1`
+  NAO atualiza a versao instalada (o atalho continuaria abrindo a versao velha
+  — foi a causa do bug "CSS antigo"). Flag `-NaoInstalar` so gera artefatos.
 - App em `http://localhost:8080`. Login: `admin` / `admin123`.
 - NUNCA commitar segredos (`application-local.yml`, `deploy/sgpur.env`, `/dist/`).
 

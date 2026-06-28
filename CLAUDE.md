@@ -23,6 +23,10 @@ Pacote base `br.gov.saude.sgpur`.
 - App em http://localhost:8080 · login inicial `admin` / `admin123`.
 - Testes: `.\test.ps1` (ou `mvn test`) — **37 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
+- **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +
+  **reinstala** em `C:\Program Files\SGPUR`). Use ao mexer em telas/CSS — só
+  `package-desktop.ps1` não atualiza a versão instalada (causa do bug "CSS
+  antigo": o atalho abria a versão velha em Program Files).
 
 ## Regras de negócio (não violar)
 - Cada processo vai para **exatamente 3 médicos**. Decisão por **maioria
