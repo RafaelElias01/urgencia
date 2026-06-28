@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
 
@@ -21,7 +20,6 @@ import java.util.Locale;
 public class OficioService {
 
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
-    private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public byte[] gerar(Processo p) {
         Document doc = new Document(PageSize.A4, 56, 56, 56, 56);
