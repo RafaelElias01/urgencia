@@ -31,10 +31,28 @@ class ProcessoServiceTest {
 
     private Processo comPareceres(ResultadoParecer... resultados) {
         Processo p = new Processo();
+        long id = 1;
         for (ResultadoParecer r : resultados) {
-            p.addParecer(parecer(r));
+            Parecer par = parecer(r);
+            par.setId(id++);
+            p.addParecer(par);
         }
         return p;
+    }
+
+    /** Vincula um anexo de RESPOSTA_AVALIADOR ao parecer informado. */
+    private void anexarResposta(Processo p, Parecer parecer) {
+        Anexo a = new Anexo();
+        a.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
+        a.setParecer(parecer);
+        p.addAnexo(a);
+    }
+
+    /** Anexa a resposta de todos os pareceres ja recebidos (resultado != null). */
+    private void anexarRespostasParaTodosRecebidos(Processo p) {
+        p.getPareceres().stream()
+            .filter(par -> par.getResultado() != null)
+            .forEach(par -> anexarResposta(p, par));
     }
 
     @Test
@@ -128,6 +146,7 @@ class ProcessoServiceTest {
     void decidirDeferidoComDoisFavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
             ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(5L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.decidir(5L, StatusProcesso.DEFERIDO, null);
@@ -148,9 +167,33 @@ class ProcessoServiceTest {
     void decidirIndeferidoComDoisDesfavoraveis() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
             ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(7L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.decidir(7L, StatusProcesso.INDEFERIDO, "motivo");
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
+    }
+
+    @Test
+    void decidirBloqueiaQuandoRespostaRecebidaSemAnexo() {
+        // 2 favoraveis recebidos, mas sem o anexo da resposta -> nao pode deferir
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        when(processoRepository.findById(8L)).thenReturn(java.util.Optional.of(p));
+        assertThatThrownBy(() -> service.decidir(8L, StatusProcesso.DEFERIDO, null))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Anexe a resposta");
+        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.DEFERIDO);
+    }
+
+    @Test
+    void pareceresRecebidosSemAnexoListaApenasOsFaltantes() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+            ResultadoParecer.FAVORAVEL, null);
+        // anexa a resposta apenas do primeiro parecer recebido
+        Parecer primeiro = p.getPareceres().get(0);
+        anexarResposta(p, primeiro);
+        var faltantes = service.pareceresRecebidosSemAnexo(p);
+        assertThat(faltantes).containsExactly(p.getPareceres().get(1));
     }
 }

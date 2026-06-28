@@ -51,18 +51,25 @@ public class FluxoProcessoService {
         etapas.add(montar("Envio aos 3 medicos", "send-fill", enviado, anterioresConcluidas, detEnvio));
         anterioresConcluidas = anterioresConcluidas && enviado;
 
-        // 3. Respostas dos medicos
+        // 3. Respostas dos medicos (cada resposta recebida precisa do anexo)
         long respondidos = processoService.contarRespondidos(p);
         long favoraveis = processoService.contarFavoraveis(p);
-        boolean respostasOk = totalMedicos > 0 && respondidos == totalMedicos;
+        var recebidosSemAnexo = processoService.pareceresRecebidosSemAnexo(p);
+        boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
+        boolean respostasOk = todasRespondidas && recebidosSemAnexo.isEmpty();
         String detResp;
         if (totalMedicos == 0) {
             detResp = "Aguardando definicao dos medicos.";
-        } else if (!respostasOk) {
+        } else if (!todasRespondidas) {
             detResp = "Faltam " + (totalMedicos - respondidos) + " de " + totalMedicos
                 + " pareceres. Favoraveis ate agora: " + favoraveis + ".";
+        } else if (!recebidosSemAnexo.isEmpty()) {
+            String nomes = recebidosSemAnexo.stream()
+                .map(par -> par.getMembro().getNome())
+                .collect(java.util.stream.Collectors.joining(", "));
+            detResp = "Anexe a resposta de: " + nomes + ".";
         } else {
-            detResp = respondidos + " pareceres recebidos. Favoraveis: " + favoraveis + ".";
+            detResp = respondidos + " pareceres recebidos (com anexo). Favoraveis: " + favoraveis + ".";
         }
         etapas.add(montar("Respostas dos medicos", "chat-square-text-fill",
             respostasOk, anterioresConcluidas, detResp));

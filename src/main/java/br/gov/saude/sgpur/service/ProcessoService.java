@@ -173,6 +173,23 @@ public class ProcessoService {
     }
 
     /**
+     * Pareceres ja "recebidos" (com resultado preenchido) que ainda NAO tem o
+     * e-mail/documento de resposta anexado (TipoAnexo.RESPOSTA_AVALIADOR
+     * vinculado ao proprio parecer). Regra: toda resposta de medico registrada
+     * precisa ter o anexo comprobatorio antes de decidir o processo.
+     */
+    public List<Parecer> pareceresRecebidosSemAnexo(Processo processo) {
+        java.util.Set<Long> comAnexo = processo.getAnexos().stream()
+            .filter(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR && a.getParecer() != null)
+            .map(a -> a.getParecer().getId())
+            .collect(java.util.stream.Collectors.toSet());
+        return processo.getPareceres().stream()
+            .filter(par -> par.getResultado() != null)          // recebido
+            .filter(par -> !comAnexo.contains(par.getId()))     // sem anexo de resposta
+            .toList();
+    }
+
+    /**
      * Sugestao de decisao por MAIORIA SIMPLES (2 de 3):
      * - 2+ pareceres favoraveis -> DEFERIDO (mesmo antes do 3o responder).
      * - 2+ pareceres desfavoraveis -> INDEFERIDO (mesmo antes do 3o responder).
@@ -205,6 +222,18 @@ public class ProcessoService {
                 && contarNaoFavoraveis(p) < DESFAVORAVEIS_PARA_INDEFERIR) {
             throw new IllegalStateException("Indeferimento exige no minimo "
                 + DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
+        }
+        // Regra: toda resposta de medico recebida precisa ter o anexo comprobatorio
+        // antes de deferir ou indeferir (garante no minimo 2 anexos de resposta).
+        if (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO) {
+            List<Parecer> semAnexo = pareceresRecebidosSemAnexo(p);
+            if (!semAnexo.isEmpty()) {
+                String nomes = semAnexo.stream()
+                    .map(par -> par.getMembro().getNome())
+                    .collect(java.util.stream.Collectors.joining(", "));
+                throw new IllegalStateException(
+                    "Anexe a resposta dos medicos antes de decidir. Sem anexo: " + nomes + ".");
+            }
         }
         p.setStatus(decisao);
         p.setDataDecisao(LocalDateTime.now());

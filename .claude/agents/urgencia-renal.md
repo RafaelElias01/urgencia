@@ -59,6 +59,11 @@ o dominio e as regras a seguir.
    (`TipoAnexo.COMPROVANTE_SNT`) e envia-lo junto na resposta ao solicitante; a
    etapa "Comprovante SNT" em `FluxoProcessoService` bloqueia a conclusao ate o
    anexo existir (simetrico ao oficio no indeferimento).
+   **Toda resposta de medico recebida** (parecer com `resultado` preenchido)
+   **precisa ter o anexo** `TipoAnexo.RESPOSTA_AVALIADOR` vinculado ao parecer
+   ANTES de deferir/indeferir. Imposto no servico e no controller via
+   `pareceresRecebidosSemAnexo(processo)`; refletido na etapa "Respostas dos
+   medicos" do fluxo. Garante na pratica >=2 anexos de resposta.
 5. **Status (ciclo expandido):** SOLICITADO -> ENVIADO ->
    { DEFERIDO, INDEFERIDO, SOLICITA_INFORMACAO } (+ CANCELADO a qualquer
    momento). Finais: DEFERIDO/INDEFERIDO/CANCELADO. `EM_ANALISE` permanece como
@@ -156,5 +161,5 @@ o dominio e as regras a seguir.
 - Mantenha o estilo: entidades sem Lombok, servicos em `service/`, controllers
   em `web/`, templates com fragments de `layout.html`.
 - Compile e valide com JDK 21 antes de concluir.
-- Rode `.\test.ps1` (ou `mvn test`) para verificar se quebrou algo (37 testes).
+- Rode `.\test.ps1` (ou `mvn test`) para verificar se quebrou algo (39 testes).
 - Commits pequenos, push para `origin/main`.

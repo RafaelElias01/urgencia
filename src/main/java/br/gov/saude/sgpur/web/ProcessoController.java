@@ -343,6 +343,18 @@ public class ProcessoController {
                 + ProcessoService.DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
             return "redirect:/processos/" + id;
         }
+        // Regra: toda resposta de medico recebida precisa ter o anexo comprobatorio.
+        if (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO) {
+            var semAnexo = processoService.pareceresRecebidosSemAnexo(atual);
+            if (!semAnexo.isEmpty()) {
+                String nomes = semAnexo.stream()
+                    .map(par -> par.getMembro().getNome())
+                    .collect(java.util.stream.Collectors.joining(", "));
+                ra.addFlashAttribute("erro",
+                    "Anexe a resposta dos medicos antes de decidir. Sem anexo: " + nomes + ".");
+                return "redirect:/processos/" + id + "#respostas";
+            }
+        }
         Processo p = processoService.decidir(id, decisao, motivoIndeferimento);
         // Gera automaticamente o Oficio (se indeferido) e o Relatorio Final, anexando-os.
         if (decisao == StatusProcesso.INDEFERIDO) {

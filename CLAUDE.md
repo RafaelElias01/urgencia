@@ -21,7 +21,7 @@ Pacote base `br.gov.saude.sgpur`.
 .\start.ps1 prod       # prod (Neon) — usa application-local.yml (gitignored)
 ```
 - App em http://localhost:8080 · login inicial `admin` / `admin123`.
-- Testes: `.\test.ps1` (ou `mvn test`) — **37 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **39 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +
   **reinstala** em `C:\Program Files\SGPUR`). Use ao mexer em telas/CSS — só
@@ -34,6 +34,11 @@ Pacote base `br.gov.saude.sgpur`.
   Indeferido** (exige **ofício + motivo**). As duas regras são **impostas** no
   serviço e no controller (`decidir` rejeita Deferido sem 2 favoráveis e
   Indeferido sem 2 desfavoráveis).
+- **Toda resposta de médico recebida** (parecer com `resultado` preenchido)
+  **precisa ter o anexo comprobatório** (`TipoAnexo.RESPOSTA_AVALIADOR`
+  vinculado ao parecer) **antes de Deferir/Indeferir**. Imposto no serviço e no
+  controller (`pareceresRecebidosSemAnexo`) e refletido na etapa "Respostas dos
+  médicos" do fluxo. Como a decisão exige ≥2 pareceres, isso garante ≥2 anexos.
 - **Deferido exige anexar o comprovante de inserção da urgência renal no SNT**
   (`TipoAnexo.COMPROVANTE_SNT`) e enviá-lo junto na resposta ao solicitante; a
   etapa "Comprovante SNT" bloqueia a conclusão até o anexo existir (simétrico
