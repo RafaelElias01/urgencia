@@ -4,6 +4,10 @@
 #       ./start.sh prod       -> perfil prod (PostgreSQL/Neon via application-local.yml ou env vars)
 set -e
 PERFIL="${1:-dev}"
+case "$PERFIL" in
+  dev|prod) ;;
+  *) echo "Perfil invalido '$PERFIL'. Use: ./start.sh [dev|prod]" >&2; exit 1 ;;
+esac
 
 # --- Java 21: garante a versao 21 (ignora um JAVA_HOME de outra versao) ---
 is_java21() { [ -x "$1/bin/java" ] && "$1/bin/java" -version 2>&1 | head -1 | grep -q '"21'; }
@@ -62,7 +66,7 @@ fi
 
 # Abre o navegador em background assim que a porta responder
 (
-  until curl -s -o /dev/null "$URL/login" 2>/dev/null; do sleep 2; done
+  until curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORTA/login" 2>/dev/null | grep -qE "^[23]"; do sleep 2; done
   echo "==> Abrindo $URL"
   if command -v code &>/dev/null; then
     code --open-url "$URL" 2>/dev/null || true
