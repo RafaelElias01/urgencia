@@ -66,6 +66,12 @@ public class UsuarioService {
     @Transactional
     public Usuario atualizar(Long id, Usuario form, String senhaPura, Long membroId) {
         Usuario u = buscar(id);
+        if (!u.getUsername().equals(form.getUsername())) {
+            if (repo.existsByUsername(form.getUsername())) {
+                throw new IllegalArgumentException("Ja existe um usuario com este login.");
+            }
+            u.setUsername(form.getUsername());
+        }
         u.setNome(form.getNome());
         u.setPerfil(form.getPerfil());
         u.setAtivo(form.isAtivo());
