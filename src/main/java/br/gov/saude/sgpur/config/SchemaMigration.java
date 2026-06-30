@@ -41,8 +41,41 @@ public class SchemaMigration implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        limparCopiasHibernate();
+        adicionarColunasFaltantes();
         converterEnumsParaVarcharH2();
         removerChecksDeEnumObsoletasPostgres();
+    }
+
+    /** Adiciona colunas que podem faltar em tabelas existentes (ex.: coordenador em MEMBRO_URGENCIA_RENAL). */
+    private void adicionarColunasFaltantes() {
+        try {
+            jdbc.execute("ALTER TABLE MEMBRO_URGENCIA_RENAL ADD COLUMN IF NOT EXISTS "
+                + "COORDENADOR BOOLEAN DEFAULT FALSE NOT NULL");
+        } catch (Exception e) {
+            log.debug("SchemaMigration: coluna COORDENADOR ja existe ou erro ignorado: {}", e.getMessage());
+        }
+        try {
+            jdbc.execute("ALTER TABLE MEMBRO_URGENCIA_RENAL ALTER COLUMN ATIVO SET DEFAULT TRUE");
+        } catch (Exception e) {
+            log.debug("SchemaMigration: default de ATIVO ja configurado ou erro ignorado: {}", e.getMessage());
+        }
+    }
+
+    /** Remove tabelas temporarias deixadas por migracoes Hibernate que falharam (_COPY_n). */
+    private void limparCopiasHibernate() {
+        try {
+            List<String> tabelas = jdbc.queryForList(
+                "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES "
+                    + "WHERE TABLE_NAME LIKE '%\\_COPY\\_%' ESCAPE '\\'",
+                String.class);
+            for (String t : tabelas) {
+                jdbc.execute("DROP TABLE IF EXISTS \"" + t + "\" CASCADE");
+                log.warn("SchemaMigration: removida tabela temporaria Hibernate: {}", t);
+            }
+        } catch (Exception e) {
+            log.debug("SchemaMigration: limpeza de copias Hibernate ignorada: {}", e.getMessage());
+        }
     }
 
     /** H2: converte colunas de tipo nativo ENUM em VARCHAR(255). */

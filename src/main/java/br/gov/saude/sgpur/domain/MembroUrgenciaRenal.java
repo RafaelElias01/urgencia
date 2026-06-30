@@ -32,10 +32,12 @@ public class MembroUrgenciaRenal {
 
     /** Membros inativos nao recebem novos processos para parecer. */
     @Column(nullable = false)
+    @org.hibernate.annotations.ColumnDefault("true")
     private boolean ativo = true;
 
     /** Coordenador CET-RS: seu voto favoravel DEFERE o processo independentemente dos demais pareceres. */
     @Column(nullable = false)
+    @org.hibernate.annotations.ColumnDefault("false")
     private boolean coordenador = false;
 
     public MembroUrgenciaRenal() {
