@@ -550,6 +550,27 @@ public class ProcessoController {
             return "redirect:/processos/" + id + "#envio";
         }
 
+        // Valida se os PDFs tem paginas antes de consolidar
+        java.util.List<byte[]> validos = new java.util.ArrayList<>();
+        for (byte[] bytes : partes) {
+            try {
+                com.lowagie.text.pdf.PdfReader chk = new com.lowagie.text.pdf.PdfReader(bytes);
+                if (chk.getNumberOfPages() > 0) {
+                    validos.add(bytes);
+                }
+                chk.close();
+            } catch (Exception e) {
+                // PDF corrompido — ignora silenciosamente
+            }
+        }
+        if (validos.isEmpty()) {
+            ra.addFlashAttribute("erro",
+                "Nenhum dos documentos clinicos anexados e um PDF valido com paginas. "
+                + "Remova-os e anexe novamente os documentos originais.");
+            return "redirect:/processos/" + id + "#envio";
+        }
+        partes = validos;
+
         // PRIMEIRO: gera o PDF consolidado com cabecalho carimbado.
         // Se falhar, o envio NAO e efetivado (evita processo em ENVIADO sem
         // o PDF dos avaliadores — "The document has no pages").
@@ -575,11 +596,13 @@ public class ProcessoController {
                     "Estes documentos clinicos nao sao PDF e ficaram de fora do PDF consolidado: "
                         + String.join(", ", ignorados) + ".");
             }
-        } catch (IOException | RuntimeException e) {
-            String msg = (e instanceof IOException)
-                ? "Falha ao gerar a solicitacao PDF: " + e.getMessage()
-                : e.getMessage();
-            ra.addFlashAttribute("erro", msg);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(ProcessoController.class)
+                .error("Erro ao registrar envio do processo {}", id, e);
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            ra.addFlashAttribute("erro",
+                "Falha ao gerar o PDF da solicitacao: " + cause.getMessage()
+                + " Verifique se os documentos clinicos anexados sao PDFs validos e nao estao vazios.");
             return "redirect:/processos/" + id + "#envio";
         }
 
