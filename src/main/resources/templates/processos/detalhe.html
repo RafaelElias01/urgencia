@@ -122,9 +122,9 @@
 
             <!-- Wizard passo a passo -->
             <div th:with="st=${processo.status.name()},
-                          recebimentoFeito=${solicitacaoOriginal != null and capaProcesso != null},
-                          abaReceb=${st == 'SOLICITADO' and !(solicitacaoOriginal != null and capaProcesso != null)},
-                          abaEnvio=${st == 'SOLICITADO' and (solicitacaoOriginal != null and capaProcesso != null)},
+                          recebimentoFeito=${solicitacaoOriginal != null},
+                          abaReceb=${st == 'SOLICITADO' and solicitacaoOriginal == null},
+                          abaEnvio=${st == 'SOLICITADO' and solicitacaoOriginal != null},
                           abaResp=${st == 'ENVIADO' or st == 'EM_ANALISE' or st == 'SOLICITA_INFORMACAO'},
                           abaFinal=${processo.status.finalizado},
                           envioFeito=${!processo.pareceres.isEmpty() and processo.pareceres[0].dataEnvio != null}">
@@ -175,13 +175,12 @@
                         <div class="card-header"><i class="bi bi-inbox"></i> Recebimento e ajuste do texto</div>
                         <div class="card-body">
                             <p class="small text-muted mb-3">
-                                Anexe a <strong>solicitacao original</strong> recebida. O sistema gera
-                                automaticamente a <strong>capa do processo</strong> (com os dados do
-                                solicitante e os medicos avaliadores) e a salva na pasta do processo.
+                                Anexe a <strong>solicitacao original</strong> recebida.
                                 A copia anonimizada para as equipes e gerada no passo 2 (Envio).
+                                A capa com os pareceres e o resultado e gerada apenas no <strong>Relatorio Final</strong>.
                             </p>
 
-                            <!-- Status dos dois anexos -->
+                            <!-- Status do anexo da solicitacao original -->
                             <ul class="list-group mb-3">
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span>
@@ -195,19 +194,6 @@
                                         <span th:text="${solicitacaoOriginal.nomeArquivo}">arquivo</span>
                                     </a>
                                     <span th:unless="${solicitacaoOriginal != null}" class="badge bg-secondary">pendente</span>
-                                </li>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>
-                                        <i class="bi" th:classappend="${capaProcesso != null} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'"></i>
-                                        Capa do processo (dados do solicitante e medicos)
-                                    </span>
-                                    <a th:if="${capaProcesso != null}"
-                                       th:href="@{/processos/anexos/{id}/download(id=${capaProcesso.id})}"
-                                       class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-file-earmark-pdf"></i>
-                                        <span th:text="${capaProcesso.nomeArquivo}">arquivo</span>
-                                    </a>
-                                    <span th:unless="${capaProcesso != null}" class="badge bg-secondary">sera gerada</span>
                                 </li>
                             </ul>
 
@@ -225,7 +211,7 @@
                                 </div>
                                 <div class="col-md-5 d-flex align-items-end">
                                     <button class="btn btn-primary btn-sm">
-                                        <i class="bi bi-inbox-fill"></i> Registrar recebimento e gerar capa
+                                        <i class="bi bi-inbox-fill"></i> Registrar recebimento
                                     </button>
                                 </div>
                             </form>

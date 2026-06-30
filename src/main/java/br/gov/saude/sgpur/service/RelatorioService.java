@@ -325,8 +325,6 @@ public class RelatorioService {
             byte[] logoBytes = getClass().getClassLoader()
                 .getResourceAsStream("static/brasao.png").readAllBytes();
             logo = Image.getInstance(logoBytes);
-            float logoAlt = 22;
-            logo.scaleToFit(logoAlt * 1.2f, logoAlt);
         } catch (Exception e) {
             log.warn("Logo nao encontrado em static/brasao.png, cabecalho sem imagem");
         }
@@ -342,43 +340,43 @@ public class RelatorioService {
         float largUtil = PageSize.A4.getWidth() - margemEsq - margemDir;
         int totalPaginas = reader.getNumberOfPages();
 
+        float logoSize = 33;
+        float logoMargem = 36;
+
         for (int i = 1; i <= totalPaginas; i++) {
             PdfContentByte over = stamper.getOverContent(i);
 
-            float logoX = margemEsq;
-            float logoY = topo - 30;
-
-            // Logo do RS (canto superior esquerdo)
+            // Logo do RS (canto superior esquerdo, 50% maior)
             if (logo != null) {
                 Image img = Image.getInstance(logo);
-                img.setAbsolutePosition(logoX, logoY);
-                img.scaleToFit(22, 22);
+                img.setAbsolutePosition(margemEsq, topo - logoMargem);
+                img.scaleToFit(logoSize, logoSize);
                 over.addImage(img);
             }
 
             // Texto do cabecalho (a direita do logo)
-            float textoX = margemEsq + 30;
-            float textoLarg = largUtil - 30;
+            float textoX = margemEsq + logoSize + 6;
+            float textoLarg = largUtil - logoSize - 6;
 
             over.beginText();
-            over.setFontAndSize(bf, 7);
+            over.setFontAndSize(bf, 10);
             over.showTextAligned(Element.ALIGN_CENTER, linha1,
-                textoX + textoLarg / 2, topo - 18, 0);
-            over.setFontAndSize(bf, 7);
+                textoX + textoLarg / 2, topo - 20, 0);
+            over.setFontAndSize(bf, 10);
             over.showTextAligned(Element.ALIGN_CENTER, linha2,
-                textoX + textoLarg / 2, topo - 30, 0);
+                textoX + textoLarg / 2, topo - 35, 0);
             over.endText();
 
             // Linha separadora fina abaixo do cabecalho
-            over.setLineWidth(0.4f);
+            over.setLineWidth(0.5f);
             over.setColorStroke(new Color(180, 180, 180));
-            over.moveTo(margemEsq, topo - 36);
-            over.lineTo(PageSize.A4.getWidth() - margemDir, topo - 36);
+            over.moveTo(margemEsq, topo - 44);
+            over.lineTo(PageSize.A4.getWidth() - margemDir, topo - 44);
             over.stroke();
 
             // Numeracao (canto inferior direito)
             over.beginText();
-            over.setFontAndSize(bf, 7);
+            over.setFontAndSize(bf, 9);
             over.showTextAligned(Element.ALIGN_RIGHT,
                 "Pagina " + i + " de " + totalPaginas,
                 PageSize.A4.getWidth() - margemDir, 22, 0);
@@ -421,9 +419,18 @@ public class RelatorioService {
         Font fCelTabela = FontFactory.getFont(FontFactory.HELVETICA, 9, Color.BLACK);
         Font fRodapeCapa = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA);
 
-        Paragraph espaco = new Paragraph(" ");
-        espaco.setSpacingAfter(60);
-        doc.add(espaco);
+        // Brasao do RS no topo da capa
+        try {
+            byte[] logoBytes = getClass().getClassLoader()
+                .getResourceAsStream("static/brasao.png").readAllBytes();
+            Image brasao = Image.getInstance(logoBytes);
+            brasao.scaleToFit(55, 55);
+            brasao.setAlignment(Element.ALIGN_CENTER);
+            brasao.setSpacingAfter(12);
+            doc.add(brasao);
+        } catch (Exception e) {
+            log.warn("Logo nao encontrado em static/brasao.png, capa sem imagem");
+        }
 
         Paragraph orgao = new Paragraph("GOVERNO DO ESTADO DO RIO GRANDE DO SUL", fOrgao);
         orgao.setAlignment(Element.ALIGN_CENTER);

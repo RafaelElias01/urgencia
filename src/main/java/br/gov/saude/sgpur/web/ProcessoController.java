@@ -214,11 +214,6 @@ public class ProcessoController {
             .filter(a -> a.getTipo() == TipoAnexo.SOLICITACAO_RECEBIDA)
             .findFirst();
         model.addAttribute("solicitacaoOriginal", solicitacaoOriginal.orElse(null));
-        // Capa do processo gerada no passo 1 (dados do solicitante + medicos)
-        Optional<Anexo> capaProcesso = p.getAnexos().stream()
-            .filter(a -> a.getTipo() == TipoAnexo.CAPA_PROCESSO)
-            .findFirst();
-        model.addAttribute("capaProcesso", capaProcesso.orElse(null));
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()
             .filter(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR)
@@ -505,22 +500,7 @@ public class ProcessoController {
             }
         }
 
-        // 2) Capa do processo (dados do solicitante + medicos) — gerada pelo sistema.
-        try {
-            anexoStorage.removerPorTipo(id, TipoAnexo.CAPA_PROCESSO);
-            byte[] pdf = relatorioService.gerarCapaProcesso(p);
-            String nome = "Capa - Processo " + p.getNumero().replace("/", "-") + ".pdf";
-            anexoStorage.salvarBytes(p, TipoAnexo.CAPA_PROCESSO,
-                "Capa do processo (dados do solicitante e medicos avaliadores)",
-                nome, "application/pdf", pdf);
-            auditoria.registrar("ANEXO_ADICIONADO",
-                "Processo " + p.getNumero() + " - Capa do processo gerada (" + nome + ")");
-        } catch (IOException e) {
-            ra.addFlashAttribute("erro", "Falha ao gerar a capa do processo: " + e.getMessage());
-            return "redirect:/processos/" + id + "#recebimento";
-        }
-
-        ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada e capa do processo gerada.");
+        ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada.");
         return "redirect:/processos/" + id + "#recebimento";
     }
 

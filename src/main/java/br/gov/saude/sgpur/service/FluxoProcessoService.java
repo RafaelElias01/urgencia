@@ -26,24 +26,16 @@ public class FluxoProcessoService {
         List<EtapaFluxo> etapas = new ArrayList<>();
         boolean anterioresConcluidas = true;
 
-        // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL
-        //    e a CAPA do processo (gerada pelo sistema, com dados do solicitante
-        //    e os medicos). A copia anonimizada para as equipes e do passo 2.
+        // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL.
+        //    A copia anonimizada para as equipes e gerada no passo 2 (Envio).
+        //    A capa com os resultados e gerada apenas no Relatorio Final.
         boolean temOriginal = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
-        boolean temCapa = temAnexo(p, TipoAnexo.CAPA_PROCESSO);
-        boolean recebimento = temOriginal && temCapa;
-        String detReceb;
-        if (recebimento) {
-            detReceb = "Solicitacao original anexada e capa do processo gerada.";
-        } else {
-            List<String> faltas = new ArrayList<>();
-            if (!temOriginal) faltas.add("copia da solicitacao original");
-            if (!temCapa) faltas.add("capa do processo (gerada pelo sistema)");
-            detReceb = "Falta: " + String.join(", ", faltas) + ".";
-        }
+        String detReceb = temOriginal
+            ? "Solicitacao original anexada."
+            : "Falta: copia da solicitacao original.";
         etapas.add(montar("Recebimento da solicitacao", "inbox-fill",
-            recebimento, anterioresConcluidas, detReceb));
-        anterioresConcluidas = anterioresConcluidas && recebimento;
+            temOriginal, anterioresConcluidas, detReceb));
+        anterioresConcluidas = anterioresConcluidas && temOriginal;
 
         // 2. Envio aos 3 medicos (data de envio registrada em todos os pareceres).
         //    Exige ao menos um documento clinico (PDF) anexado: o PDF dos
