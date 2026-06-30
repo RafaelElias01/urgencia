@@ -484,114 +484,124 @@
                     <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
                 </div>
                 <div class="card-body">
-                    <!-- Formulario de pareceres (resultado + data por medico) -->
-                    <form th:action="@{/processos/{id}/pareceres(id=${processo.id})}" method="post">
-                        <table class="table align-middle">
-                            <thead><tr>
-                                <th>Medico</th>
-                                <th style="width: 200px">Parecer</th>
-                                <th style="width: 130px">Data resposta</th>
-                                <th style="width: 120px">Origem</th>
-                                <th style="width: 140px">Resposta anexada</th>
-                            </tr></thead>
-                            <tbody>
-                            <th:block th:each="par : ${processo.pareceres}">
-                            <tr>
-                                <td th:text="${par.membro.rotulo}">Medico</td>
-                                <td>
+                    <!-- Formulario unificado: resultado + upload por medico -->
+                    <table class="table align-middle">
+                        <thead><tr>
+                            <th>Medico</th>
+                            <th style="width: 200px">Parecer</th>
+                            <th style="width: 130px">Data resposta</th>
+                            <th style="width: 120px">Origem</th>
+                            <th style="width: 140px">Resposta anexada</th>
+                            <th style="width: 180px">Acao</th>
+                        </tr></thead>
+                        <tbody>
+                        <th:block th:each="par : ${processo.pareceres}">
+                        <tr>
+                            <td th:text="${par.membro.rotulo}">Medico</td>
+                            <td>
+                                <!-- Processo ja finalizado: pendentes viram "Dispensado pela maioria" -->
+                                <th:block th:if="${processo.status.finalizado and par.resultado == null}">
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-dash-circle"></i> Dispensado pela maioria
+                                    </span>
+                                </th:block>
+                                <span th:unless="${processo.status.finalizado and par.resultado == null}"
+                                      th:text="${par.resultado != null} ? ${par.resultado.descricao} : '—'"
+                                      class="small">—</span>
+                            </td>
+                            <td class="small text-muted"
+                                th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</td>
+                            <td>
+                                <span th:if="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
+                                      class="badge bg-primary" title="Voto registrado pelo proprio avaliador autenticado no portal">
+                                    <i class="bi bi-person-check"></i> Portal
+                                </span>
+                                <span th:unless="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
+                                      class="badge bg-light text-dark border" title="Resultado lancado pelo operador apos receber por e-mail">
+                                    <i class="bi bi-envelope"></i> Operador
+                                </span>
+                            </td>
+                            <td>
+                                <span th:if="${pareceresComResposta.contains(par.id)}" class="badge bg-success">
+                                    <i class="bi bi-paperclip"></i> Sim
+                                </span>
+                                <span th:unless="${pareceresComResposta.contains(par.id)}"
+                                      th:classappend="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'bg-primary' : (${processo.status.finalizado} ? 'bg-secondary' : 'bg-secondary')"
+                                      class="badge"
+                                      th:text="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'Dispensado' : (${processo.status.finalizado} ? 'Dispensado' : 'Nao')">Nao</span>
+                            </td>
+                            <td>
+                                <!-- Portal: voto imutavel, sem acao do operador -->
+                                <th:block th:if="${pareceresPortal.contains(par.id)}">
+                                    <span class="small text-muted fst-italic">
+                                        <i class="bi bi-shield-lock text-primary"></i> Voto no portal
+                                    </span>
+                                </th:block>
+                                <!-- Finalizado + pendente: dispensado -->
+                                <th:block th:unless="${pareceresPortal.contains(par.id)}"
+                                          th:if="${processo.status.finalizado and par.resultado == null}">
+                                    <span class="small text-muted">—</span>
+                                </th:block>
+                                <!-- Form unificado: resultado + upload em uma unica acao -->
+                                <form th:unless="${pareceresPortal.contains(par.id) or (processo.status.finalizado and par.resultado == null)}"
+                                      th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
+                                      method="post" enctype="multipart/form-data"
+                                      class="d-flex gap-1 align-items-center flex-nowrap">
                                     <input type="hidden" name="parecerId" th:value="${par.id}">
-                                    <!-- dataEnvio oculto para preservar o valor ao salvar pareceres -->
-                                    <input type="hidden" name="dataEnvio" th:value="${par.dataEnvio}">
-                                     <!-- Processo ja finalizado: pendentes viram "Dispensado pela maioria" -->
-                                    <th:block th:if="${processo.status.finalizado and par.resultado == null}">
-                                        <span class="badge bg-secondary">
-                                            <i class="bi bi-dash-circle"></i> Dispensado pela maioria
-                                        </span>
-                                        <input type="hidden" name="resultado" value="">
-                                    </th:block>
-                                    <!-- Pareceres votados pelo portal sao IMUTAVEIS: operador nao pode alterar -->
-                                    <select th:unless="${processo.status.finalizado and par.resultado == null}"
-                                            name="resultado" class="form-select form-select-sm parecer-select"
-                                            th:disabled="${pareceresPortal.contains(par.id)}"
-                                            th:title="${pareceresPortal.contains(par.id)} ? 'Voto registrado pelo avaliador no portal — imutavel pelo operador.' : null">
-                                        <option value="">-- pendente --</option>
+                                    <select name="resultado" class="form-select form-select-sm"
+                                            style="width: 140px"
+                                            th:disabled="${par.resultado != null}"
+                                            th:if="${par.resultado == null}">
+                                        <option value="">-- parecer --</option>
                                         <option th:each="r : ${resultadoValores}"
                                                 th:value="${r.name()}"
-                                                th:text="${r.descricao}"
-                                                th:selected="${par.resultado != null and par.resultado.name() == r.name()}"></option>
+                                                th:text="${r.descricao}"></option>
                                     </select>
-                                    <!-- Campo hidden para garantir que o valor do portal seja reenviado mesmo com select disabled -->
-                                    <input th:if="${pareceresPortal.contains(par.id) and par.resultado != null}"
-                                           type="hidden" name="resultado" th:value="${par.resultado.name()}">
-                                </td>
-                                <td class="small text-muted"
-                                    th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</td>
-                                <td>
-                                    <!-- Origem: AVALIADOR_SISTEMA = voto direto no portal; null/OPERADOR_EMAIL = via e-mail -->
-                                    <span th:if="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
-                                          class="badge bg-primary" title="Voto registrado pelo proprio avaliador autenticado no portal">
-                                        <i class="bi bi-person-check"></i> Portal
-                                    </span>
-                                    <span th:unless="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
-                                          class="badge bg-light text-dark border" title="Resultado lancado pelo operador apos receber por e-mail">
-                                        <i class="bi bi-envelope"></i> Operador
-                                    </span>
-                                </td>
-                                <td>
-                                    <!-- Verifica se ja tem anexo de resposta para este parecer -->
-                                    <!-- Para AVALIADOR_SISTEMA o anexo nao e exigido (o voto autenticado e a prova) -->
-                                    <span th:if="${pareceresComResposta.contains(par.id)}" class="badge bg-success">
-                                        <i class="bi bi-paperclip"></i> Sim
-                                    </span>
-                                    <span th:unless="${pareceresComResposta.contains(par.id)}"
-                                          th:classappend="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'bg-primary' : (${processo.status.finalizado} ? 'bg-secondary' : 'bg-secondary')"
-                                          class="badge"
-                                          th:text="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'Dispensado' : (${processo.status.finalizado} ? 'Dispensado' : 'Nao')">Nao</span>
-                                </td>
-                            </tr>
-                            <!-- Justificativa do avaliador (material INTERNO do operador;
-                                 NUNCA exibida a outros avaliadores no portal). -->
-                            <tr th:if="${par.justificativa != null and !par.justificativa.isBlank()}">
-                                <td colspan="5" class="pt-0">
-                                    <div class="alert alert-light border py-2 mb-0 small">
-                                        <i class="bi bi-chat-left-quote text-secondary"></i>
-                                        <span class="fw-semibold">Justificativa / observacoes do avaliador:</span>
-                                        <div class="text-body mt-1" style="white-space: pre-wrap"
-                                             th:text="${par.justificativa}">...</div>
-                                    </div>
-                                </td>
-                            </tr>
-                            </th:block>
-                            </tbody>
-                        </table>
-                        <div class="text-end">
-                            <button class="btn btn-primary btn-sm">Salvar pareceres</button>
-                        </div>
-                    </form>
+                                    <span th:if="${par.resultado != null}"
+                                          class="small text-success fw-semibold"
+                                          th:text="${par.resultado.descricao}">—</span>
+                                    <th:block th:if="${par.resultado == null and !pareceresComResposta.contains(par.id)}">
+                                        <input type="file" name="arquivo" class="form-control form-control-sm"
+                                               accept=".pdf,.eml,.msg" style="width: 140px" required>
+                                        <button class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
+                                            <i class="bi bi-upload"></i> Registrar
+                                        </button>
+                                    </th:block>
+                                    <th:block th:if="${par.resultado != null and !pareceresComResposta.contains(par.id)}">
+                                        <input type="file" name="arquivo" class="form-control form-control-sm"
+                                               accept=".pdf,.eml,.msg" style="width: 140px" required>
+                                        <button class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
+                                            <i class="bi bi-upload"></i> Anexar
+                                        </button>
+                                    </th:block>
+                                </form>
+                            </td>
+                        </tr>
+                        <!-- Justificativa do avaliador (material INTERNO do operador;
+                             NUNCA exibida a outros avaliadores no portal). -->
+                        <tr th:if="${par.justificativa != null and !par.justificativa.isBlank()}">
+                            <td colspan="6" class="pt-0">
+                                <div class="alert alert-light border py-2 mb-0 small">
+                                    <i class="bi bi-chat-left-quote text-secondary"></i>
+                                    <span class="fw-semibold">Justificativa / observacoes do avaliador:</span>
+                                    <div class="text-body mt-1" style="white-space: pre-wrap"
+                                         th:text="${par.justificativa}">...</div>
+                                </div>
+                            </td>
+                        </tr>
+                        </th:block>
+                        </tbody>
+                    </table>
 
-                    <!-- Upload individual de e-mail de resposta por avaliador -->
-                    <hr>
-                    <h6 class="text-muted small">Anexar e-mail de resposta por avaliador</h6>
-                    <div th:each="par : ${processo.pareceres}" class="row g-2 align-items-end mb-2">
-                        <div class="col-md-4 small fw-semibold" th:text="${par.membro.rotulo}">Medico</div>
-                        <!-- Parecer votado pelo portal: o registro autenticado dispensa e protege o anexo -->
-                        <div th:if="${pareceresPortal.contains(par.id)}"
-                             class="col-md-8 small text-muted fst-italic">
-                            <i class="bi bi-shield-lock text-primary"></i>
-                            Voto registrado pelo avaliador no portal — anexo de resposta nao exigido nem substituivel.
-                        </div>
-                        <form th:unless="${pareceresPortal.contains(par.id)}"
-                              th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
-                              method="post" enctype="multipart/form-data"
-                              class="col-md-8 d-flex gap-2 align-items-center">
+                    <!-- Botao para salvar apenas pareceres (sem upload) — util para ajustes manuais -->
+                    <form th:action="@{/processos/{id}/pareceres(id=${processo.id})}" method="post"
+                          class="d-none" id="formPareceresHidden">
+                        <th:block th:each="par : ${processo.pareceres}">
                             <input type="hidden" name="parecerId" th:value="${par.id}">
-                            <input type="file" name="arquivo" class="form-control form-control-sm"
-                                   accept=".pdf,.eml,.msg" required>
-                            <button class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
-                                <i class="bi bi-upload"></i> Anexar
-                            </button>
-                        </form>
-                    </div>
+                            <input type="hidden" name="dataEnvio" th:value="${par.dataEnvio}">
+                            <input type="hidden" name="resultado" th:value="${par.resultado != null} ? ${par.resultado.name()} : ''">
+                        </th:block>
+                    </form>
 
                     <div class="alert alert-info py-2 mb-0 mt-2" th:if="${sugestao != null}">
                         <i class="bi bi-lightbulb"></i>

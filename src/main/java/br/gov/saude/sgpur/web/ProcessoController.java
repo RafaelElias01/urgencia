@@ -809,14 +809,16 @@ public class ProcessoController {
     }
 
     /**
-     * Faz upload do e-mail de resposta de um avaliador especifico, vinculando
-     * ao Parecer correspondente (identificado por parecerId).
+     * Faz upload do e-mail de resposta de um avaliador especifico e opcionalmente
+     * registra o resultado (parecer) em uma unica acao. Se resultado for informado,
+     * o parecer e atualizado de uma vez — dispensando o form separado de pareceres.
      */
     @PostMapping("/{id}/resposta-avaliador")
     public String respostaAvaliador(@PathVariable Long id,
                                     @RequestParam Long parecerId,
                                     @RequestParam("arquivo") MultipartFile arquivo,
                                     @RequestParam(required = false) String descricao,
+                                    @RequestParam(required = false) String resultado,
                                     RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
         Parecer parecer = parecerRepository.findById(parecerId)
@@ -833,9 +835,30 @@ public class ProcessoController {
             anexoStorage.salvarRespostaAvaliador(p, parecer, desc, arquivo);
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - Resposta de " + parecer.getMembro().getNome());
-            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome() + " anexada.");
         } catch (IllegalArgumentException | IOException e) {
             ra.addFlashAttribute("erro", "Falha ao anexar resposta: " + e.getMessage());
+            return "redirect:/processos/" + id + "#respostas";
+        }
+        // Se resultado foi informado, atualiza o parecer de uma vez
+        if (resultado != null && !resultado.isBlank()) {
+            parecer.setResultado(ResultadoParecer.valueOf(resultado));
+            if (parecer.getDataResposta() == null) {
+                parecer.setDataResposta(LocalDate.now());
+            }
+            processoService.salvar(p);
+            processoService.atualizarStatusPorPareceres(id);
+            Processo pDecidido = processoService.tentarDecisaoAutomatica(id);
+            if (pDecidido.getStatus().isFinalizado()) {
+                try { decisaoFinalService.gerarDocumentos(pDecidido); }
+                catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
+                ra.addFlashAttribute("msg", "Resposta e parecer registrados. Decisao automatica: "
+                    + pDecidido.getStatus().getDescricao() + ".");
+                return "redirect:/processos/" + id;
+            }
+            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome()
+                + " anexada e parecer registrado.");
+        } else {
+            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome() + " anexada.");
         }
         return "redirect:/processos/" + id + "#respostas";
     }
