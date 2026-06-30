@@ -10,18 +10,20 @@
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary" th:fragment="navbar">
+<nav class="navbar navbar-expand-lg navbar-sgpur" th:fragment="navbar">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold" th:href="@{/}">
-            <i class="bi bi-droplet-half"></i> SGPUR
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/}">
+            <i class="bi bi-droplet-half" style="font-size: 1.25rem;"></i>
+            <span>SGPUR</span>
+            <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
                 data-bs-target="#nav" aria-controls="nav" aria-expanded="false">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="nav">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" th:href="@{/}">Painel</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/}"><i class="bi bi-grid-1x2-fill me-1"></i>Painel</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/processos}">Processos</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>
@@ -48,7 +50,9 @@
                 </li>
                 <li class="nav-item">
                     <form th:action="@{/logout}" method="post" class="d-inline">
-                        <button class="btn btn-sm btn-outline-light" type="submit">Sair</button>
+                        <button class="btn btn-sm btn-outline-light border-1" type="submit">
+                            <i class="bi bi-box-arrow-right"></i> Sair
+                        </button>
                     </form>
                 </li>
             </ul>
@@ -69,6 +73,10 @@
         <span th:text="${aviso}"></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+</div>
+
+<div th:fragment="footer" class="footer-sgpur mt-auto">
+    <small>SGPUR &mdash; Sistema de Gestao de Processos de Urgencia Renal &bull; Secretaria da Saude RS</small>
 </div>
 
 <script th:fragment="scripts" th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>

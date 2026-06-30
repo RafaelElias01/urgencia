@@ -6,77 +6,92 @@
 <div th:replace="~{layout :: flash}"></div>
 
 <div class="container my-4">
-    <div class="d-flex justify-content-between align-items-start mb-3">
+    <div class="d-flex justify-content-between align-items-start mb-3 animate-fade-in">
         <div>
-            <h1 class="h3 mb-1">
-                <span th:text="${processo.identificacao()}">00/0000 - Paciente - RGCT</span>
-                <span class="badge align-middle" th:classappend="${processo.status.bootstrapBadge}"
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <a th:href="@{/processos}" class="btn btn-sm btn-outline-secondary rounded-circle p-1"
+                   title="Voltar para lista" style="width:32px;height:32px;">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h1 class="h4 mb-0">
+                    <span th:text="${processo.identificacao()}">00/0000 - Paciente - RGCT</span>
+                </h1>
+                <span class="badge align-middle fs-6 px-3 py-1 rounded-pill"
+                      th:classappend="${processo.status.bootstrapBadge}"
                       th:text="${deferidoPeloCoordenador} ? 'Deferido pelo Coordenador da CET-RS' : ${processo.status.descricao}">status</span>
                 <span th:if="${statusSubrotulo != null}"
-                      class="badge align-middle bg-warning text-dark"
+                      class="badge align-middle bg-warning text-dark rounded-pill px-3 py-1"
                       th:text="${statusSubrotulo}">Aguardando parecer</span>
-            </h1>
-        </div>
-        <div class="d-flex gap-2">
-            <a th:href="@{/processos/{id}/relatorio(id=${processo.id})}" target="_blank"
-               class="btn btn-danger btn-sm">
-                <i class="bi bi-file-earmark-pdf"></i> Relatorio Final (PDF)
-            </a>
-            <a th:if="${processo.status.name() == 'INDEFERIDO'}"
-               th:href="@{/processos/{id}/oficio(id=${processo.id})}" target="_blank"
-               class="btn btn-warning btn-sm">
-                <i class="bi bi-file-earmark-text"></i> Oficio de Indeferimento
-            </a>
-            <a th:href="@{/processos/{id}/editar(id=${processo.id})}" class="btn btn-outline-primary btn-sm">
-                <i class="bi bi-pencil"></i> Editar
-            </a>
-            <form th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
-                  onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
-                <button type="submit" class="btn btn-outline-danger btn-sm">
-                    <i class="bi bi-trash"></i> Excluir
-                </button>
-            </form>
-            <a th:href="@{/processos}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+            </div>
+            <p class="text-muted small mb-0 ms-2">
+                <i class="bi bi-person me-1"></i><span th:text="${processo.pacienteNome}">Paciente</span>
+                <span class="mx-2">|</span>
+                <i class="bi bi-building me-1"></i><span th:text="${processo.solicitanteEquipe}">Equipe</span>
+            </p>
         </div>
     </div>
 
     <div class="row g-4">
-        <!-- Coluna esquerda: etapas em tempo real -->
+        <!-- Coluna esquerda: timeline do processo -->
         <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-list-check"></i> Checklist do processo</span>
-                    <span class="badge bg-light text-dark">
-                        <span th:text="${etapasConcluidas}">0</span>/<span th:text="${etapasTotal}">0</span>
-                    </span>
+            <div class="card animate-fade-in">
+                <div class="card-header d-flex justify-content-between align-items-center bg-white border-bottom-0">
+                    <span><i class="bi bi-list-check text-primary"></i> Progresso</span>
+                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary fs-6"
+                          th:text="${etapasConcluidas} + '/' + ${etapasTotal}">0/0</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body pt-0">
                     <!-- Barra de progresso -->
-                    <div class="progress mb-3" style="height: 10px;">
-                        <div class="progress-bar"
-                             th:classappend="${progresso == 100} ? 'bg-success' : 'bg-primary'"
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar complete" th:classappend="${progresso < 100} ? '' : 'complete'"
                              role="progressbar"
                              th:style="'width:' + ${progresso} + '%'"
                              th:aria-valuenow="${progresso}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
-                    <div class="text-center small text-muted mb-3">
-                        <span th:text="${progresso}">0</span>% concluido
-                    </div>
+                    <div class="text-end small text-muted mb-3" th:text="${progresso} + '% concluido'">0%</div>
 
-                    <!-- Checklist visual -->
-                    <div th:each="etapa : ${etapas}" class="etapa d-flex align-items-start"
-                         th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' :
-                                         (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
-                        <span class="check-box me-2">
-                            <i class="bi" th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'bi-check-square-fill' :
-                                          (${etapa.estado.name() == 'ATUAL'} ? 'bi-arrow-right-square-fill' : 'bi-square')"></i>
-                        </span>
-                        <span>
-                            <span class="fw-semibold" th:text="${etapa.titulo}"
-                                  th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'text-decoration-line-through' : ''">Etapa</span>
-                            <span class="badge bg-warning text-dark ms-1" th:if="${etapa.estado.name() == 'ATUAL'}">agora</span>
-                            <div class="small text-muted" th:text="${etapa.detalhe}">detalhe</div>
-                        </span>
+                    <!-- Timeline visual -->
+                    <div class="timeline">
+                        <div th:each="etapa : ${etapas}" class="timeline-item"
+                             th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' :
+                                             (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
+                            <div class="timeline-dot">
+                                <i class="bi" th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'bi-check' :
+                                              (${etapa.estado.name() == 'ATUAL'} ? 'bi-play-fill' : '')"></i>
+                            </div>
+                            <div class="timeline-title" th:text="${etapa.titulo}">Etapa</div>
+                            <div class="timeline-desc" th:text="${etapa.detalhe}">detalhe</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de atalhos rapidos -->
+            <div class="card mt-3 animate-fade-in-d1">
+                <div class="card-header bg-white border-bottom-0">
+                    <i class="bi bi-link-45deg text-secondary"></i> Atalhos
+                </div>
+                <div class="card-body pt-0">
+                    <div class="d-grid gap-2">
+                        <a th:href="@{/processos/{id}/relatorio(id=${processo.id})}" target="_blank"
+                           class="btn btn-outline-danger btn-sm text-start">
+                            <i class="bi bi-file-earmark-pdf me-2"></i> Relatorio Final (PDF)
+                        </a>
+                        <a th:if="${processo.status.name() == 'INDEFERIDO'}"
+                           th:href="@{/processos/{id}/oficio(id=${processo.id})}" target="_blank"
+                           class="btn btn-outline-warning btn-sm text-start">
+                            <i class="bi bi-file-earmark-text me-2"></i> Oficio de Indeferimento
+                        </a>
+                        <a th:href="@{/processos/{id}/editar(id=${processo.id})}"
+                           class="btn btn-outline-primary btn-sm text-start">
+                            <i class="bi bi-pencil me-2"></i> Editar processo
+                        </a>
+                        <form th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
+                              onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100 text-start">
+                                <i class="bi bi-trash me-2"></i> Excluir processo
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -105,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- Abas por fase do processo (Envio -> Respostas -> Decisao -> Finalizacao) -->
+            <!-- Wizard passo a passo -->
             <div th:with="st=${processo.status.name()},
                           recebimentoFeito=${solicitacaoOriginal != null and capaProcesso != null},
                           abaReceb=${st == 'SOLICITADO' and !(solicitacaoOriginal != null and capaProcesso != null)},
@@ -113,52 +128,46 @@
                           abaResp=${st == 'ENVIADO' or st == 'EM_ANALISE' or st == 'SOLICITA_INFORMACAO'},
                           abaFinal=${processo.status.finalizado},
                           envioFeito=${!processo.pareceres.isEmpty() and processo.pareceres[0].dataEnvio != null}">
-                <ul class="nav nav-tabs nav-fill mb-3" id="fasesTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" th:classappend="${abaReceb} ? 'active' : ''"
-                                id="tab-recebimento" data-bs-toggle="tab" data-bs-target="#pane-recebimento"
-                                type="button" role="tab" aria-controls="pane-recebimento">
-                            <i class="bi bi-inbox"></i> 1. Recebimento
-                            <i class="bi bi-check-circle-fill text-success ms-1" th:if="${recebimentoFeito}"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" th:classappend="${abaEnvio} ? 'active' : ''" th:disabled="${!liberadoEnvio}"
-                                id="tab-envio" data-bs-toggle="tab" data-bs-target="#pane-envio"
-                                type="button" role="tab" aria-controls="pane-envio"
-                                th:title="${liberadoEnvio} ? null : 'Conclua o Recebimento (passo 1) primeiro.'">
-                            <i class="bi" th:classappend="${liberadoEnvio} ? 'bi-send' : 'bi-lock-fill'"></i> 2. Envio
-                            <i class="bi bi-check-circle-fill text-success ms-1" th:if="${envioFeito}"></i>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" th:classappend="${abaResp} ? 'active' : ''" th:disabled="${!liberadoRespostas}"
-                                id="tab-respostas" data-bs-toggle="tab" data-bs-target="#pane-respostas"
-                                type="button" role="tab" aria-controls="pane-respostas"
-                                th:title="${liberadoRespostas} ? null : 'Registre o Envio aos avaliadores (passo 2) primeiro.'">
-                            <i class="bi" th:classappend="${liberadoRespostas} ? 'bi-chat-square-text' : 'bi-lock-fill'"></i> 3. Respostas
-                            <span class="badge bg-success ms-1" th:if="${envioFeito}" th:text="${favoraveis}">0</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" th:disabled="${!liberadoDecisao}"
-                                id="tab-decisao" data-bs-toggle="tab" data-bs-target="#pane-decisao"
-                                type="button" role="tab" aria-controls="pane-decisao"
-                                th:title="${liberadoDecisao} ? null : (${aguardandoInfo} ? 'Aguardando informacao complementar do solicitante - retome a analise antes de decidir.' : 'Receba e anexe todos os pareceres (passo 3) antes de decidir.')">
-                            <i class="bi" th:classappend="${liberadoDecisao} ? 'bi-scale' : 'bi-lock-fill'"></i> 4. Decisao
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" th:classappend="${abaFinal} ? 'active' : ''" th:disabled="${!liberadoFinalizacao}"
-                                id="tab-finalizacao" data-bs-toggle="tab" data-bs-target="#pane-finalizacao"
-                                type="button" role="tab" aria-controls="pane-finalizacao"
-                                th:title="${liberadoFinalizacao} ? null : 'Registre a decisao (passo 4) primeiro.'">
-                            <i class="bi" th:classappend="${liberadoFinalizacao} ? 'bi-flag' : 'bi-lock-fill'"></i> 5. Finalizacao
-                        </button>
-                    </li>
-                </ul>
+                <div class="wizard animate-fade-in" id="fasesTab" role="tablist">
+                    <!-- Passo 1: Recebimento -->
+                    <a class="wizard-step" th:classappend="${recebimentoFeito} ? 'concluida' : (${abaReceb} ? 'atual' : '')"
+                       data-bs-toggle="tab" href="#pane-recebimento" role="tab" title="Recebimento">
+                        <div class="wizard-circle"><i class="bi bi-inbox"></i></div>
+                        <span class="wizard-label">1. Recebimento</span>
+                    </a>
+                    <!-- Passo 2: Envio -->
+                    <a class="wizard-step" th:classappend="${envioFeito} ? 'concluida' : (${abaEnvio} ? 'atual' : (${!liberadoEnvio} ? 'bloqueada' : ''))"
+                       data-bs-toggle="tab" href="#pane-envio" role="tab"
+                       th:title="${!liberadoEnvio} ? 'Conclua o Recebimento (passo 1) primeiro.' : 'Envio aos avaliadores'">
+                        <div class="wizard-circle"><i class="bi bi-send"></i></div>
+                        <span class="wizard-label">2. Envio</span>
+                    </a>
+                    <!-- Passo 3: Respostas -->
+                    <a class="wizard-step" th:classappend="${liberadoDecisao} ? 'concluida' : (${abaResp} ? 'atual' : (${!liberadoRespostas} ? 'bloqueada' : ''))"
+                       data-bs-toggle="tab" href="#pane-respostas" role="tab"
+                       th:title="${!liberadoRespostas} ? 'Registre o Envio aos avaliadores (passo 2) primeiro.' : 'Pareceres dos avaliadores'">
+                        <div class="wizard-circle"><i class="bi bi-chat-square-text"></i></div>
+                        <span class="wizard-label">3. Respostas</span>
+                        <span class="badge bg-success ms-1" th:if="${envioFeito and favoraveis > 0}"
+                              th:text="${favoraveis}" style="font-size:.55rem;">0</span>
+                    </a>
+                    <!-- Passo 4: Decisao -->
+                    <a class="wizard-step" th:classappend="${liberadoFinalizacao} ? 'concluida' : (${!liberadoDecisao} ? 'bloqueada' : '')"
+                       data-bs-toggle="tab" href="#pane-decisao" role="tab"
+                       th:title="${!liberadoDecisao} ? (${aguardandoInfo} ? 'Aguardando informacao complementar do solicitante' : 'Receba todos os pareceres (passo 3) antes de decidir.') : 'Decisao final'">
+                        <div class="wizard-circle"><i class="bi bi-scale"></i></div>
+                        <span class="wizard-label">4. Decisao</span>
+                    </a>
+                    <!-- Passo 5: Finalizacao -->
+                    <a class="wizard-step" th:classappend="${abaFinal} ? 'concluida' : (${!liberadoFinalizacao} ? 'bloqueada' : '')"
+                       data-bs-toggle="tab" href="#pane-finalizacao" role="tab"
+                       th:title="${!liberadoFinalizacao} ? 'Registre a decisao (passo 4) primeiro.' : 'Finalizacao'">
+                        <div class="wizard-circle"><i class="bi bi-flag"></i></div>
+                        <span class="wizard-label">5. Finalizacao</span>
+                    </a>
+                </div>
 
-                <div class="tab-content" id="fasesTabContent">
+                <div class="tab-content wizard-content" id="fasesTabContent">
                 <!-- ABA 1: Recebimento e ajuste do texto -->
                 <div class="tab-pane fade" th:classappend="${abaReceb} ? 'show active' : ''"
                      id="pane-recebimento" role="tabpanel" aria-labelledby="tab-recebimento">
@@ -809,6 +818,8 @@
         </div>
     </div>
 </div>
+
+<div th:replace="~{layout :: footer}"></div>
 
 <script th:replace="~{layout :: scripts}"></script>
 <script>
