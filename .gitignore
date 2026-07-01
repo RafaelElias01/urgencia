@@ -43,6 +43,12 @@ deploy/sgpur.env
 node_modules/
 package-lock.json
 
+### Documentos Office (modelos e referencias) ###
+*.doc
+*.docx
+*.xls
+*.xlsx
+
 ### Claude Code (settings pessoais, fora do git) ###
 .claude/settings.local.json
 

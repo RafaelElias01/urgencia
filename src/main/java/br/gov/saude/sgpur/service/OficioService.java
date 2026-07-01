@@ -33,11 +33,11 @@ public class OficioService {
             Font fTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.BLACK);
             Font fCorpo = FontFactory.getFont(FontFactory.HELVETICA, 11, Color.BLACK);
 
-            // Cabecalho institucional (placeholders editaveis)
-            Paragraph cab = new Paragraph("SECRETARIA DE SAUDE", fCab);
+            // Cabecalho institucional
+            Paragraph cab = new Paragraph("GOVERNO DO ESTADO DO RIO GRANDE DO SUL", fCab);
             cab.setAlignment(Element.ALIGN_CENTER);
             doc.add(cab);
-            Paragraph cab2 = new Paragraph("Equipe de Urgencia Renal", fCabSub);
+            Paragraph cab2 = new Paragraph("URGENCIA RENAL", fCabSub);
             cab2.setAlignment(Element.ALIGN_CENTER);
             cab2.setSpacingAfter(24);
             doc.add(cab2);

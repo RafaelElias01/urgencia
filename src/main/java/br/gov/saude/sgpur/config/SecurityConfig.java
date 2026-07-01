@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll()
                 .requestMatchers("/usuarios/**", "/auditoria/**").hasRole("ADMIN")
                 .requestMatchers("/membros/**", "/relatorios/**").hasRole("ADMIN")
+                .requestMatchers("/controle-urgencias/**").hasAnyRole("ADMIN", "OPERADOR")
                 .requestMatchers("/", "/processos/**").hasAnyRole("ADMIN", "OPERADOR")
                 .requestMatchers("/avaliador/**").hasRole("AVALIADOR")
                 .anyRequest().authenticated()

@@ -1,12 +1,15 @@
 package br.gov.saude.sgpur.config;
 
+import br.gov.saude.sgpur.domain.ControleUrgencia;
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.ResultadoParecer;
+import br.gov.saude.sgpur.domain.SituacaoUrgencia;
 import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.domain.Usuario;
+import br.gov.saude.sgpur.repository.ControleUrgenciaRepository;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
@@ -49,13 +52,13 @@ public class DataSeed {
                 return;
             }
             List<MembroUrgenciaRenal> membros = List.of(
-                new MembroUrgenciaRenal("HBBL", "Marcia Abichequer", null),
-                new MembroUrgenciaRenal("HNSP", "Cristiane M da Silveira Souto", null),
-                new MembroUrgenciaRenal("HSLPUC", "Ivan Antonello", null),
-                new MembroUrgenciaRenal("ISCMPA", "Clotilde Garcia", null),
-                new MembroUrgenciaRenal("HCPA", "Veronica Horbe", null),
-                new MembroUrgenciaRenal("SGN", "Marcelo Generali da Costa", null),
-                new MembroUrgenciaRenal("HCl", "Ana Lucia", null),
+                new MembroUrgenciaRenal("HBBL", "Marcia Abichequer", "abichequer@uol.com.br"),
+                new MembroUrgenciaRenal("HNSP", "Cristiane Martins da Silveira Souto", "crismssouto@gmail.com"),
+                new MembroUrgenciaRenal("HSLPUC", "Ivan Antonello", "ivan.antonello@pucrs.br"),
+                new MembroUrgenciaRenal("ISCMPA", "Clotilde Garcia", "cdruckgarcia@gmail.com"),
+                new MembroUrgenciaRenal("HCPA", "Veronica Horbe", "horbe@cpovo.net"),
+                new MembroUrgenciaRenal("SGN", "Marcelo Generali da Costa", "margenerali@uol.com.br"),
+                new MembroUrgenciaRenal("HCl", "Ana Lucia", "anacaetano.vascular@terra.com.br"),
                 new MembroUrgenciaRenal("CET", "Rogerio Caruso Bezerra", null)
             );
             // CET - Rogerio Caruso Bezerra e o coordenador CET-RS
@@ -194,6 +197,41 @@ public class DataSeed {
             log.info("DataSeed: processo de demonstracao {} criado (ENVIADO). "
                     + "Pendencias para avaliador1 ({}).",
                 NUMERO_PROCESSO_DEMO, tres.get(0).getNome());
+        };
+    }
+
+    /**
+     * Carga inicial de registros de Controle de Urgencias (perfil dev).
+     * Cria alguns pacientes com datas de vencimento variadas para testar
+     * a listagem, os filtros e a renovacao.
+     */
+    @Bean
+    @Order(5)
+    @Profile("dev")
+    CommandLineRunner seedControleUrgencias(ControleUrgenciaRepository repo) {
+        return args -> {
+            if (repo.count() > 0) {
+                return;
+            }
+            LocalDate hoje = LocalDate.now();
+            List<ControleUrgencia> registros = List.of(
+                new ControleUrgencia("Joao Antonio Silva", "SNT-12345", "HCPA - Nefrologia", "O",
+                    SituacaoUrgencia.ATIVA, hoje.plusDays(10)),
+                new ControleUrgencia("Maria das Gracas Oliveira", "SNT-23456", "ISCMPA", "A",
+                    SituacaoUrgencia.ATIVA, hoje.plusDays(25)),
+                new ControleUrgencia("Carlos Alberto Pereira", "SNT-34567", "HNSP", "B",
+                    SituacaoUrgencia.RENOVADA, hoje.plusDays(35)),
+                new ControleUrgencia("Ana Beatriz Costa", "SNT-45678", "HSLPUC", "AB",
+                    SituacaoUrgencia.ATIVA, hoje.minusDays(3)),
+                new ControleUrgencia("Pedro Augusto Martins", "SNT-56789", "HBBL", "A",
+                    SituacaoUrgencia.EXPIRADA, hoje.minusDays(15)),
+                new ControleUrgencia("Lucia Helena Souza", "SNT-67890", "HCI", "O",
+                    SituacaoUrgencia.CANCELADA, hoje.minusDays(60))
+            );
+            // Marcar data da ultima renovacao para as renovadas
+            registros.get(2).setDataUltimaRenovacao(hoje.minusDays(5));
+            repo.saveAll(registros);
+            log.info("DataSeed: {} registros de controle de urgencias criados.", registros.size());
         };
     }
 }

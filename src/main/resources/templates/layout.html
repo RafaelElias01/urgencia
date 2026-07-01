@@ -25,6 +25,8 @@
             <ul class="navbar-nav me-auto">
                 <li class="nav-item"><a class="nav-link" th:href="@{/}"><i class="bi bi-grid-1x2-fill me-1"></i>Painel</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/processos}">Processos</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/controle-urgencias}">
+                    <i class="bi bi-clock-history me-1"></i>Urgencias</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">
