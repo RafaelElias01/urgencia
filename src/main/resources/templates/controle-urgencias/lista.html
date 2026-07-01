@@ -77,8 +77,8 @@
                                   th:text="${r.abo}">AB</span>
                             <span th:unless="${r.abo}">-</span>
                         </td>
-                        <td th:text="${r.dataVencimento}">01/01/2026</td>
-                        <td class="small text-muted" th:text="${r.dataUltimaRenovacao} ?: '-'">-</td>
+                        <td th:text="${#temporals.format(r.dataVencimento, 'dd/MM/yyyy')}">01/01/2026</td>
+                        <td class="small text-muted" th:text="${r.dataUltimaRenovacao != null} ? ${#temporals.format(r.dataUltimaRenovacao, 'dd/MM/yyyy')} : '-'">-</td>
                         <td>
                             <span class="badge"
                                   th:classappend="${r.situacao.name() == 'ATIVA'} ? 'bg-primary' : (${r.situacao.name() == 'RENOVADA'} ? 'bg-success' : (${r.situacao.name() == 'EXPIRADA'} ? 'bg-warning text-dark' : 'bg-secondary'))"
