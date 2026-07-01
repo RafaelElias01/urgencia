@@ -61,3 +61,8 @@ app:
   # URL base da aplicacao, usada nos links do Portal do Avaliador nos e-mails.
   # Sobrescreva em producao com a URL publica real (ex.: https://sgpur.saude.rs.gov.br).
   base-url: ${SGPUR_BASE_URL:http://localhost:3000}
+
+  # Google Gemini API (IA generativa)
+  gemini:
+    api-key: ${SGPUR_GEMINI_KEY:}
+    model: ${SGPUR_GEMINI_MODEL:gemini-2.5-flash}

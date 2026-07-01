@@ -172,15 +172,7 @@
                                      th:text="${c.medico}" th:title="${c.medico}">Medico</div>
                                 <span class="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5
                                              text-[11px] font-semibold ring-1 ring-inset"
-                                      th:classappend="${c.cor == 'success'}
-                                            ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                                            : (${c.cor == 'danger'}
-                                            ? 'bg-rose-50 text-rose-700 ring-rose-200'
-                                            : (${c.cor == 'warning'}
-                                            ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                                            : (${c.cor == 'info'}
-                                            ? 'bg-sky-50 text-sky-700 ring-sky-200'
-                                            : 'bg-slate-100 text-slate-500 ring-slate-200')))">
+                                 th:classappend="${c.cor == 'success'} ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : (${c.cor == 'danger'} ? 'bg-rose-50 text-rose-700 ring-rose-200' : (${c.cor == 'warning'} ? 'bg-amber-50 text-amber-700 ring-amber-200' : (${c.cor == 'info'} ? 'bg-sky-50 text-sky-700 ring-sky-200' : 'bg-slate-100 text-slate-500 ring-slate-200')))">
                                     <i class="bi" th:classappend="'bi-' + ${c.icone}"></i>
                                     <span th:text="${c.texto}">situacao</span>
                                 </span>

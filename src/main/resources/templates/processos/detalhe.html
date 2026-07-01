@@ -58,11 +58,9 @@
                     <!-- Timeline visual -->
                     <div class="timeline">
                         <div th:each="etapa : ${etapas}" class="timeline-item"
-                             th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' :
-                                             (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
+                             th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'concluida' : (${etapa.estado.name() == 'ATUAL'} ? 'atual' : 'pendente')">
                             <div class="timeline-dot">
-                                <i class="bi" th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'bi-check' :
-                                              (${etapa.estado.name() == 'ATUAL'} ? 'bi-play-fill' : '')"></i>
+                                <i class="bi" th:classappend="${etapa.estado.name() == 'CONCLUIDA'} ? 'bi-check' : (${etapa.estado.name() == 'ATUAL'} ? 'bi-play-fill' : '')"></i>
                             </div>
                             <div class="timeline-title" th:text="${etapa.titulo}">Etapa</div>
                             <div class="timeline-desc" th:text="${etapa.detalhe}">detalhe</div>
@@ -484,15 +482,23 @@
                     <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
                 </div>
                 <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Para cada medico, selecione o parecer (<strong>Favoravel</strong> /
+                        <strong>Nao favoravel</strong> / <strong>Solicita informacao</strong>),
+                        anexe o e-mail de resposta (.pdf, .eml, .msg) recebido, e clique em
+                        <strong>Registrar</strong>.
+                        A decisao ocorre por <strong>maioria simples</strong> (2 de 3):
+                        &ge;2 favoraveis = Deferido, &ge;2 desfavoraveis = Indeferido.
+                    </p>
                     <!-- Formulario unificado: resultado + upload por medico -->
                     <div class="table-responsive">
-                        <table class="table align-middle">
+                        <table class="table align-middle table-hover mb-0 tabela-pareceres">
                         <thead><tr>
                             <th>Medico</th>
-                            <th style="width: 200px">Parecer</th>
-                            <th style="width: 130px">Data resposta</th>
-                            <th style="width: 120px">Origem</th>
-                            <th style="width: 140px">Resposta anexada</th>
+                            <th>Parecer</th>
+                            <th>Data resposta</th>
+                            <th>Origem</th>
+                            <th>Resposta anexada</th>
                             <th>Acao</th>
                         </tr></thead>
                         <tbody>
@@ -547,7 +553,7 @@
                                 <form th:unless="${pareceresPortal.contains(par.id) or (processo.status.finalizado and par.resultado == null)}"
                                       th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
                                       method="post" enctype="multipart/form-data"
-                                      class="d-flex flex-column gap-1">
+                                      class="acao-form">
                                     <input type="hidden" name="parecerId" th:value="${par.id}">
                                     <select name="resultado" class="form-select form-select-sm"
                                             th:disabled="${par.resultado != null}"
@@ -633,6 +639,16 @@
             <div class="card mb-4" id="decisao">
                 <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
                 <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        A sugestao automatica (exibida no passo anterior) considera a
+                        <strong>maioria simples (2 de 3)</strong>. Confira os pareceres e registre
+                        a decisao:
+                        <br>
+                        <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
+                        <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
+                        (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
+                        a qualquer momento.
+                    </p>
                     <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
                         <div class="row g-2 align-items-end">
                             <div class="col-md-4">
@@ -678,6 +694,17 @@
             <div class="card mb-4" id="finalizacao">
                 <div class="card-header"><i class="bi bi-flag"></i> Finalizacao</div>
                 <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Conclua o processo preenchendo os campos abaixo. As etapas obrigatorias
+                        variam conforme a decisao:
+                        <span th:if="${processo.status.name() == 'INDEFERIDO'}">
+                            <strong>Indeferido:</strong> anexe o oficio de indeferimento e registre as datas.
+                        </span>
+                        <span th:if="${processo.status.name() == 'DEFERIDO'}">
+                            <strong>Deferido:</strong> anexe o comprovante de insercao no SNT.
+                        </span>
+                        Em ambos os casos, registre o envio da resposta ao solicitante.
+                    </p>
 
                     <!-- Oficio de Indeferimento (apenas INDEFERIDO) -->
                     <div th:if="${processo.status.name() == 'INDEFERIDO'}" class="border rounded p-3 mb-3 bg-light">

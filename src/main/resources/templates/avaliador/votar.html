@@ -82,9 +82,7 @@
                                    th:value="${r.name()}" required>
                             <label class="form-check-label" th:for="${'resultado_' + r.name()}">
                                 <i class="bi"
-                                   th:classappend="${r.name() == 'FAVORAVEL'} ? 'bi-check-circle text-success'
-                                               : (${r.name() == 'NAO_FAVORAVEL'} ? 'bi-x-circle text-danger'
-                                               : 'bi-question-circle text-warning')"></i>
+                                   th:classappend="${r.name() == 'FAVORAVEL'} ? 'bi-check-circle text-success' : (${r.name() == 'NAO_FAVORAVEL'} ? 'bi-x-circle text-danger' : 'bi-question-circle text-warning')"></i>
                                 <span th:text="${r.descricao}">Resultado</span>
                             </label>
                         </div>

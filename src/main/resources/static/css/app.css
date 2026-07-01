@@ -88,6 +88,34 @@ body {
     border-radius: 12px 12px 0 0 !important;
 }
 
+/* === Tabela de pareceres (respostas dos avaliadores) === */
+.tabela-pareceres {
+    width: 100%;
+    table-layout: auto;
+}
+.tabela-pareceres th,
+.tabela-pareceres td {
+    padding: .75rem .625rem;
+    vertical-align: middle;
+}
+.tabela-pareceres th:first-child,
+.tabela-pareceres td:first-child {
+    padding-left: 1rem;
+}
+.tabela-pareceres th:last-child,
+.tabela-pareceres td:last-child {
+    padding-right: 1rem;
+}
+.tabela-pareceres th:nth-child(2),
+.tabela-pareceres td:nth-child(2) {
+    white-space: normal;
+    min-width: 140px;
+}
+.tabela-pareceres th:nth-child(6),
+.tabela-pareceres td:nth-child(6) {
+    min-width: 300px;
+}
+
 /* === Wizard horizontal (passo a passo) === */
 .wizard {
     display: flex;
@@ -324,7 +352,7 @@ body {
 /* Forms dentro de tabela (aba Respostas): controles nao vazam da celula */
 .table td form { min-width: 0; }
 .table td form .form-select,
-.table td form .form-control { width: 100% !important; }
+.table td form .form-control { width: 100%; }
 
 /* Evita estouro de conteúdo em células da tabela: quebra palavras longas e permite wrap */
 .table td { word-break: break-word; white-space: normal; }
@@ -459,6 +487,30 @@ body {
 
 #pane-envio .list-group-item form {
     flex: 0 0 auto;
+}
+
+/* === Acao column na tabela de pareceres - layout horizontal === */
+.tabela-pareceres .acao-form {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: .375rem;
+}
+.tabela-pareceres .acao-form .form-select-sm {
+    min-width: 120px;
+    max-width: 160px;
+    flex: 1 1 auto;
+    width: auto;
+}
+.tabela-pareceres .acao-form .form-control-sm {
+    min-width: 130px;
+    max-width: 200px;
+    flex: 1 1 auto;
+    width: auto;
+}
+.tabela-pareceres .acao-form .btn-sm {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 /* === Scrollbar personalizada === */

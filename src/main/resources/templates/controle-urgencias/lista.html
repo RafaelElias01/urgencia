@@ -81,9 +81,7 @@
                         <td class="small text-muted" th:text="${r.dataUltimaRenovacao} ?: '-'">-</td>
                         <td>
                             <span class="badge"
-                                  th:classappend="${r.situacao.name() == 'ATIVA'} ? 'bg-primary' :
-                                                  ${r.situacao.name() == 'RENOVADA'} ? 'bg-success' :
-                                                  ${r.situacao.name() == 'EXPIRADA'} ? 'bg-warning text-dark' : 'bg-secondary'"
+                                  th:classappend="${r.situacao.name() == 'ATIVA'} ? 'bg-primary' : (${r.situacao.name() == 'RENOVADA'} ? 'bg-success' : (${r.situacao.name() == 'EXPIRADA'} ? 'bg-warning text-dark' : 'bg-secondary'))"
                                   th:text="${r.situacao.descricao}">Ativa</span>
                             <span th:if="${r.situacao.name() == 'ATIVA' and r.dataVencimento lt hoje}"
                                   class="badge bg-danger ms-1">Vencida</span>

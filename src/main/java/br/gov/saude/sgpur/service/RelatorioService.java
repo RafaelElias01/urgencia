@@ -141,10 +141,10 @@ public class RelatorioService {
         doc.add(t1);
 
         secao(doc, fSecao, "2. Pareceres dos medicos (Urgencia Renal)");
-        PdfPTable t2 = new PdfPTable(new float[]{4, 2, 2});
+        PdfPTable t2 = new PdfPTable(new float[]{3, 2, 2, 3});
         t2.setWidthPercentage(100);
         t2.setSpacingBefore(4);
-        cabecalho(t2, "Medico", "Parecer", "Data da resposta");
+        cabecalho(t2, "Medico", "Parecer", "Data da resposta", "Anexo");
         for (Parecer par : p.getPareceres()) {
             celula(t2, par.getMembro().getRotulo(), Element.ALIGN_LEFT, false);
             String textoParecer = (par.getResultado() != null)
@@ -153,11 +153,19 @@ public class RelatorioService {
             celula(t2, textoParecer, Element.ALIGN_LEFT, false);
             celula(t2, par.getDataResposta() != null ? par.getDataResposta().format(DATA) : "-",
                 Element.ALIGN_LEFT, false);
+            String nomeAnexo = p.getAnexos().stream()
+                .filter(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR
+                    && a.getParecer() != null
+                    && a.getParecer().getId().equals(par.getId()))
+                .findFirst()
+                .map(Anexo::getNomeArquivo)
+                .orElse("-");
+            celula(t2, nomeAnexo, Element.ALIGN_LEFT, false);
             if (par.getJustificativa() != null && !par.getJustificativa().isBlank()) {
                 PdfPCell cj = new PdfPCell(new Phrase(
                     "Justificativa: " + par.getJustificativa(),
                     FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA)));
-                cj.setColspan(3);
+                cj.setColspan(4);
                 cj.setPadding(4);
                 cj.setBorderColor(new Color(222, 226, 230));
                 t2.addCell(cj);
