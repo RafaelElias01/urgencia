@@ -7,6 +7,22 @@ spring:
     import: optional:classpath:application-local.yml
   profiles:
     active: dev
+
+  # E-mail (SMTP) - configurado via application-local.yml ou env vars
+  mail:
+    host: ${SGPUR_MAIL_HOST:smtp.gmail.com}
+    port: ${SGPUR_MAIL_PORT:587}
+    username: ${SGPUR_MAIL_USER:}
+    password: ${SGPUR_MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        from: ${SGPUR_MAIL_FROM:${SGPUR_MAIL_USER:}}
+
   thymeleaf:
     cache: false
   web:
