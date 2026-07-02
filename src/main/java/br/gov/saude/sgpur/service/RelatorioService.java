@@ -352,13 +352,29 @@ public class RelatorioService {
 
         float logoSize = 33;
         float logoMargem = 36;
+        // Altura reservada ao cabecalho: some-se ao MediaBox de cada pagina
+        // (em vez de sobrepor o conteudo existente) para garantir que o
+        // conteudo original - inclusive de PDFs anexados com margens
+        // proprias diferentes - comece sempre abaixo do cabecalho.
+        float alturaCabecalho = 55;
 
         for (int i = 1; i <= totalPaginas; i++) {
             // Usa as dimensoes REAIS de cada pagina (evita cabecalho cortado
             // em paginas com tamanho diferente de A4 ex.: de anexos escaneados)
             Rectangle pageSize = reader.getPageSize(i);
-            float topo = pageSize.getHeight();
-            float largUtil = pageSize.getWidth() - margemEsq - margemDir;
+            float largura = pageSize.getWidth();
+            float novaAltura = pageSize.getHeight() + alturaCabecalho;
+
+            // O conteudo original permanece ancorado na base (coordenadas
+            // inalteradas); aumentar o MediaBox no topo apenas abre espaco
+            // em branco para o cabecalho, sem deslocar/sobrepor nada.
+            PdfDictionary pageDict = reader.getPageN(i);
+            PdfRectangle novoMediaBox = new PdfRectangle(0, 0, largura, novaAltura);
+            pageDict.put(PdfName.MEDIABOX, novoMediaBox);
+            pageDict.put(PdfName.CROPBOX, novoMediaBox);
+
+            float topo = novaAltura;
+            float largUtil = largura - margemEsq - margemDir;
 
             PdfContentByte over = stamper.getOverContent(i);
 
@@ -387,7 +403,7 @@ public class RelatorioService {
             over.setLineWidth(0.5f);
             over.setColorStroke(new Color(180, 180, 180));
             over.moveTo(margemEsq, topo - 44);
-            over.lineTo(pageSize.getWidth() - margemDir, topo - 44);
+            over.lineTo(largura - margemDir, topo - 44);
             over.stroke();
 
             // Numeracao (canto inferior direito)

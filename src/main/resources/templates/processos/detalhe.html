@@ -797,36 +797,10 @@
                         </form>
                     </div>
 
-                    <!-- Dados gerais de finalizacao -->
-                    <form th:action="@{/processos/{id}/finalizacao(id=${processo.id})}" method="post"
-                          th:unless="${processo.status.name() == 'INDEFERIDO'}">
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <label class="form-label">Data emissao do oficio</label>
-                                <input type="date" name="dataEmissaoOficio" class="form-control"
-                                       th:value="${processo.dataEmissaoOficio}">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Data envio do oficio</label>
-                                <input type="date" name="dataEnvioOficio" class="form-control"
-                                       th:value="${processo.dataEnvioOficio}">
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <div class="form-check">
-                                    <input type="checkbox" name="emailEnviadoSolicitante" value="true"
-                                           class="form-check-input" id="emailEnv"
-                                           th:checked="${processo.emailEnviadoSolicitante}">
-                                    <label class="form-check-label" for="emailEnv">E-mail enviado ao solicitante</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-end mt-2">
-                            <button class="btn btn-primary btn-sm">Salvar finalizacao</button>
-                        </div>
-                    </form>
+                    <hr class="my-4">
 
                     <!-- Resposta ao solicitante (sempre visivel na finalizacao) -->
-                    <div class="border rounded p-3 mt-3 bg-light">
+                    <div class="border rounded p-3 bg-light">
                         <h6 class="mb-2"><i class="bi bi-envelope-check text-primary"></i> Resposta ao solicitante</h6>
 
                         <!-- Comprovante de envio (print/PDF do e-mail enviado) -->
@@ -858,20 +832,18 @@
                             </div>
                         </form>
 
-                        <!-- Checkbox de confirmacao -->
-                        <form th:action="@{/processos/{id}/finalizacao(id=${processo.id})}" method="post">
-                            <input type="hidden" name="dataEmissaoOficio" th:value="${processo.dataEmissaoOficio}">
-                            <input type="hidden" name="dataEnvioOficio" th:value="${processo.dataEnvioOficio}">
+                        <!-- Confirmacao de envio -->
+                        <form th:action="@{/processos/{id}/resposta-solicitante(id=${processo.id})}" method="post">
                             <div class="form-check mb-2">
                                 <input type="checkbox" name="emailEnviadoSolicitante" value="true"
-                                       class="form-check-input" id="emailEnv"
+                                       class="form-check-input" id="emailEnvSolicitante"
                                        th:checked="${processo.emailEnviadoSolicitante}">
-                                <label class="form-check-label" for="emailEnv">
+                                <label class="form-check-label" for="emailEnvSolicitante">
                                     E-mail de resposta enviado ao solicitante
                                 </label>
                             </div>
                             <button class="btn btn-primary btn-sm">
-                                <i class="bi bi-save"></i> Salvar
+                                <i class="bi bi-save"></i> Salvar finalizacao
                             </button>
                         </form>
                     </div>

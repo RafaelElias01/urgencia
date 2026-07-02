@@ -345,6 +345,13 @@ public class ProcessoService {
             throw new IllegalStateException("Indeferimento exige no minimo "
                 + DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
         }
+        // Regra: Indeferido exige o motivo (o controller ja valida isso antes de
+        // chamar este metodo, mas repetimos aqui em defesa - decidir() e publico
+        // e nao deve confiar apenas na camada web para essa garantia).
+        if (decisao == StatusProcesso.INDEFERIDO
+                && (motivoIndeferimento == null || motivoIndeferimento.isBlank())) {
+            throw new IllegalStateException("Indeferimento exige o motivo.");
+        }
         // Regra: toda resposta de medico recebida precisa ter o anexo comprobatorio
         // antes de deferir ou indeferir (garante no minimo 2 anexos de resposta).
         if (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO) {

@@ -307,6 +307,9 @@ body {
 
 .count-animate { animation: countUp .5s ease both; }
 
+/* === Link com hover na cor institucional (ex.: "Esqueci minha senha") === */
+.link-hover-primary:hover { color: var(--rs-blue) !important; }
+
 /* === Botoes com gradiente === */
 .btn-primary {
     background: linear-gradient(135deg, var(--rs-blue), #2563eb);

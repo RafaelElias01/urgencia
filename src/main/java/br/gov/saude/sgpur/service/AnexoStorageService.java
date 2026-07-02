@@ -15,6 +15,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -22,6 +24,15 @@ import java.util.UUID;
  */
 @Service
 public class AnexoStorageService {
+
+    /**
+     * Extensoes aceitas para upload manual (todo o app so pede PDF, e-mail
+     * (.eml/.msg) ou imagem do comprovante SNT nos forms - ver accept="" dos
+     * templates). Bloqueia executaveis/scripts sendo armazenados como anexo
+     * de um sistema de saude.
+     */
+    private static final Set<String> EXTENSOES_PERMITIDAS =
+        Set.of("pdf", "eml", "msg", "png", "jpg", "jpeg");
 
     private final AnexoRepository anexoRepository;
     private final Path raiz;
@@ -48,12 +59,30 @@ public class AnexoStorageService {
         return raiz.resolve(nome);
     }
 
+    /**
+     * Rejeita uploads com extensao fora da allowlist (PDF/e-mail/imagem).
+     * Nao ha antivirus nem verificacao de conteudo real do arquivo - so
+     * bloqueia o caso obvio de subir um executavel/script disfarcado de
+     * anexo clinico/comprobatorio.
+     */
+    private void validarTipoPermitido(MultipartFile arquivo) {
+        String nome = arquivo.getOriginalFilename();
+        String extensao = (nome != null && nome.contains("."))
+            ? nome.substring(nome.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)
+            : "";
+        if (!EXTENSOES_PERMITIDAS.contains(extensao)) {
+            throw new IllegalArgumentException(
+                "Tipo de arquivo nao permitido (" + extensao + "). Envie PDF, imagem (PNG/JPG) ou e-mail (EML/MSG).");
+        }
+    }
+
     @Transactional
     public Anexo salvar(Processo processo, TipoAnexo tipo, String descricao, MultipartFile arquivo)
             throws IOException {
         if (arquivo == null || arquivo.isEmpty()) {
             throw new IllegalArgumentException("Arquivo vazio.");
         }
+        validarTipoPermitido(arquivo);
         Path pastaProcesso = resolverDirProcesso(processo);
         Files.createDirectories(pastaProcesso);
 
@@ -86,6 +115,7 @@ public class AnexoStorageService {
         if (arquivo == null || arquivo.isEmpty()) {
             throw new IllegalArgumentException("Arquivo vazio.");
         }
+        validarTipoPermitido(arquivo);
         Path pastaProcesso = resolverDirProcesso(processo);
         Files.createDirectories(pastaProcesso);
 

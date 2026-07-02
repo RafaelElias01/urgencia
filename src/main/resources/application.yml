@@ -54,7 +54,10 @@ app:
   # Diretorio de armazenamento dos anexos
   anexos:
     dir: ./data/anexos
-  # Usuario administrador inicial (sobrescreva por variaveis de ambiente em producao)
+  # Usuario administrador inicial: AdminBootstrap so cria esse usuario se a
+  # tabela usuario estiver vazia. Default (admin/admin123) vale para
+  # dev/desktop; o perfil prod (application-prod.yml) exige
+  # SGPUR_ADMIN_PASSWORD via env var e falha o boot se ela nao existir.
   admin:
     username: ${SGPUR_ADMIN_USER:admin}
     password: ${SGPUR_ADMIN_PASSWORD:admin123}

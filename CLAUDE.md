@@ -3,9 +3,6 @@
 Sistema de Gestão de Processos de Urgência Renal (SGPUR). Substitui a planilha
 Excel da equipe de Urgência Renal da Secretaria de Saúde.
 
-> **Regra de ouro:** para tarefas deste sistema, use o agente **`urgencia-renal`**
-> (`.claude/agents/urgencia-renal.md`) — ele concentra a arquitetura e as regras.
-
 ## Stack
 Java 21 · Spring Boot 3.3 (web, data-jpa, thymeleaf, security, validation) ·
 PostgreSQL/Neon (prod) e H2 (dev) · Thymeleaf + Bootstrap · OpenPDF · Maven.
@@ -20,7 +17,9 @@ Pacote base `br.gov.saude.sgpur`.
 .\start.ps1            # dev (H2) — sandbox de teste
 .\start.ps1 prod       # prod (Neon) — usa application-local.yml (gitignored)
 ```
-- App em http://localhost:8080 · login inicial `admin` / `admin123`.
+- App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
+  automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
+  vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
 - Testes: `.\test.ps1` (ou `mvn test`) — **60 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +

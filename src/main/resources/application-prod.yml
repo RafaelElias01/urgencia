@@ -15,3 +15,11 @@ spring:
   h2:
     console:
       enabled: false
+
+app:
+  admin:
+    # Sem default aqui de proposito: se SGPUR_ADMIN_PASSWORD nao estiver
+    # setada no ambiente, a resolucao deste placeholder falha e o boot
+    # para - em vez de subir com a senha fraca "admin123" (default usado
+    # so em dev/desktop, em application.yml).
+    password: ${SGPUR_ADMIN_PASSWORD}

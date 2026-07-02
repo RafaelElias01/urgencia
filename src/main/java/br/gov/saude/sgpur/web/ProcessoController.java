@@ -498,7 +498,7 @@ public class ProcessoController {
                     "Copia da solicitacao original recebida", arquivo);
                 auditoria.registrar("ANEXO_ADICIONADO",
                     "Processo " + p.getNumero() + " - " + TipoAnexo.SOLICITACAO_RECEBIDA.getDescricao());
-            } catch (IOException e) {
+            } catch (IllegalArgumentException | IOException e) {
                 ra.addFlashAttribute("erro", "Falha ao anexar a solicitacao original: " + e.getMessage());
                 return "redirect:/processos/" + id + "#recebimento";
             }
@@ -632,7 +632,7 @@ public class ProcessoController {
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - " + TipoAnexo.EMAIL_ENVIADO_AVALIADORES.getDescricao());
             ra.addFlashAttribute("msg", "Comprovante de envio anexado.");
-        } catch (IOException e) {
+        } catch (IllegalArgumentException | IOException e) {
             ra.addFlashAttribute("erro", "Falha ao anexar o comprovante: " + e.getMessage());
         }
         return "redirect:/processos/" + id + "#envio";
@@ -726,7 +726,7 @@ public class ProcessoController {
 
 
 
-    /** Atualiza dados de finalizacao: datas do oficio e resposta ao solicitante. */
+    /** Atualiza as datas do oficio de indeferimento (aba Finalizacao). */
     @PostMapping("/{id}/finalizacao")
     public String finalizacao(@PathVariable Long id,
                               @RequestParam(required = false)
@@ -737,14 +737,42 @@ public class ProcessoController {
                               @org.springframework.format.annotation.DateTimeFormat(iso =
                                   org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
                               LocalDate dataEnvioOficio,
-                              @RequestParam(required = false, defaultValue = "false") boolean emailEnviadoSolicitante,
                               RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
         p.setDataEmissaoOficio(dataEmissaoOficio);
         p.setDataEnvioOficio(dataEnvioOficio);
-        p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
         processoService.salvar(p);
         ra.addFlashAttribute("msg", "Dados de finalizacao atualizados.");
+        return "redirect:/processos/" + id + "#finalizacao";
+    }
+
+    /** Confirma o envio da resposta ao solicitante (aba Resposta ao solicitante). */
+    @PostMapping("/{id}/resposta-solicitante")
+    public String respostaSolicitante(@PathVariable Long id,
+                              @RequestParam(required = false, defaultValue = "false") boolean emailEnviadoSolicitante,
+                              RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        // Regra: nao da para confirmar a resposta ao solicitante sem o
+        // comprovante que a sustenta - comprovante SNT no Deferido (simetrico
+        // ao oficio no Indeferido). Antes isso so aparecia como aviso no
+        // checklist e nao bloqueava a acao.
+        if (emailEnviadoSolicitante) {
+            if (p.getStatus() == StatusProcesso.DEFERIDO
+                    && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.COMPROVANTE_SNT)) {
+                ra.addFlashAttribute("erro",
+                    "Anexe o comprovante de insercao no SNT antes de confirmar a resposta ao solicitante.");
+                return "redirect:/processos/" + id + "#finalizacao";
+            }
+            if (p.getStatus() == StatusProcesso.INDEFERIDO
+                    && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO)) {
+                ra.addFlashAttribute("erro",
+                    "Anexe o oficio de indeferimento antes de confirmar a resposta ao solicitante.");
+                return "redirect:/processos/" + id + "#finalizacao";
+            }
+        }
+        p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
+        processoService.salvar(p);
+        ra.addFlashAttribute("msg", "Finalizacao salva.");
         return "redirect:/processos/" + id + "#finalizacao";
     }
 

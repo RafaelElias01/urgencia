@@ -266,6 +266,21 @@ class ProcessoServiceTest {
     }
 
     @Test
+    void decidirIndeferidoExigeMotivo() {
+        // Defesa em profundidade: mesmo chamando o service diretamente (sem
+        // passar pela pre-validacao do controller), Indeferido sem motivo
+        // deve ser rejeitado.
+        Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
+            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        when(processoRepository.findById(24L)).thenReturn(java.util.Optional.of(p));
+        assertThatThrownBy(() -> service.decidir(24L, StatusProcesso.INDEFERIDO, "  "))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("motivo");
+        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
+    }
+
+    @Test
     void decidirBloqueiaQuandoRespostaRecebidaSemAnexo() {
         // 2 favoraveis recebidos, mas sem o anexo da resposta -> nao pode deferir
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
@@ -286,6 +301,18 @@ class ProcessoServiceTest {
         anexarResposta(p, primeiro);
         var faltantes = service.pareceresRecebidosSemAnexo(p);
         assertThat(faltantes).containsExactly(p.getPareceres().get(1));
+    }
+
+    @Test
+    void cadastrarExigeExatamenteTresMedicos() {
+        Processo p = new Processo();
+        assertThatThrownBy(() -> service.cadastrar(p, java.util.List.of(1L, 2L)))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("exatamente");
+        assertThatThrownBy(() -> service.cadastrar(p, java.util.List.of(1L, 2L, 3L, 4L)))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.cadastrar(p, null))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     /**

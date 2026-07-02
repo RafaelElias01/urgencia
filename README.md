@@ -42,7 +42,9 @@ Requisitos: **JDK 21** e **Maven**.
 ```bash
 mvn -DskipTests spring-boot:run
 ```
-Acesse http://localhost:8080 — login inicial **admin / admin123**.
+Acesse http://localhost:8080 — login inicial **admin / admin123**, criado
+automaticamente por `AdminBootstrap` na primeira subida (só quando a tabela
+`usuario` está vazia — não sobrescreve usuários já cadastrados).
 Console do H2 em `/h2-console`.
 
 ### Produção / banco PostgreSQL (Neon)
@@ -69,10 +71,13 @@ mvn test
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `SGPUR_ADMIN_USER` | `admin` | login do administrador inicial |
-| `SGPUR_ADMIN_PASSWORD` | `admin123` | senha do administrador inicial |
+| `SGPUR_ADMIN_PASSWORD` | `admin123` em dev/desktop; **obrigatória em prod** (sem default, boot falha se ausente) | senha do administrador inicial |
 | `app.anexos.dir` | `./data/anexos` | diretório dos anexos |
 
-> Em produção, **defina `SGPUR_ADMIN_PASSWORD`** e nunca versione segredos.
+> Em produção, **defina `SGPUR_ADMIN_PASSWORD`** antes do primeiro deploy —
+> sem ela a aplicação não sobe (não há fallback para a senha padrão em
+> `application-prod.yml`). `AdminBootstrap` só cria o admin se a tabela
+> `usuario` estiver vazia. Nunca versione segredos.
 
 ## Estrutura
 
@@ -83,7 +88,8 @@ repository/  repositórios Spring Data
 service/     regras de negócio (ProcessoService, FluxoProcessoService,
              EmailTemplateService, RelatorioService, AnexoStorageService, Usuario*)
 web/         controllers MVC
-config/      segurança e carga inicial (DataSeed)
+config/      segurança (SecurityConfig), migração de schema (SchemaMigration)
+             e bootstrap do admin inicial (AdminBootstrap)
 templates/   páginas Thymeleaf · static/ CSS
 ```
 
