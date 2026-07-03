@@ -20,7 +20,7 @@ Pacote base `br.gov.saude.sgpur`.
 - App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
   automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
   vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
-- Testes: `.\test.ps1` (ou `mvn test`) — **60 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **93 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +
   **reinstala** em `C:\Program Files\SGPUR`). Use ao mexer em telas/CSS — só
@@ -85,9 +85,13 @@ Pacote base `br.gov.saude.sgpur`.
   **fundidos** (`SolicitacaoAvaliadorService.consolidar`) e depois **carimbados
   página a página** com um cabeçalho
   (`SolicitacaoAvaliadorService.carimbarCabecalho`, PdfStamper sobre o
-  over-content — não altera o conteúdo). Cabeçalho em 2 linhas: "GOVERNO DO ESTADO
-  DO RIO GRANDE DO SUL - URGENCIA RENAL" e "Processo CET-RS NN/AAAA - Paciente
-  X.X.X" (número + **iniciais**, nunca o nome completo — imparcialidade). **É
+  over-content — não altera o conteúdo). Cabeçalho em 2 linhas: "Central de
+  Transplantes do Estado do Rio Grande do Sul - URGENCIA RENAL" e "Processo
+  CET-RS NN/AAAA - Paciente X.X.X" (número + **iniciais**, nunca o nome
+  completo — imparcialidade). O mesmo texto institucional ("Central de
+  Transplantes do Estado do Rio Grande do Sul") é usado no Ofício
+  (`OficioService`), no Relatório Final (`RelatorioService`) e no Relatório
+  Anual (`RelatorioAnualService`) — trocar em um exige trocar nos 4 lugares. **É
   obrigatório ao menos um documento clínico PDF anexado:** `registrarEnvio`
   **bloqueia** (flash `erro`, sem efetivar o envio) se não houver nenhum. A
   **solicitação original** (`SOLICITACAO_RECEBIDA`) **NUNCA** entra nesse PDF
@@ -160,12 +164,61 @@ autenticado do próprio médico no sistema.
   variável de ambiente `SGPUR_BASE_URL` em prod).
 - Template "convite-portal" incluído em `gerar(p)` quando status ENVIADO/EM_ANALISE.
 
+## Perfis e permissões (SecurityConfig)
+- **ADMIN**: acesso total, incluindo `/usuarios/**` (cadastro de LOGINS) e
+  `/auditoria/**` — exclusivos dele.
+- **OPERADOR**: acesso operacional completo a `/processos/**`,
+  `/controle-urgencias/**`, `/membros/**` (criar/editar/inativar médicos
+  avaliadores) e `/relatorios/**`. **Não** cria/edita usuários (logins) nem vê
+  auditoria. Não acessa `/avaliador/**`.
+- **AVALIADOR**: acesso restrito ao portal `/avaliador/**`; não acessa
+  `/usuarios/**`, `/auditoria/**` nem as áreas operacionais.
+- **Conta própria**: qualquer perfil logado troca a própria senha em
+  `/usuarios/minha-senha` (menu dropdown no nome do usuário, navbar) — rota
+  liberada com `authenticated()`, ANTES da regra geral `/usuarios/**` (ADMIN).
+
+## Conta de usuário (Usuario)
+- **E-mail obrigatório** no cadastro/edição via `/usuarios` (validado no
+  `UsuarioController`, criar e atualizar — como a senha). **Não** é
+  `@NotBlank` na entidade `Usuario.email`: colocar a anotação lá quebra o
+  `AdminBootstrap` (cria o ADMIN inicial sem e-mail) e qualquer seed/usuário
+  legado sem e-mail no persist (`ConstraintViolationException` no boot). A
+  entidade só valida o **formato** (`@Email`), a obrigatoriedade fica na
+  camada web.
+- `UsuarioService.atualizar` precisa copiar `form.getEmail()` explicitamente
+  (não é campo automático) — já corrigido, mas é fácil esquecer de novo se
+  reescrever esse método.
+
+## Indicador: tempo de resposta dos avaliadores
+- `TempoRespostaService.calcular()` — média de **dias corridos** entre
+  `Parecer.dataEnvio` e `Parecer.dataResposta`, geral e por avaliador, mais a
+  contagem "fora do prazo". Prazo-meta configurável em
+  `app.avaliador.prazo-dias` (env `SGPUR_PRAZO_AVALIADOR`, default 7).
+- Exibido em `/membros` (card da média geral + coluna por avaliador) e no
+  Painel (`/`, card "Tempo de resposta"). Formatação pt-BR pronta no service
+  (`formatarDias`), nunca calculada na view.
+- Pareceres reabertos por "Solicita informação" mantêm `dataEnvio` original
+  (só `dataResposta` é limpo) — o 2º voto conta desde o envio original, não
+  reseta o relógio.
+
 ## Convenções de código
 - Entidades JPA em `domain/` com getters/setters simples (sem Lombok).
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
 - Templates Thymeleaf usam os fragments de `templates/layout.html`.
 - Não commitar segredos: `application-local.yml`, `deploy/sgpur.env` e `/dist/`
   estão no `.gitignore`.
+- **`dashboard.html` (Painel) usa Tailwind PRÉ-COMPILADO estático**
+  (`static/css/tailwind-dashboard.css`), não o CDN — só as classes que
+  existiam quando o arquivo foi gerado funcionam. Usar uma classe nova (ex.:
+  `lg:grid-cols-7`, `border-sky-200`) que não está nesse CSS **não dá erro**,
+  simplesmente não aplica estilo nenhum, silenciosamente quebrando o layout
+  (já aconteceu: um card novo com `grid-cols-7`/`sky-*` estourou o grid para 3
+  colunas e os cards de contador ficaram enormes). Antes de usar uma classe
+  Tailwind nova nessa página, `grep` no CSS compilado para confirmar que
+  existe; se não existir, reusar uma cor/utilitário já presente (as paletas
+  `slate/amber/emerald/rose/indigo` já usadas nos cards existentes estão
+  compiladas) em vez de regenerar o CSS. Ver `docs/PLANO-FLUXO.md` para o
+  procedimento de regeneração, caso seja mesmo necessário.
 
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
