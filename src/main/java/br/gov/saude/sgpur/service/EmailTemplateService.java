@@ -1,5 +1,6 @@
 package br.gov.saude.sgpur.service;
 
+import br.gov.saude.sgpur.config.EmailProperties;
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.StatusProcesso;
@@ -27,6 +28,20 @@ public class EmailTemplateService {
     /** URL base da aplicacao, usada nos links do Portal do Avaliador. */
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
+
+    private final EmailProperties emailProperties;
+
+    public EmailTemplateService(EmailProperties emailProperties) {
+        this.emailProperties = emailProperties;
+    }
+
+    private String assinatura() {
+        return emailProperties.getAssinatura();
+    }
+
+    private String assunto(String resto) {
+        return emailProperties.getPrefixoAssunto() + " - " + resto;
+    }
 
     public List<EmailTemplate> gerar(Processo p) {
         List<EmailTemplate> lista = new ArrayList<>();
@@ -84,11 +99,11 @@ public class EmailTemplateService {
             %s
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
-            """.formatted(idProcesso, data, medicos);
+            %s
+            """.formatted(idProcesso, data, medicos, assinatura());
 
         return new EmailTemplate("medicos", "Envio aos medicos (parecer)", "send",
-            "Urgencia Renal - Solicitacao de parecer - Processo " + idProcesso, corpo,
+            assunto("Solicitacao de parecer - Processo " + idProcesso), corpo,
             true); // so exibir apos dataEnvio registrada
     }
 
@@ -122,16 +137,17 @@ public class EmailTemplateService {
             julgamento; identificado apenas pelas iniciais.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
+            %s
             """.formatted(
                 membro.getNome(),
                 idProcesso,
                 p.getDataSituacaoEspecial() != null ? p.getDataSituacaoEspecial().format(DATA) : "(data)",
-                portalUrl);
+                portalUrl,
+                assinatura());
 
         return new EmailTemplate("convite-avaliador",
             "Convite ao Portal do Avaliador - " + membro.getNome(), "person-check",
-            "Urgencia Renal - Solicitacao de avaliacao - Processo " + idProcesso,
+            assunto("Solicitacao de avaliacao - Processo " + idProcesso),
             corpo);
     }
 
@@ -160,12 +176,12 @@ public class EmailTemplateService {
             julgamento; identificado apenas pelas iniciais.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
-            """.formatted(membro.getNome(), idProcesso, portalUrl);
+            %s
+            """.formatted(membro.getNome(), idProcesso, portalUrl, assinatura());
 
         return new EmailTemplate("lembrete-avaliador",
             "Lembrete de avaliacao pendente - " + membro.getNome(), "bell",
-            "Urgencia Renal - Lembrete de avaliacao pendente - Processo " + idProcesso,
+            assunto("Lembrete de avaliacao pendente - Processo " + idProcesso),
             corpo);
     }
 
@@ -200,16 +216,17 @@ public class EmailTemplateService {
             O nome do paciente foi omitido para preservar a imparcialidade do julgamento.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
+            %s
             """.formatted(
                 idProcesso,
                 p.getDataSituacaoEspecial() != null ? p.getDataSituacaoEspecial().format(DATA) : "(data)",
                 medicos,
-                portalUrl);
+                portalUrl,
+                assinatura());
 
         return new EmailTemplate("convite-portal",
             "Convite ao Portal do Avaliador (votacao no sistema)", "person-check",
-            "Urgencia Renal - Acesso ao Portal do Avaliador - Processo " + idProcesso,
+            assunto("Acesso ao Portal do Avaliador - Processo " + idProcesso),
             corpo,
             true); // so exibir apos dataEnvio registrada
     }
@@ -239,12 +256,12 @@ public class EmailTemplateService {
             seguira para a decisao.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
-            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe());
+            %s
+            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe(), assinatura());
 
         return new EmailTemplate("solicita-info",
             "Pedido de informacao complementar ao solicitante", "question-circle",
-            "Urgencia Renal - Processo " + idProcesso + " - Solicitacao de informacoes complementares",
+            assunto("Processo " + idProcesso + " - Solicitacao de informacoes complementares"),
             corpo);
     }
 
@@ -263,11 +280,11 @@ public class EmailTemplateService {
             Permanecemos a disposicao para esclarecimentos.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
-            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe());
+            %s
+            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe(), assinatura());
 
         return new EmailTemplate("deferido", "Resposta ao solicitante (Deferido)", "check-circle",
-            "Urgencia Renal - Processo " + p.getNumero() + " - DEFERIDO", corpo);
+            assunto("Processo " + p.getNumero() + " - DEFERIDO"), corpo);
     }
 
     private EmailTemplate emailIndeferido(Processo p) {
@@ -286,10 +303,10 @@ public class EmailTemplateService {
             O oficio de indeferimento segue anexo a este e-mail.
 
             Atenciosamente,
-            Equipe de Urgencia Renal - Secretaria de Saude
-            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe(), motivo);
+            %s
+            """.formatted(p.getNumero(), p.getPacienteNome(), p.getSolicitanteEquipe(), motivo, assinatura());
 
         return new EmailTemplate("indeferido", "Resposta ao solicitante (Indeferido)", "x-circle",
-            "Urgencia Renal - Processo " + p.getNumero() + " - INDEFERIDO", corpo);
+            assunto("Processo " + p.getNumero() + " - INDEFERIDO"), corpo);
     }
 }

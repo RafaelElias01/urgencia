@@ -71,6 +71,13 @@ app:
   avaliador:
     prazo-dias: ${SGPUR_PRAZO_AVALIADOR:7}
 
+sgpur:
+  # Textos literais e estaveis usados na geracao dos e-mails prontos
+  # (EmailTemplateService): assinatura padrao e prefixo dos assuntos.
+  email:
+    assinatura: ${SGPUR_EMAIL_ASSINATURA:Equipe de Urgencia Renal - Secretaria de Saude}
+    prefixo-assunto: ${SGPUR_EMAIL_PREFIXO_ASSUNTO:Urgencia Renal}
+
   # Google Gemini API (IA generativa)
   gemini:
     api-key: ${SGPUR_GEMINI_KEY:}

@@ -28,11 +28,14 @@ public class ProcessoService {
 
     private final ProcessoRepository processoRepository;
     private final MembroUrgenciaRenalRepository membroRepository;
+    private final ProcessoValidator validator;
 
     public ProcessoService(ProcessoRepository processoRepository,
-                           MembroUrgenciaRenalRepository membroRepository) {
+                           MembroUrgenciaRenalRepository membroRepository,
+                           ProcessoValidator validator) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
+        this.validator = validator;
     }
 
     public List<Processo> listarTodos() {
@@ -232,138 +235,55 @@ public class ProcessoService {
         processoRepository.delete(buscar(id));
     }
 
+    // As consultas de contagem/sugestao/anexos foram centralizadas em
+    // ProcessoValidator; o servico expoe os mesmos metodos delegando a ele.
+
     public long contarFavoraveis(Processo processo) {
-        return processo.getPareceres().stream()
-            .filter(p -> p.getResultado() == ResultadoParecer.FAVORAVEL)
-            .count();
+        return validator.contarFavoraveis(processo);
     }
 
     public long contarNaoFavoraveis(Processo processo) {
-        return processo.getPareceres().stream()
-            .filter(p -> p.getResultado() == ResultadoParecer.NAO_FAVORAVEL)
-            .count();
+        return validator.contarNaoFavoraveis(processo);
     }
 
     public long contarRespondidos(Processo processo) {
-        return processo.getPareceres().stream()
-            .filter(p -> p.getResultado() != null)
-            .count();
+        return validator.contarRespondidos(processo);
     }
 
-    /**
-     * Pareceres ja "recebidos" (com resultado preenchido) que ainda NAO tem o
-     * e-mail/documento de resposta anexado (TipoAnexo.RESPOSTA_AVALIADOR
-     * vinculado ao proprio parecer). Regra: toda resposta de medico registrada
-     * precisa ter o anexo comprobatorio antes de decidir o processo.
-     */
     public List<Parecer> pareceresRecebidosSemAnexo(Processo processo) {
-        java.util.Set<Long> comAnexo = processo.getAnexos().stream()
-            .filter(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR && a.getParecer() != null)
-            .map(a -> a.getParecer().getId())
-            .collect(java.util.stream.Collectors.toSet());
-        return processo.getPareceres().stream()
-            .filter(par -> par.getResultado() != null)          // recebido
-            // Pareceres votados diretamente pelo avaliador autenticado (AVALIADOR_SISTEMA)
-            // nao exigem anexo: o proprio registro autenticado (usuario + IP + dataHoraVoto)
-            // serve de comprovante. Origem null (legado) e OPERADOR_EMAIL continuam exigindo.
-            .filter(par -> par.getOrigem() != OrigemParecer.AVALIADOR_SISTEMA)
-            .filter(par -> !comAnexo.contains(par.getId()))     // sem anexo de resposta
-            .toList();
+        return validator.pareceresRecebidosSemAnexo(processo);
     }
 
-    /**
-     * Sugestao de decisao:
-     * - Se o coordenador CET-RS votou FAVORAVEL -> DEFERIDO (peso unico).
-     * - Senao, maioria simples (2 de 3): 2+ favoraveis -> DEFERIDO;
-     *   2+ desfavoraveis -> INDEFERIDO.
-     * - Sem maioria ainda -> Optional vazio.
-     */
     public Optional<StatusProcesso> sugerirDecisao(Processo processo) {
-        if (temVotoCoordenadorFavoravel(processo)) {
-            return Optional.of(StatusProcesso.DEFERIDO);
-        }
-        long favoraveis = contarFavoraveis(processo);
-        long naoFavoraveis = contarNaoFavoraveis(processo);
-
-        if (favoraveis >= FAVORAVEIS_PARA_DEFERIR) {
-            return Optional.of(StatusProcesso.DEFERIDO);
-        }
-        if (naoFavoraveis >= DESFAVORAVEIS_PARA_INDEFERIR) {
-            return Optional.of(StatusProcesso.INDEFERIDO);
-        }
-        return Optional.empty();
+        return validator.sugerirDecisao(processo);
     }
 
-    /** True se o coordenador CET-RS votou FAVORAVEL neste processo. */
     public boolean temVotoCoordenadorFavoravel(Processo processo) {
-        return processo.getPareceres().stream()
-            .anyMatch(p -> p.getResultado() == ResultadoParecer.FAVORAVEL
-                && p.getMembro() != null && p.getMembro().isCoordenador());
+        return validator.temVotoCoordenadorFavoravel(processo);
     }
 
-    /**
-     * True se o processo foi deferido pelo voto do coordenador CET-RS
-     * (status DEFERIDO + coordenador votou FAVORAVEL).
-     */
     public boolean deferidoPeloCoordenador(Processo processo) {
-        return processo.getStatus() == StatusProcesso.DEFERIDO
-            && temVotoCoordenadorFavoravel(processo);
+        return validator.deferidoPeloCoordenador(processo);
     }
 
-    /** Quantos pareceres favoraveis sao necessarios para Deferir (considerando coordenador). */
     public long favoraveisNecessariosParaDeferir(Processo processo) {
-        return temVotoCoordenadorFavoravel(processo) ? 1 : FAVORAVEIS_PARA_DEFERIR;
+        return validator.favoraveisNecessariosParaDeferir(processo);
     }
 
-    /** Quantos pareceres desfavoraveis sao necessarios para Indeferir. */
     public long desfavoraveisNecessariosParaIndeferir() {
-        return DESFAVORAVEIS_PARA_INDEFERIR;
+        return validator.desfavoraveisNecessariosParaIndeferir();
     }
 
     /** Registra a decisao final manual do servidor. */
     @Transactional
     public Processo decidir(Long id, StatusProcesso decisao, String motivoIndeferimento) {
         Processo p = buscar(id);
-        // Regra: enquanto aguarda informacao complementar do solicitante, o
-        // processo esta em PAUSA - nao pode ser deferido/indeferido. So Cancelado
-        // pode encerra-lo (a qualquer momento). Retome a analise antes de decidir.
-        if (p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO
-                && (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO)) {
-            throw new IllegalStateException(
-                "Processo aguardando informacao complementar do solicitante. "
-                + "Registre o recebimento da informacao (retomar analise) antes de decidir.");
-        }
-        // Regra: Deferido exige votos suficientes (coordenador pode deferir sozinho ou 2/3).
-        long minFavoraveis = temVotoCoordenadorFavoravel(p) ? 1 : FAVORAVEIS_PARA_DEFERIR;
-        if (decisao == StatusProcesso.DEFERIDO
-                && contarFavoraveis(p) < minFavoraveis) {
-            throw new IllegalStateException("Deferimento exige no minimo "
-                + minFavoraveis + " parecer(es) favoravel(is).");
-        }
-        if (decisao == StatusProcesso.INDEFERIDO
-                && contarNaoFavoraveis(p) < DESFAVORAVEIS_PARA_INDEFERIR) {
-            throw new IllegalStateException("Indeferimento exige no minimo "
-                + DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
-        }
-        // Regra: Indeferido exige o motivo (o controller ja valida isso antes de
-        // chamar este metodo, mas repetimos aqui em defesa - decidir() e publico
-        // e nao deve confiar apenas na camada web para essa garantia).
-        if (decisao == StatusProcesso.INDEFERIDO
-                && (motivoIndeferimento == null || motivoIndeferimento.isBlank())) {
-            throw new IllegalStateException("Indeferimento exige o motivo.");
-        }
-        // Regra: toda resposta de medico recebida precisa ter o anexo comprobatorio
-        // antes de deferir ou indeferir (garante no minimo 2 anexos de resposta).
-        if (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO) {
-            List<Parecer> semAnexo = pareceresRecebidosSemAnexo(p);
-            if (!semAnexo.isEmpty()) {
-                String nomes = semAnexo.stream()
-                    .map(par -> par.getMembro().getNome())
-                    .collect(java.util.stream.Collectors.joining(", "));
-                throw new IllegalStateException(
-                    "Anexe a resposta dos medicos antes de decidir. Sem anexo: " + nomes + ".");
-            }
-        }
+        // Regras impostas em defesa (decidir() e publico e nao pode confiar apenas
+        // na camada web): pausa por informacao complementar, votos suficientes,
+        // motivo do indeferimento e anexo de toda resposta recebida. Centralizadas
+        // em ProcessoValidator para nao divergirem das mesmas checagens no controller.
+        validator.validarDecisao(p, decisao, motivoIndeferimento)
+            .ifPresent(msg -> { throw new IllegalStateException(msg); });
         p.setStatus(decisao);
         p.setDataDecisao(LocalDateTime.now());
         if (decisao == StatusProcesso.INDEFERIDO) {

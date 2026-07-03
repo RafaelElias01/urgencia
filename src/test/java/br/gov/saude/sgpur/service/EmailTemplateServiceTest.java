@@ -1,5 +1,6 @@
 package br.gov.saude.sgpur.service;
 
+import br.gov.saude.sgpur.config.EmailProperties;
 import br.gov.saude.sgpur.domain.*;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EmailTemplateServiceTest {
 
-    private final EmailTemplateService service = new EmailTemplateService();
+    private final EmailTemplateService service = new EmailTemplateService(new EmailProperties());
 
     private Processo processo() {
         Processo p = new Processo();
