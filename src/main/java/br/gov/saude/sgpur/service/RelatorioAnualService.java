@@ -1,11 +1,17 @@
 package br.gov.saude.sgpur.service;
 
+import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.StatusProcesso;
+import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
+import br.gov.saude.sgpur.service.TempoRespostaService.TempoMembro;
 import com.lowagie.text.*;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPageEventHelper;
 import com.lowagie.text.pdf.PdfWriter;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +41,12 @@ public class RelatorioAnualService {
     private static final Color CINZA = new Color(108, 117, 125);
     private static final Color BORDA = new Color(222, 226, 230);
 
+    private final TempoRespostaService tempoRespostaService;
+
+    public RelatorioAnualService(TempoRespostaService tempoRespostaService) {
+        this.tempoRespostaService = tempoRespostaService;
+    }
+
     /**
      * Gera o PDF do relatorio anual.
      *
@@ -44,7 +57,13 @@ public class RelatorioAnualService {
         Document doc = new Document(PageSize.A4, 36, 36, 46, 36);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            PdfWriter.getInstance(doc, out);
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            // Cabecalho institucional repetido em toda pagina a partir da 2a
+            // (a capa ja tem o bloco institucional completo). Padrao usado nos
+            // demais documentos do sistema (Oficio, Relatorio Final, carimbo
+            // do avaliador): "Central de Transplantes do Estado do Rio Grande
+            // do Sul - URGENCIA RENAL".
+            writer.setPageEvent(new CabecalhoPagina(ano));
             doc.open();
 
             adicionarCapa(doc, ano, processos);
@@ -52,12 +71,35 @@ public class RelatorioAnualService {
 
             Font fSecao = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, Color.WHITE);
 
+            // Pareceres respondidos do ano (mesmo criterio da query
+            // findRespondidosComDatas: resultado, dataEnvio e dataResposta
+            // preenchidos), para o indicador de tempo de resposta.
+            Map<Long, String> nomePorMembro = new LinkedHashMap<>();
+            List<Parecer> pareceresRespondidos = new java.util.ArrayList<>();
+            for (Processo p : processos) {
+                for (Parecer par : p.getPareceres()) {
+                    if (par.getResultado() != null && par.getDataEnvio() != null
+                        && par.getDataResposta() != null) {
+                        pareceresRespondidos.add(par);
+                        MembroUrgenciaRenal m = par.getMembro();
+                        if (m != null) {
+                            nomePorMembro.putIfAbsent(m.getId(), m.getRotulo());
+                        }
+                    }
+                }
+            }
+            ResumoTempo tempoAno = tempoRespostaService.calcularDe(pareceresRespondidos);
+
             // 1. Resumo do ano
             secao(doc, fSecao, "1. Resumo do ano " + ano);
-            doc.add(tabelaResumo(processos));
+            doc.add(tabelaResumo(processos, tempoAno));
 
-            // 2. Lista completa
-            secao(doc, fSecao, "2. Lista de processos do ano " + ano);
+            // 2. Tempo de resposta por avaliador
+            secao(doc, fSecao, "2. Tempo de resposta por avaliador");
+            doc.add(tabelaTempoPorAvaliador(tempoAno, nomePorMembro));
+
+            // 3. Lista completa
+            secao(doc, fSecao, "3. Lista de processos do ano " + ano);
             doc.add(tabelaLista(processos));
 
             Paragraph rodape = new Paragraph(
@@ -132,7 +174,7 @@ public class RelatorioAnualService {
     // Resumo (contagem por status)
     // -----------------------------------------------------------------------
 
-    private PdfPTable tabelaResumo(List<Processo> processos) {
+    private PdfPTable tabelaResumo(List<Processo> processos, ResumoTempo tempoAno) {
         Map<StatusProcesso, Integer> contagem = new EnumMap<>(StatusProcesso.class);
         for (Processo p : processos) {
             contagem.merge(p.getStatus(), 1, Integer::sum);
@@ -164,6 +206,42 @@ public class RelatorioAnualService {
         linhaResumo(t, "Indeferidos", String.valueOf(indeferido), false);
         linhaResumo(t, "Cancelados", String.valueOf(cancelado), false);
         linhaResumo(t, "% de deferimento (sobre os decididos)", percentDeferimento, true);
+        linhaResumo(t, "Tempo medio de resposta dos avaliadores",
+            TempoRespostaService.formatarDias(tempoAno.mediaGeralDias()), true);
+        linhaResumo(t, "Pareceres fora do prazo (meta " + tempoAno.prazoDias() + " dias corridos)",
+            tempoAno.foraDoPrazo() + " de " + tempoAno.totalAvaliados(), false);
+        return t;
+    }
+
+    // -----------------------------------------------------------------------
+    // Tempo de resposta por avaliador
+    // -----------------------------------------------------------------------
+
+    private PdfPTable tabelaTempoPorAvaliador(ResumoTempo tempoAno, Map<Long, String> nomePorMembro) {
+        PdfPTable t = new PdfPTable(new float[]{4, 2, 2, 2});
+        t.setWidthPercentage(80);
+        t.setSpacingBefore(6);
+        t.setHeaderRows(1);
+        cabecalho(t, "Avaliador", "Respondidos", "Tempo medio", "Fora do prazo");
+
+        if (tempoAno.porMembro().isEmpty()) {
+            PdfPCell vazio = new PdfPCell(new Phrase("Nenhum parecer respondido neste ano.",
+                FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9, CINZA)));
+            vazio.setColspan(4);
+            vazio.setPadding(8);
+            vazio.setHorizontalAlignment(Element.ALIGN_CENTER);
+            vazio.setBorderColor(BORDA);
+            t.addCell(vazio);
+            return t;
+        }
+
+        for (var e : tempoAno.porMembro().entrySet()) {
+            TempoMembro tm = e.getValue();
+            celula(t, nomePorMembro.getOrDefault(e.getKey(), "Membro #" + e.getKey()));
+            celula(t, String.valueOf(tm.avaliados()));
+            celula(t, TempoRespostaService.formatarDias(tm.mediaDias()));
+            celula(t, String.valueOf(tm.foraDoPrazo()));
+        }
         return t;
     }
 
@@ -268,5 +346,37 @@ public class RelatorioAnualService {
 
     private String nvl(String s) {
         return (s == null || s.isBlank()) ? "-" : s;
+    }
+
+    // -----------------------------------------------------------------------
+    // Cabecalho repetido em toda pagina (a partir da 2a) - mesmo padrao
+    // institucional usado no Oficio, Relatorio Final e no carimbo do avaliador.
+    // -----------------------------------------------------------------------
+
+    private static final class CabecalhoPagina extends PdfPageEventHelper {
+        private final int ano;
+        private final Font fLinha1 = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, CINZA);
+        private final Font fLinha2 = FontFactory.getFont(FontFactory.HELVETICA, 7, CINZA);
+
+        CabecalhoPagina(int ano) {
+            this.ano = ano;
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            if (writer.getPageNumber() == 1) {
+                return; // capa ja tem o bloco institucional completo
+            }
+            PdfContentByte cb = writer.getDirectContent();
+            Rectangle pagina = document.getPageSize();
+            float centroX = (pagina.getLeft() + pagina.getRight()) / 2f;
+            float topoY = pagina.getTop() - 20;
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
+                new Phrase("Central de Transplantes do Estado do Rio Grande do Sul - URGENCIA RENAL", fLinha1),
+                centroX, topoY, 0);
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
+                new Phrase("Relatorio Geral de Urgencia Renal - Ano " + ano, fLinha2),
+                centroX, topoY - 10, 0);
+        }
     }
 }

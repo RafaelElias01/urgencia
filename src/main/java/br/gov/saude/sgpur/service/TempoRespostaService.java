@@ -53,12 +53,21 @@ public class TempoRespostaService {
     }
 
     /**
-     * Percorre os pareceres respondidos uma unica vez, acumulando os tempos
-     * (em dias) global e por membro, e conta quantos ficaram acima do prazo-meta.
+     * Calcula sobre TODOS os pareceres respondidos do sistema (usado em
+     * /membros e no Painel). Para um subconjunto especifico (ex.: os
+     * pareceres de um ano, no Relatorio Anual), use {@link #calcularDe(List)}.
      */
     public ResumoTempo calcular() {
-        List<Parecer> respondidos = parecerRepo.findRespondidosComDatas();
+        return calcularDe(parecerRepo.findRespondidosComDatas());
+    }
 
+    /**
+     * Mesma agregacao de {@link #calcular()}, mas sobre uma lista de pareceres
+     * fornecida pelo chamador (ja filtrada por resultado/dataEnvio/dataResposta
+     * nao nulos) — permite reusar o mesmo calculo com um recorte, como os
+     * pareceres de um ano especifico no Relatorio Anual, sem outra query.
+     */
+    public ResumoTempo calcularDe(List<Parecer> respondidos) {
         List<Long> temposGerais = new ArrayList<>();
         long foraGeral = 0;
         Map<Long, List<Long>> temposPorMembro = new LinkedHashMap<>();
