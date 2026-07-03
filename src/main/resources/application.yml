@@ -1,6 +1,6 @@
 spring:
   application:
-    name: sgpur
+    name: saur
   # Carrega overrides locais (ex.: credenciais do Postgres) se o arquivo existir.
   # application-local.yml esta no .gitignore e NUNCA deve ser commitado.
   config:
