@@ -5,6 +5,8 @@ import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
+import br.gov.saude.sgpur.service.TempoRespostaService;
+import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,13 +21,16 @@ public class HomeController {
     private final ProcessoRepository processoRepository;
     private final MembroUrgenciaRenalRepository membroRepository;
     private final FluxoProcessoService fluxoService;
+    private final TempoRespostaService tempoRespostaService;
 
     public HomeController(ProcessoRepository processoRepository,
                           MembroUrgenciaRenalRepository membroRepository,
-                          FluxoProcessoService fluxoService) {
+                          FluxoProcessoService fluxoService,
+                          TempoRespostaService tempoRespostaService) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
         this.fluxoService = fluxoService;
+        this.tempoRespostaService = tempoRespostaService;
     }
 
     @GetMapping("/login")
@@ -60,6 +65,14 @@ public class HomeController {
         }
         model.addAttribute("emAndamento", emAndamento);
         model.addAttribute("pendencias", pendencias);
+
+        // Indicador: tempo de resposta medio total dos avaliadores.
+        ResumoTempo tempo = tempoRespostaService.calcular();
+        model.addAttribute("mediaGeralTempoTexto",
+            TempoRespostaService.formatarDias(tempo.mediaGeralDias()));
+        model.addAttribute("tempoDentroPrazo",
+            tempo.mediaGeralDias() == null || tempo.mediaGeralDias() <= tempo.prazoDias());
+        model.addAttribute("prazoDiasTempo", tempo.prazoDias());
         return "dashboard";
     }
 }

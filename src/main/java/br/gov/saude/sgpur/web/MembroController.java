@@ -4,6 +4,9 @@ import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.ResultadoParecer;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
+import br.gov.saude.sgpur.service.TempoRespostaService;
+import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
+import br.gov.saude.sgpur.service.TempoRespostaService.TempoMembro;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,10 +23,13 @@ public class MembroController {
 
     private final MembroUrgenciaRenalRepository repo;
     private final ParecerRepository parecerRepo;
+    private final TempoRespostaService tempoRespostaService;
 
-    public MembroController(MembroUrgenciaRenalRepository repo, ParecerRepository parecerRepo) {
+    public MembroController(MembroUrgenciaRenalRepository repo, ParecerRepository parecerRepo,
+                            TempoRespostaService tempoRespostaService) {
         this.repo = repo;
         this.parecerRepo = parecerRepo;
+        this.tempoRespostaService = tempoRespostaService;
     }
 
     @GetMapping
@@ -40,6 +46,24 @@ public class MembroController {
             });
         }
         model.addAttribute("stats", stats);
+
+        // Tempo de resposta: texto pronto por membro (mantem a view limpa) +
+        // flags de "fora do prazo" para o destaque visual.
+        ResumoTempo tempo = tempoRespostaService.calcular();
+        Map<Long, String> tempoTexto = new LinkedHashMap<>();
+        Map<Long, Boolean> tempoForaPrazo = new LinkedHashMap<>();
+        for (var e : tempo.porMembro().entrySet()) {
+            TempoMembro tm = e.getValue();
+            tempoTexto.put(e.getKey(), TempoRespostaService.formatarDias(tm.mediaDias()));
+            tempoForaPrazo.put(e.getKey(),
+                tm.mediaDias() != null && tm.mediaDias() > tempo.prazoDias());
+        }
+        model.addAttribute("tempoTexto", tempoTexto);
+        model.addAttribute("tempoForaPrazo", tempoForaPrazo);
+        model.addAttribute("mediaGeralTexto", TempoRespostaService.formatarDias(tempo.mediaGeralDias()));
+        model.addAttribute("totalAvaliadosTempo", tempo.totalAvaliados());
+        model.addAttribute("foraDoPrazoTempo", tempo.foraDoPrazo());
+        model.addAttribute("prazoDias", tempo.prazoDias());
         return "membros/lista";
     }
 

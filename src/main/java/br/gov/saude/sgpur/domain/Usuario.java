@@ -30,11 +30,12 @@ public class Usuario {
 
     /**
      * E-mail do usuario, usado para enviar a nova senha no fluxo "esqueci
-     * minha senha". Obrigatorio no cadastro/edicao via UI (@NotBlank); a
-     * coluna permanece nullable no banco para nao quebrar o admin inicial
-     * criado por AdminBootstrap nem usuarios legados sem e-mail.
+     * minha senha". Obrigatorio no cadastro/edicao via UI (validado no
+     * UsuarioController, como a senha), mas SEM @NotBlank na entidade: o admin
+     * inicial do AdminBootstrap e usuarios legados/seed podem nao ter e-mail, e
+     * a validacao de bean no persist quebraria o boot. Aqui so validamos o
+     * formato quando preenchido.
      */
-    @NotBlank
     @Email
     @Column(length = 150)
     private String email;

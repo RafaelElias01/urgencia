@@ -62,6 +62,9 @@ public class UsuarioController {
         if (senha == null || senha.isBlank()) {
             result.rejectValue("senha", "obrigatorio", "Informe a senha.");
         }
+        if (usuario.getEmail() == null || usuario.getEmail().isBlank()) {
+            result.rejectValue("email", "obrigatorio", "Informe o e-mail.");
+        }
         if (result.hasErrors()) {
             model.addAttribute("edicao", false);
             model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
@@ -86,6 +89,9 @@ public class UsuarioController {
                             @RequestParam(required = false) String senha,
                             @RequestParam(required = false) Long membroId,
                             Model model, RedirectAttributes ra) {
+        if (form.getEmail() == null || form.getEmail().isBlank()) {
+            result.rejectValue("email", "obrigatorio", "Informe o e-mail.");
+        }
         if (result.hasErrors()) {
             model.addAttribute("edicao", true);
             model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());

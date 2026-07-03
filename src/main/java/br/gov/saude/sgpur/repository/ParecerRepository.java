@@ -3,11 +3,21 @@ package br.gov.saude.sgpur.repository;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.ResultadoParecer;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface ParecerRepository extends JpaRepository<Parecer, Long> {
+
+    /**
+     * Pareceres efetivamente respondidos e com as duas datas preenchidas, base
+     * para o calculo de tempo de resposta dos avaliadores (dias corridos entre
+     * dataEnvio e dataResposta). O membro e EAGER, entao vem carregado (sem N+1).
+     */
+    @Query("select p from Parecer p where p.resultado is not null "
+        + "and p.dataEnvio is not null and p.dataResposta is not null")
+    List<Parecer> findRespondidosComDatas();
 
     /** Total de processos em que o membro foi designado avaliador. */
     long countByMembroId(Long membroId);

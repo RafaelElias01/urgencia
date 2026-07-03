@@ -65,6 +65,12 @@ app:
   # Sobrescreva em producao com a URL publica real (ex.: https://sgpur.saude.rs.gov.br).
   base-url: ${SGPUR_BASE_URL:http://localhost:3000}
 
+  # Indicadores dos avaliadores: prazo-meta (SLA) em DIAS CORRIDOS para responder
+  # um parecer. Tempos acima desse valor sao destacados como "fora do prazo" nos
+  # KPIs de /membros e no Painel.
+  avaliador:
+    prazo-dias: ${SGPUR_PRAZO_AVALIADOR:7}
+
   # Google Gemini API (IA generativa)
   gemini:
     api-key: ${SGPUR_GEMINI_KEY:}

@@ -13,11 +13,39 @@
         </a>
     </div>
 
+    <!-- Indicador: tempo de resposta medio total dos avaliadores -->
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="d-inline-flex align-items-center justify-content-center rounded-circle"
+                      style="width:44px;height:44px;background:var(--rs-blue-light);color:var(--rs-blue);">
+                    <i class="bi bi-stopwatch fs-5"></i>
+                </span>
+                <div>
+                    <div class="small text-muted">Tempo medio de resposta (geral)</div>
+                    <div class="fs-4 fw-bold" style="color:var(--rs-blue);" th:text="${mediaGeralTexto}">—</div>
+                </div>
+            </div>
+            <div class="vr d-none d-sm-block"></div>
+            <div class="small text-muted">
+                <div><span class="fw-semibold" th:text="${totalAvaliadosTempo}">0</span> pareceres respondidos</div>
+                <div>Meta: <span class="fw-semibold" th:text="${prazoDias}">7</span> dias corridos</div>
+            </div>
+            <div th:if="${foraDoPrazoTempo > 0}" class="ms-sm-auto">
+                <span class="badge bg-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <span th:text="${foraDoPrazoTempo}">0</span> fora do prazo
+                </span>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
             <tr><th>Instituicao</th><th>Nome</th><th>E-mail</th>
                 <th class="text-center" title="Processos designados / avaliados / favoraveis">Designados / Avaliados / Fav.</th>
+                <th class="text-center" title="Tempo medio de resposta em dias corridos">Tempo medio</th>
                 <th>Situacao</th><th></th></tr>
             </thead>
             <tbody>
@@ -34,6 +62,14 @@
                     /
                     <span class="badge bg-success" th:text="${stats.get(m.id)[2]}">0</span>
                 </td>
+                <td class="text-center">
+                    <span th:if="${tempoTexto.containsKey(m.id)}"
+                          class="badge"
+                          th:classappend="${tempoForaPrazo.get(m.id)} ? 'bg-danger' : 'bg-light text-dark border'"
+                          th:title="${tempoForaPrazo.get(m.id)} ? 'Acima da meta de ' + ${prazoDias} + ' dias' : 'Dentro da meta'"
+                          th:text="${tempoTexto.get(m.id)}">—</span>
+                    <span th:unless="${tempoTexto.containsKey(m.id)}" class="text-muted small">—</span>
+                </td>
                 <td>
                     <span class="badge" th:classappend="${m.ativo} ? 'bg-success' : 'bg-secondary'"
                           th:text="${m.ativo} ? 'Ativo' : 'Inativo'">Ativo</span>
@@ -47,7 +83,7 @@
                 </td>
             </tr>
             <tr th:if="${membros.isEmpty()}">
-                <td colspan="6" class="text-center text-muted py-4">Nenhum membro cadastrado.</td>
+                <td colspan="7" class="text-center text-muted py-4">Nenhum membro cadastrado.</td>
             </tr>
             </tbody>
         </table>
