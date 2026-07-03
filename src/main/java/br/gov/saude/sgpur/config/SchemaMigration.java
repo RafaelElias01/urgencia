@@ -60,6 +60,11 @@ public class SchemaMigration implements ApplicationRunner {
         } catch (Exception e) {
             log.debug("SchemaMigration: default de ATIVO ja configurado ou erro ignorado: {}", e.getMessage());
         }
+        try {
+            jdbc.execute("ALTER TABLE USUARIO ADD COLUMN IF NOT EXISTS EMAIL VARCHAR(150)");
+        } catch (Exception e) {
+            log.debug("SchemaMigration: coluna EMAIL (usuario) ja existe ou erro ignorado: {}", e.getMessage());
+        }
     }
 
     /** Remove tabelas temporarias deixadas por migracoes Hibernate que falharam (_COPY_n). */

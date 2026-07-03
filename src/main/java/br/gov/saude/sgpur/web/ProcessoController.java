@@ -5,7 +5,10 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
+import br.gov.saude.sgpur.service.EmailSenderService;
+import br.gov.saude.sgpur.service.EmailTemplate;
 import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.OficioService;
@@ -27,6 +30,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.Year;
@@ -47,6 +51,8 @@ public class ProcessoController {
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
     private final DecisaoFinalService decisaoFinalService;
+    private final GeminiService geminiService;
+    private final EmailSenderService emailSenderService;
 
     public ProcessoController(ProcessoService processoService,
                               FluxoProcessoService fluxoService,
@@ -58,7 +64,9 @@ public class ProcessoController {
                               ParecerRepository parecerRepository,
                               AnexoStorageService anexoStorage,
                               AuditoriaService auditoria,
-                              DecisaoFinalService decisaoFinalService) {
+                              DecisaoFinalService decisaoFinalService,
+                              GeminiService geminiService,
+                              EmailSenderService emailSenderService) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
@@ -70,6 +78,8 @@ public class ProcessoController {
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
         this.decisaoFinalService = decisaoFinalService;
+        this.geminiService = geminiService;
+        this.emailSenderService = emailSenderService;
     }
 
     @ModelAttribute("statusValores")
@@ -97,6 +107,12 @@ public class ProcessoController {
     @ModelAttribute("tipoAnexoValores")
     public TipoAnexo[] tipoAnexoValores() {
         return TipoAnexo.values();
+    }
+
+    /** Controla a exibicao dos botoes de assistencia por IA nas telas (so aparecem se a chave estiver configurada). */
+    @ModelAttribute("iaDisponivel")
+    public boolean iaDisponivel() {
+        return geminiService.isDisponivel();
     }
 
     @GetMapping
@@ -724,7 +740,37 @@ public class ProcessoController {
         return "redirect:/processos/" + id;
     }
 
-
+    /**
+     * Sugere, via IA, um texto para o motivo do indeferimento com base nas
+     * justificativas dos pareceres desfavoraveis. O operador revisa/edita
+     * antes de registrar a decisao - a IA nao decide nada, so redige.
+     */
+    @PostMapping("/{id}/sugestao-motivo")
+    @ResponseBody
+    public IaTextoResponse sugestaoMotivo(@PathVariable Long id) {
+        if (!geminiService.isDisponivel()) {
+            return IaTextoResponse.erro("Assistencia por IA nao configurada.");
+        }
+        Processo p = processoService.buscar(id);
+        String justificativas = p.getPareceres().stream()
+            .filter(par -> par.getResultado() == ResultadoParecer.NAO_FAVORAVEL)
+            .map(Parecer::getJustificativa)
+            .filter(j -> j != null && !j.isBlank())
+            .collect(java.util.stream.Collectors.joining("\n---\n"));
+        if (justificativas.isBlank()) {
+            return IaTextoResponse.erro("Nenhuma justificativa de parecer desfavoravel encontrada para basear a sugestao.");
+        }
+        String prompt = "Voce e um assistente administrativo de um orgao publico de saude do Brasil. "
+            + "Com base nas justificativas tecnicas abaixo, dadas por medicos avaliadores que "
+            + "consideraram um pedido de urgencia renal desfavoravel, redija um texto formal, "
+            + "objetivo e em portugues do Brasil para o campo \"motivo do indeferimento\" de um "
+            + "oficio administrativo. Nao invente informacoes que nao estejam nas justificativas. "
+            + "Responda apenas com o texto do motivo, sem introducao nem explicacoes.\n\n"
+            + "Justificativas dos avaliadores:\n" + justificativas;
+        return geminiService.perguntar(prompt)
+            .map(IaTextoResponse::sucesso)
+            .orElseGet(() -> IaTextoResponse.erro("Falha ao consultar a IA. Tente novamente."));
+    }
 
     /** Atualiza as datas do oficio de indeferimento (aba Finalizacao). */
     @PostMapping("/{id}/finalizacao")
@@ -970,5 +1016,201 @@ public class ProcessoController {
             .header(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
             .body(resource);
+    }
+
+    /**
+     * Resume, via IA, o conteudo textual de um anexo PDF (ex.: documento
+     * clinico anexado). Extrai o texto localmente (OpenPDF) e envia so o
+     * texto extraido para a API - o arquivo em si nao e enviado a terceiros.
+     */
+    @GetMapping("/anexos/{anexoId}/resumo-ia")
+    @ResponseBody
+    public IaTextoResponse resumoAnexoIa(@PathVariable Long anexoId) {
+        if (!geminiService.isDisponivel()) {
+            return IaTextoResponse.erro("Assistencia por IA nao configurada.");
+        }
+        Anexo anexo = anexoStorage.buscar(anexoId);
+        if (anexo.getContentType() == null
+                || !anexo.getContentType().toLowerCase(java.util.Locale.ROOT).contains("application/pdf")) {
+            return IaTextoResponse.erro("Resumo por IA disponivel apenas para anexos em PDF.");
+        }
+        String texto;
+        try {
+            byte[] bytes = Files.readAllBytes(anexoStorage.resolverArquivo(anexo));
+            com.lowagie.text.pdf.PdfReader reader = new com.lowagie.text.pdf.PdfReader(bytes);
+            var extractor = new com.lowagie.text.pdf.parser.PdfTextExtractor(reader);
+            StringBuilder sb = new StringBuilder();
+            int paginas = Math.min(reader.getNumberOfPages(), 20);
+            for (int pagina = 1; pagina <= paginas; pagina++) {
+                sb.append(extractor.getTextFromPage(pagina)).append('\n');
+            }
+            reader.close();
+            texto = sb.toString();
+        } catch (IOException e) {
+            return IaTextoResponse.erro("Falha ao ler o PDF: " + e.getMessage());
+        }
+        if (texto.isBlank()) {
+            return IaTextoResponse.erro("Nao foi possivel extrair texto deste PDF (pode ser uma imagem digitalizada).");
+        }
+        // Limita o tamanho enviado a API (documentos muito longos sao truncados).
+        String textoLimitado = texto.length() > 20000 ? texto.substring(0, 20000) : texto;
+        String prompt = "Voce e um assistente administrativo de um orgao publico de saude do Brasil. "
+            + "Resuma em ate 5 frases, em portugues do Brasil, o conteudo clinico/administrativo "
+            + "do documento abaixo, destacando os pontos relevantes para analise de um pedido de "
+            + "urgencia renal. Responda apenas com o resumo, sem introducao.\n\n"
+            + "Documento:\n" + textoLimitado;
+        return geminiService.perguntar(prompt)
+            .map(IaTextoResponse::sucesso)
+            .orElseGet(() -> IaTextoResponse.erro("Falha ao consultar a IA. Tente novamente."));
+    }
+
+    /**
+     * Revisa/melhora, via IA, o corpo de um texto de e-mail pronto (assunto +
+     * corpo) exibido na tela de detalhe. O operador confere antes de copiar.
+     */
+    @PostMapping("/{id}/email/revisar-ia")
+    @ResponseBody
+    public IaTextoResponse revisarEmailIa(@PathVariable Long id,
+                                          @RequestParam String assunto,
+                                          @RequestParam String corpo) {
+        if (!geminiService.isDisponivel()) {
+            return IaTextoResponse.erro("Assistencia por IA nao configurada.");
+        }
+        String prompt = "Voce e um assistente de redacao de um orgao publico de saude do Brasil. "
+            + "Revise o e-mail abaixo (assunto e corpo), mantendo o mesmo idioma (portugues do "
+            + "Brasil), o mesmo significado e todos os dados/numeros/nomes citados. Apenas melhore "
+            + "clareza, formalidade e correcao gramatical - nao adicione nem remova informacoes. "
+            + "Responda apenas com o corpo revisado do e-mail (sem repetir o assunto, sem "
+            + "introducao, sem comentarios).\n\n"
+            + "Assunto: " + assunto + "\n\nCorpo:\n" + corpo;
+        return geminiService.perguntar(prompt)
+            .map(IaTextoResponse::sucesso)
+            .orElseGet(() -> IaTextoResponse.erro("Falha ao consultar a IA. Tente novamente."));
+    }
+
+    /**
+     * Dispara manualmente um lembrete por e-mail a UM avaliador com parecer
+     * pendente. Nunca automatico - sempre um clique explicito do operador.
+     */
+    @PostMapping("/{id}/lembrete-avaliador")
+    @ResponseBody
+    public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
+        Processo p = processoService.buscar(id);
+        Parecer parecer = parecerRepository.findById(parecerId)
+            .filter(par -> par.getProcesso().getId().equals(id))
+            .orElse(null);
+        if (parecer == null) {
+            return AcaoResponse.erro("Parecer nao encontrado neste processo.");
+        }
+        if (parecer.getResultado() != null) {
+            return AcaoResponse.erro("Este avaliador ja registrou o parecer.");
+        }
+        MembroUrgenciaRenal membro = parecer.getMembro();
+        if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+            return AcaoResponse.erro("Avaliador sem e-mail cadastrado: " + membro.getNome() + ".");
+        }
+        EmailTemplate template = emailTemplateService.emailLembreteAvaliador(p, membro);
+        boolean ok = emailSenderService.enviar(membro.getEmail(), template.assunto(), template.corpo());
+        if (ok) {
+            auditoria.registrar("LEMBRETE_AVALIADOR_ENVIADO",
+                "Processo " + p.getNumero() + " - " + membro.getNome());
+            return AcaoResponse.sucesso("Lembrete enviado para " + membro.getNome() + ".");
+        }
+        auditoria.registrar("LEMBRETE_AVALIADOR_FALHA",
+            "Processo " + p.getNumero() + " - " + membro.getNome());
+        return AcaoResponse.erro("Falha ao enviar o e-mail. Verifique a configuracao de SMTP.");
+    }
+
+    /**
+     * Dispara manualmente um lembrete por e-mail a TODOS os avaliadores com
+     * parecer pendente neste processo (envio em lote, ainda assim manual).
+     */
+    @PostMapping("/{id}/lembrete-pendentes")
+    @ResponseBody
+    public AcaoResponse lembretePendentes(@PathVariable Long id) {
+        Processo p = processoService.buscar(id);
+        var pendentes = parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(id);
+        if (pendentes.isEmpty()) {
+            return AcaoResponse.erro("Nao ha avaliadores com parecer pendente neste processo.");
+        }
+        int enviados = 0, falhas = 0, semEmail = 0;
+        for (Parecer parecer : pendentes) {
+            MembroUrgenciaRenal membro = parecer.getMembro();
+            if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+                semEmail++;
+                continue;
+            }
+            EmailTemplate template = emailTemplateService.emailLembreteAvaliador(p, membro);
+            boolean ok = emailSenderService.enviar(membro.getEmail(), template.assunto(), template.corpo());
+            if (ok) {
+                enviados++;
+                auditoria.registrar("LEMBRETE_AVALIADOR_ENVIADO",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            } else {
+                falhas++;
+                auditoria.registrar("LEMBRETE_AVALIADOR_FALHA",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            }
+        }
+        String msg = "Lembretes enviados: " + enviados + ". Falhas: " + falhas + ". Sem e-mail: " + semEmail + ".";
+        return enviados > 0 ? AcaoResponse.sucesso(msg) : AcaoResponse.erro(msg);
+    }
+
+    /**
+     * Dispara manualmente, por e-mail, um dos textos prontos exibidos no
+     * accordion "Textos de e-mail prontos". O destinatario e resolvido no
+     * servidor pela chave do template (nunca confia em endereco vindo do
+     * cliente). Para Deferido/Indeferido, bloqueia o envio se o anexo
+     * obrigatorio (comprovante SNT / oficio) ainda nao existir.
+     */
+    @PostMapping("/{id}/email/enviar")
+    @ResponseBody
+    public AcaoResponse enviarEmailPronto(@PathVariable Long id,
+                                          @RequestParam String chave,
+                                          @RequestParam String assunto,
+                                          @RequestParam String corpo) {
+        Processo p = processoService.buscar(id);
+        String destinatarios;
+        boolean ok;
+        switch (chave) {
+            case "medicos", "convite-avaliador", "convite-portal" -> {
+                var emails = p.getPareceres().stream()
+                    .map(par -> par.getMembro().getEmail())
+                    .filter(e -> e != null && !e.isBlank())
+                    .toArray(String[]::new);
+                if (emails.length == 0) {
+                    return AcaoResponse.erro("Nenhum avaliador deste processo tem e-mail cadastrado.");
+                }
+                destinatarios = String.join(", ", emails);
+                ok = emailSenderService.enviar(emails, null, assunto, corpo);
+            }
+            case "solicita-info", "deferido", "indeferido" -> {
+                String email = p.getSolicitanteEmail();
+                if (email == null || email.isBlank()) {
+                    return AcaoResponse.erro("Processo sem e-mail do solicitante cadastrado.");
+                }
+                if ("deferido".equals(chave)
+                        && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.COMPROVANTE_SNT)) {
+                    return AcaoResponse.erro("Anexe o comprovante de insercao no SNT antes de enviar este e-mail.");
+                }
+                if ("indeferido".equals(chave)
+                        && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO)) {
+                    return AcaoResponse.erro("Anexe o oficio de indeferimento antes de enviar este e-mail.");
+                }
+                destinatarios = email;
+                ok = emailSenderService.enviar(email, assunto, corpo);
+            }
+            default -> {
+                return AcaoResponse.erro("Tipo de e-mail desconhecido: " + chave);
+            }
+        }
+        if (ok) {
+            auditoria.registrar("EMAIL_ENVIADO",
+                "Processo " + p.getNumero() + " - template " + chave + " -> " + destinatarios);
+            return AcaoResponse.sucesso("E-mail enviado para " + destinatarios + ".");
+        }
+        auditoria.registrar("EMAIL_ENVIO_FALHA",
+            "Processo " + p.getNumero() + " - template " + chave + " -> " + destinatarios);
+        return AcaoResponse.erro("Falha ao enviar o e-mail. Verifique a configuracao de SMTP.");
     }
 }

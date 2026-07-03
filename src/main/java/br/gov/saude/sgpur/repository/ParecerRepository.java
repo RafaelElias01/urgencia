@@ -32,4 +32,10 @@ public interface ParecerRepository extends JpaRepository<Parecer, Long> {
 
     /** Localiza o parecer de um membro especifico em um processo especifico. */
     Optional<Parecer> findByProcessoIdAndMembroId(Long processoId, Long membroId);
+
+    /**
+     * Pareceres pendentes (resultado nulo, envio ja registrado) de um processo
+     * especifico. Usado para o lembrete manual de avaliacao pendente.
+     */
+    List<Parecer> findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(Long processoId);
 }

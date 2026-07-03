@@ -128,10 +128,27 @@
                                     </div>
                                     <label class="form-label small fw-semibold">Corpo</label>
                                     <textarea class="form-control mb-2" th:id="'corpo' + ${it.index}"
-                                              rows="5" readonly th:text="${mail.corpo}"></textarea>
-                                    <button class="btn btn-primary btn-sm w-100 btn-copiar"
-                                            type="button" th:data-alvo="'corpo' + ${it.index}">
-                                        <i class="bi bi-clipboard"></i> Copiar corpo
+                                              rows="5" th:text="${mail.corpo}"></textarea>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary btn-sm flex-fill btn-copiar"
+                                                type="button" th:data-alvo="'corpo' + ${it.index}">
+                                            <i class="bi bi-clipboard"></i> Copiar corpo
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm flex-fill btn-revisar-ia"
+                                                type="button" th:if="${iaDisponivel}"
+                                                th:attr="data-processo-id=${processo.id},
+                                                         data-assunto-id='assunto' + ${it.index},
+                                                         data-corpo-id='corpo' + ${it.index}">
+                                            <i class="bi bi-stars"></i> Revisar com IA
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm w-100 mt-2 btn-enviar-email"
+                                            type="button"
+                                            th:attr="data-processo-id=${processo.id},
+                                                     data-chave=${mail.chave},
+                                                     data-assunto-id='assunto' + ${it.index},
+                                                     data-corpo-id='corpo' + ${it.index}">
+                                        <i class="bi bi-send"></i> Enviar agora por e-mail
                                     </button>
                                 </div>
                             </div>
@@ -321,21 +338,30 @@
                             <strong>e obrigatorio ao menos um</strong> para registrar o envio.
                         </p>
                         <ul class="list-group list-group-flush mb-2" th:if="${!documentosClinicos.isEmpty()}">
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent"
-                                th:each="doc : ${documentosClinicos}">
-                                <span>
-                                    <i class="bi bi-file-earmark-pdf text-danger"></i>
-                                    <a th:href="@{/processos/anexos/{id}/download(id=${doc.id})}"
-                                       th:text="${doc.nomeArquivo}">arquivo</a>
-                                    <span th:if="${doc.contentType == null or !#strings.containsIgnoreCase(doc.contentType, 'application/pdf')}"
-                                          class="badge bg-warning text-dark ms-1" title="Nao sera incluido no PDF consolidado">nao-PDF</span>
-                                </span>
-                                <form th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
-                                      onsubmit="return confirm('Remover este documento clinico?');">
-                                    <button class="btn btn-sm btn-outline-danger" title="Remover">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
+                            <li class="list-group-item px-0 bg-transparent" th:each="doc : ${documentosClinicos}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="bi bi-file-earmark-pdf text-danger"></i>
+                                        <a th:href="@{/processos/anexos/{id}/download(id=${doc.id})}"
+                                           th:text="${doc.nomeArquivo}">arquivo</a>
+                                        <span th:if="${doc.contentType == null or !#strings.containsIgnoreCase(doc.contentType, 'application/pdf')}"
+                                              class="badge bg-warning text-dark ms-1" title="Nao sera incluido no PDF consolidado">nao-PDF</span>
+                                    </span>
+                                    <span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-resumir-ia"
+                                                th:if="${iaDisponivel and doc.contentType != null and #strings.containsIgnoreCase(doc.contentType, 'application/pdf')}"
+                                                th:attr="data-anexo-id=${doc.id}" title="Resumir com IA">
+                                            <i class="bi bi-stars"></i> Resumir
+                                        </button>
+                                        <form th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
+                                              class="d-inline" onsubmit="return confirm('Remover este documento clinico?');">
+                                            <button class="btn btn-sm btn-outline-danger" title="Remover">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </span>
+                                </div>
+                                <div th:id="'resumo-ia-' + ${doc.id}" class="small text-muted fst-italic mt-1 d-none"></div>
                             </li>
                         </ul>
                         <p class="small text-muted fst-italic mb-2" th:if="${documentosClinicos.isEmpty()}">
@@ -477,9 +503,17 @@
 
             <!-- Secao: Respostas dos Avaliadores -->
             <div class="card mb-4" id="respostas" th:if="${envioFeito}">
-                <div class="card-header d-flex justify-content-between">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-chat-square-text"></i> Respostas dos Avaliadores</span>
-                    <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
+                    <span class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLembretePendentes"
+                                th:unless="${processo.status.finalizado}"
+                                th:attr="data-processo-id=${processo.id}"
+                                title="Enviar lembrete por e-mail a todos os avaliadores com parecer pendente">
+                            <i class="bi bi-envelope"></i> Lembrar pendentes
+                        </button>
+                        <span class="badge bg-success" th:text="${favoraveis} + ' favoravel(is)'">0</span>
+                    </span>
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-3">
@@ -581,6 +615,12 @@
                                         </button>
                                     </th:block>
                                 </form>
+                                <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap mt-1 btn-lembrete-avaliador"
+                                        th:if="${par.resultado == null and !processo.status.finalizado and !pareceresPortal.contains(par.id) and par.membro.email != null and !par.membro.email.isBlank()}"
+                                        th:attr="data-parecer-id=${par.id}, data-processo-id=${processo.id}"
+                                        title="Enviar lembrete por e-mail ao avaliador">
+                                    <i class="bi bi-envelope"></i> Lembrar por e-mail
+                                </button>
                             </td>
                         </tr>
                         <!-- Justificativa do avaliador (material INTERNO do operador;
@@ -661,8 +701,16 @@
                             </div>
                             <div class="col-md-8" id="motivoBox">
                                 <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
-                                <input type="text" name="motivoIndeferimento" class="form-control"
-                                       th:value="${processo.motivoIndeferimento}">
+                                <div class="input-group">
+                                    <input type="text" name="motivoIndeferimento" id="motivoIndeferimentoInput"
+                                           class="form-control" th:value="${processo.motivoIndeferimento}">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            id="btnSugerirMotivo" th:if="${iaDisponivel}"
+                                            th:attr="data-processo-id=${processo.id}"
+                                            title="Sugerir motivo com IA a partir das justificativas dos avaliadores">
+                                        <i class="bi bi-stars"></i> Sugerir com IA
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="text-end mt-2">
@@ -957,6 +1005,137 @@
                 btn.innerHTML = '<i class="bi bi-check2"></i> Copiado!';
                 setTimeout(function () { btn.innerHTML = orig; }, 1500);
             });
+        });
+    });
+
+    // ===== Assistencia por IA (Gemini) =====
+    var csrfToken = document.querySelector('meta[name="_csrf"]').content;
+    var csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+    function chamarIa(btn, url, options, aoConcluir) {
+        var orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Consultando IA...';
+        var headers = Object.assign({}, options.headers || {});
+        headers[csrfHeader] = csrfToken;
+        fetch(url, Object.assign({}, options, {headers: headers}))
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (data.erro) {
+                    alert('Nao foi possivel obter a sugestao da IA: ' + data.erro);
+                } else {
+                    aoConcluir(data.texto);
+                }
+            })
+            .catch(function () {
+                alert('Falha de comunicacao ao consultar a IA. Tente novamente.');
+            })
+            .finally(function () {
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            });
+    }
+
+    // 1) Sugerir motivo do indeferimento
+    var btnSugerirMotivo = document.getElementById('btnSugerirMotivo');
+    if (btnSugerirMotivo) {
+        btnSugerirMotivo.addEventListener('click', function () {
+            var processoId = this.getAttribute('data-processo-id');
+            var campo = document.getElementById('motivoIndeferimentoInput');
+            chamarIa(this, '/processos/' + processoId + '/sugestao-motivo', {method: 'POST'}, function (texto) {
+                campo.value = texto;
+            });
+        });
+    }
+
+    // 2) Resumir documento clinico anexado
+    document.querySelectorAll('.btn-resumir-ia').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var anexoId = this.getAttribute('data-anexo-id');
+            var alvo = document.getElementById('resumo-ia-' + anexoId);
+            chamarIa(this, '/processos/anexos/' + anexoId + '/resumo-ia', {method: 'GET'}, function (texto) {
+                alvo.textContent = texto;
+                alvo.classList.remove('d-none');
+            });
+        });
+    });
+
+    // 3) Revisar texto de e-mail
+    document.querySelectorAll('.btn-revisar-ia').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var processoId = this.getAttribute('data-processo-id');
+            var assunto = document.getElementById(this.getAttribute('data-assunto-id')).value;
+            var corpoEl = document.getElementById(this.getAttribute('data-corpo-id'));
+            var body = new URLSearchParams({assunto: assunto, corpo: corpoEl.value});
+            chamarIa(this, '/processos/' + processoId + '/email/revisar-ia', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: body
+            }, function (texto) {
+                corpoEl.value = texto;
+            });
+        });
+    });
+
+    // ===== Envio real de e-mail (SMTP) - sempre disparo manual =====
+    function chamarAcao(btn, url, options, mensagemEspera) {
+        var orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + mensagemEspera;
+        var headers = Object.assign({}, options.headers || {});
+        headers[csrfHeader] = csrfToken;
+        fetch(url, Object.assign({}, options, {headers: headers}))
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                alert(data.mensagem);
+            })
+            .catch(function () {
+                alert('Falha de comunicacao ao enviar o e-mail. Tente novamente.');
+            })
+            .finally(function () {
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            });
+    }
+
+    // 4) Lembrete individual de avaliacao pendente
+    document.querySelectorAll('.btn-lembrete-avaliador').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var parecerId = this.getAttribute('data-parecer-id');
+            var processoId = this.getAttribute('data-processo-id');
+            chamarAcao(this,
+                '/processos/' + processoId + '/lembrete-avaliador?parecerId=' + parecerId,
+                {method: 'POST'}, 'Enviando...');
+        });
+    });
+
+    // 5) Lembrete em lote para todos os pendentes
+    var btnLembretePendentes = document.getElementById('btnLembretePendentes');
+    if (btnLembretePendentes) {
+        btnLembretePendentes.addEventListener('click', function () {
+            if (!confirm('Enviar lembrete por e-mail a todos os avaliadores com parecer pendente neste processo?')) return;
+            var processoId = this.getAttribute('data-processo-id');
+            chamarAcao(this, '/processos/' + processoId + '/lembrete-pendentes', {method: 'POST'}, 'Enviando...');
+        });
+    }
+
+    // 6) Enviar e-mail pronto (accordion) - confirmacao mais forte para Deferido/Indeferido
+    document.querySelectorAll('.btn-enviar-email').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var processoId = this.getAttribute('data-processo-id');
+            var chave = this.getAttribute('data-chave');
+            var assunto = document.getElementById(this.getAttribute('data-assunto-id')).value;
+            var corpoEl = document.getElementById(this.getAttribute('data-corpo-id'));
+            var pergunta = (chave === 'deferido' || chave === 'indeferido')
+                ? 'Enviar o e-mail OFICIAL de ' + chave.toUpperCase() + ' ao solicitante? Esta acao nao pode ser desfeita.'
+                : 'Enviar este e-mail agora?';
+            if (!confirm(pergunta)) return;
+            var body = new URLSearchParams({chave: chave, assunto: assunto, corpo: corpoEl.value});
+            chamarAcao(this, '/processos/' + processoId + '/email/enviar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: body
+            }, 'Enviando...');
         });
     });
 </script>

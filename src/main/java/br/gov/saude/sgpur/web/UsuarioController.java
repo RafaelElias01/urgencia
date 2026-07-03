@@ -116,16 +116,20 @@ public class UsuarioController {
         return "usuarios/esqueci-senha";
     }
 
+    /**
+     * Sempre exibe a mesma mensagem neutra, exista ou nao o usuario e tenha
+     * ou nao e-mail cadastrado - evita que a tela seja usada para descobrir
+     * quais logins sao validos (enumeracao de usuarios).
+     */
     @PostMapping("/esqueci-senha")
     public String redefinirSenha(@RequestParam String username, Model model) {
-        try {
-            String novaSenha = service.resetarSenha(username);
-            model.addAttribute("sucesso", true);
-            model.addAttribute("msgRedefinicao",
-                "Senha redefinida. Sua nova senha temporaria: " + novaSenha);
-        } catch (IllegalArgumentException e) {
-            model.addAttribute("erroRedefinicao", e.getMessage());
-        }
+        service.resetarSenha(username);
+        auditoria.registrar("SENHA_RESET_SOLICITADO", "Usuario " + username);
+        model.addAttribute("sucesso", true);
+        model.addAttribute("msgRedefinicao",
+            "Se o login existir e tiver e-mail cadastrado, enviamos as instrucoes "
+            + "de redefinicao para o e-mail cadastrado. Caso nao tenha e-mail "
+            + "cadastrado, procure o administrador do sistema.");
         return "usuarios/esqueci-senha";
     }
 }

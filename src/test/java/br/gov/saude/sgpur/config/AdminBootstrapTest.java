@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.EmailSenderService;
 import br.gov.saude.sgpur.service.UsuarioService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -28,13 +28,15 @@ class AdminBootstrapTest {
     private MembroUrgenciaRenalRepository membroRepository;
     @Mock
     private PasswordEncoder encoder;
+    @Mock
+    private EmailSenderService emailSenderService;
 
     @Test
     void criaAdminQuandoBancoVazio() {
         when(usuarioRepository.count()).thenReturn(0L);
         when(encoder.encode("admin123")).thenReturn("hash");
         when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository);
+        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository, emailSenderService);
         AdminBootstrap bootstrap = new AdminBootstrap(usuarioRepository, usuarioService, "admin", "admin123");
 
         bootstrap.run(null);
@@ -49,7 +51,7 @@ class AdminBootstrapTest {
     @Test
     void naoCriaAdminQuandoJaExistemUsuarios() {
         when(usuarioRepository.count()).thenReturn(3L);
-        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository);
+        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository, emailSenderService);
         AdminBootstrap bootstrap = new AdminBootstrap(usuarioRepository, usuarioService, "admin", "admin123");
 
         bootstrap.run(null);

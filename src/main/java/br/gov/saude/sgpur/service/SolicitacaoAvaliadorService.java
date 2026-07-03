@@ -291,7 +291,7 @@ public class SolicitacaoAvaliadorService {
     private void rodape(Document doc) throws DocumentException {
         Font fRodape = FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA);
         Paragraph rodape = new Paragraph(
-            "Documento gerado automaticamente pelo SGPUR — uso restrito aos membros da Urgencia Renal. "
+            "Documento gerado automaticamente pelo SAUR — uso restrito aos membros da Urgencia Renal. "
                 + "O nome do paciente foi omitido para preservar a imparcialidade do julgamento "
                 + "(convencao da equipe de Urgencia Renal).",
             fRodape);

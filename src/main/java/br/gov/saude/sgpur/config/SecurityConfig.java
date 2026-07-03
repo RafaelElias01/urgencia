@@ -43,6 +43,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/css/**", "/js/**", "/webjars/**", "/favicon.ico").permitAll()
                 .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll()
+                // Precisa vir ANTES da regra geral /usuarios/** (ADMIN) - senao ninguem
+                // deslogado consegue acessar a recuperacao de senha, justamente quando
+                // mais precisa (nao consegue logar).
+                .requestMatchers("/usuarios/esqueci-senha").permitAll()
                 .requestMatchers("/usuarios/**", "/auditoria/**").hasRole("ADMIN")
                 .requestMatchers("/membros/**", "/relatorios/**").hasRole("ADMIN")
                 .requestMatchers("/controle-urgencias/**").hasAnyRole("ADMIN", "OPERADOR")

@@ -33,9 +33,9 @@ public class DesktopBrowserLauncher implements ApplicationRunner {
                     && Desktop.isDesktopSupported()
                     && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(URI.create(url));
-                log.info("SGPUR aberto no navegador: {}", url);
+                log.info("SAUR aberto no navegador: {}", url);
             } else {
-                log.info("SGPUR rodando. Abra no navegador: {}", url);
+                log.info("SAUR rodando. Abra no navegador: {}", url);
             }
         } catch (Exception e) {
             log.warn("Nao foi possivel abrir o navegador automaticamente. Acesse {} - {}", url, e.getMessage());

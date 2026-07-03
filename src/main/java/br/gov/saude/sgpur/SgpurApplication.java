@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.TimeZone;
 
 /**
- * Sistema de Gestao de Processos de Urgencia Renal (SGPUR).
+ * SAUR - Sistema de Avaliacao de Urgencia Renal.
  * Substitui a planilha Excel da Camara Tecnica Estadual de Urgencia Renal.
  */
 @SpringBootApplication

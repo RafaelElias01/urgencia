@@ -75,4 +75,20 @@ class EmailTemplateServiceTest {
             .filter(e -> e.chave().equals("deferido") || e.chave().equals("indeferido")).count();
         assertThat(respostas).isZero();
     }
+
+    @Test
+    void lembreteAvaliadorNaoExpoeNomeDoPacienteEAvisaSobreAvaliacaoPendente() {
+        Processo p = processo();
+        MembroUrgenciaRenal membro = new MembroUrgenciaRenal("HCPA", "Dra. Avaliadora", "avaliadora@example.com");
+        EmailTemplate lembrete = service.emailLembreteAvaliador(p, membro);
+
+        // Imparcialidade: nome completo do paciente NUNCA aparece no lembrete ao avaliador
+        assertThat(lembrete.corpo()).doesNotContain("Joao Paciente Secreto");
+        // Deve conter o numero do processo, o texto de disponibilidade para avaliacao
+        // e o nome do avaliador destinatario
+        assertThat(lembrete.corpo()).contains("07/2026");
+        assertThat(lembrete.corpo()).contains("esta disponivel para sua avaliacao");
+        assertThat(lembrete.corpo()).contains("Dra. Avaliadora");
+        assertThat(lembrete.assunto()).contains("07/2026");
+    }
 }

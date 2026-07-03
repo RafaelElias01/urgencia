@@ -1,10 +1,11 @@
 package br.gov.saude.sgpur.domain;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * Usuario do sistema (servidor que opera o SGPUR). Substitui o usuario
+ * Usuario do sistema (servidor que opera o SAUR). Substitui o usuario
  * administrador em memoria - agora persistido no banco.
  */
 @Entity
@@ -26,6 +27,11 @@ public class Usuario {
     @NotBlank
     @Column(nullable = false, length = 120)
     private String nome;
+
+    /** E-mail do usuario, usado para enviar a nova senha no fluxo "esqueci minha senha". */
+    @Email
+    @Column(length = 150)
+    private String email;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -76,6 +82,14 @@ public class Usuario {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public Perfil getPerfil() {

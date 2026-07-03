@@ -20,7 +20,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Gera o Relatorio Final do Processo de Urgencia Renal em PDF - documento
@@ -229,7 +228,7 @@ public class RelatorioService {
         }
 
         Paragraph rodape = new Paragraph(
-            "Documento gerado automaticamente pelo SGPUR - Sistema de Gestao de Processos de Urgencia Renal.",
+            "Documento gerado automaticamente pelo SAUR - Sistema de Avaliacao de Urgencia Renal.",
             FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA));
         rodape.setAlignment(Element.ALIGN_CENTER);
         rodape.setSpacingBefore(20);
@@ -609,7 +608,7 @@ public class RelatorioService {
         doc.add(tAval);
 
         Paragraph rodapeCapa = new Paragraph(
-            "Documento gerado pelo SGPUR em " + LocalDate.now().format(DATA), fRodapeCapa);
+            "Documento gerado pelo SAUR em " + LocalDate.now().format(DATA), fRodapeCapa);
         rodapeCapa.setAlignment(Element.ALIGN_CENTER);
         rodapeCapa.setSpacingBefore(20);
         doc.add(rodapeCapa);

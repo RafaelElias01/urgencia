@@ -5,6 +5,8 @@ import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,15 +16,20 @@ import java.util.List;
 @Service
 public class UsuarioService {
 
+    private static final Logger log = LoggerFactory.getLogger(UsuarioService.class);
+
     private final UsuarioRepository repo;
     private final PasswordEncoder encoder;
     private final MembroUrgenciaRenalRepository membroRepo;
+    private final EmailSenderService emailSenderService;
 
     public UsuarioService(UsuarioRepository repo, PasswordEncoder encoder,
-                          MembroUrgenciaRenalRepository membroRepo) {
+                          MembroUrgenciaRenalRepository membroRepo,
+                          EmailSenderService emailSenderService) {
         this.repo = repo;
         this.encoder = encoder;
         this.membroRepo = membroRepo;
+        this.emailSenderService = emailSenderService;
     }
 
     public List<Usuario> listar() {
@@ -95,14 +102,44 @@ public class UsuarioService {
         repo.delete(u);
     }
 
+    /**
+     * Redefine a senha do usuario (se existir e tiver e-mail cadastrado) e
+     * envia a nova senha temporaria por e-mail - NUNCA expoe a senha em texto
+     * puro na tela. Sempre retorna sem lancar excecao, mesmo quando o usuario
+     * nao existe ou nao tem e-mail cadastrado, para o chamador poder exibir
+     * uma mensagem neutra e evitar enumeracao de usuarios validos.
+     */
     @Transactional
-    public String resetarSenha(String username) {
-        Usuario u = repo.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Usuario nao encontrado: " + username));
+    public void resetarSenha(String username) {
+        Usuario u = repo.findByUsername(username).orElse(null);
+        if (u == null) {
+            log.debug("resetarSenha: usuario '{}' nao encontrado.", username);
+            return;
+        }
         String novaSenha = gerarSenhaTemporaria();
         u.setSenha(encoder.encode(novaSenha));
         repo.save(u);
-        return novaSenha;
+        if (u.getEmail() == null || u.getEmail().isBlank()) {
+            log.warn("resetarSenha: usuario '{}' nao tem e-mail cadastrado - "
+                + "senha foi alterada mas nao pode ser enviada. Peca ao ADMIN redefinir manualmente.", username);
+            return;
+        }
+        String corpo = """
+            Ola, %s,
+
+            Sua senha de acesso ao SAUR foi redefinida a seu pedido.
+
+            Nova senha temporaria: %s
+
+            Recomendamos alterar esta senha apos o proximo login.
+
+            Se voce nao solicitou esta redefinicao, entre em contato com o
+            administrador do sistema imediatamente.
+
+            Atenciosamente,
+            Equipe SAUR - Secretaria de Saude
+            """.formatted(u.getNome(), novaSenha);
+        emailSenderService.enviar(u.getEmail(), "SAUR - Redefinicao de senha", corpo);
     }
 
     private String gerarSenhaTemporaria() {

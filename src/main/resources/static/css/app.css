@@ -1,12 +1,12 @@
-/* === SGPUR - Tema Urgencia Renal === */
-/* Paleta RS: azul institucional #004b87, ouro #f5a623, verde #2d8546 */
+/* === SAUR - Tema Urgencia Renal === */
+/* Paleta SAUR: vermelho sangue #8b0000 (primaria), ouro #f5a623, verde #2d8546 */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --rs-blue: #004b87;
-    --rs-blue-light: #e8f0fe;
-    --rs-blue-dark: #003366;
+    --rs-blue: #8b0000;
+    --rs-blue-light: #fbe4e4;
+    --rs-blue-dark: #5c0000;
     --rs-gold: #f5a623;
     --rs-gold-light: #fef3e2;
     --rs-green: #2d8546;
@@ -39,7 +39,7 @@ body {
 /* === Navbar === */
 .navbar-sgpur {
     background: linear-gradient(135deg, var(--rs-blue) 0%, var(--rs-blue-dark) 100%) !important;
-    box-shadow: 0 2px 8px rgba(0,75,135,.25);
+    box-shadow: 0 2px 8px rgba(139,0,0,.35);
     border-bottom: 2px solid var(--rs-gold);
 }
 
@@ -113,7 +113,8 @@ body {
 }
 .tabela-pareceres th:nth-child(6),
 .tabela-pareceres td:nth-child(6) {
-    min-width: 300px;
+    min-width: 220px;
+    max-width: 280px;
 }
 
 /* === Wizard horizontal (passo a passo) === */
@@ -312,15 +313,15 @@ body {
 
 /* === Botoes com gradiente === */
 .btn-primary {
-    background: linear-gradient(135deg, var(--rs-blue), #2563eb);
+    background: linear-gradient(135deg, var(--rs-blue), #c62828);
     border: none;
-    box-shadow: 0 2px 4px rgba(0,75,135,.25);
+    box-shadow: 0 2px 4px rgba(139,0,0,.25);
     transition: var(--rs-transition);
 }
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,75,135,.35);
+    box-shadow: 0 4px 8px rgba(139,0,0,.35);
 }
 
 .btn-outline-primary {
@@ -400,7 +401,7 @@ body {
 .alert-success { background: var(--rs-green-light); color: #1a5c30; }
 .alert-danger { background: var(--rs-red-light); color: #8b1a1a; }
 .alert-warning { background: var(--rs-gold-light); color: #7a5e10; }
-.alert-info { background: var(--rs-blue-light); color: #003366; }
+.alert-info { background: #e8f0fe; color: #003366; }
 
 /* === Paginacao === */
 .page-link {
@@ -492,27 +493,28 @@ body {
     flex: 0 0 auto;
 }
 
-/* === Acao column na tabela de pareceres - layout horizontal === */
+/* === Acao column na tabela de pareceres - quebra em vez de cortar/espremer === */
 .tabela-pareceres .acao-form {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: .375rem;
 }
 .tabela-pareceres .acao-form .form-select-sm {
-    min-width: 120px;
-    max-width: 160px;
-    flex: 1 1 auto;
+    min-width: 110px;
+    flex: 1 1 110px;
     width: auto;
 }
 .tabela-pareceres .acao-form .form-control-sm {
-    min-width: 130px;
-    max-width: 200px;
-    flex: 1 1 auto;
+    min-width: 120px;
+    flex: 1 1 120px;
     width: auto;
 }
 .tabela-pareceres .acao-form .btn-sm {
     flex: 0 0 auto;
+    white-space: nowrap;
+}
+.tabela-pareceres .btn-lembrete-avaliador {
     white-space: nowrap;
 }
 

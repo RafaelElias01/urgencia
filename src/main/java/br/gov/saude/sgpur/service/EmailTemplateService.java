@@ -136,6 +136,40 @@ public class EmailTemplateService {
     }
 
     /**
+     * Lembrete manual de avaliacao pendente, disparado pelo operador para um
+     * avaliador especifico que ainda nao registrou parecer. SEM nome completo
+     * do paciente (so iniciais), para preservar a imparcialidade do julgamento.
+     */
+    public EmailTemplate emailLembreteAvaliador(Processo p, MembroUrgenciaRenal membro) {
+        String iniciais = Iniciais.de(p.getPacienteNome());
+        String idProcesso = p.getNumero() + " CET-RS - Paciente " + iniciais;
+        String portalUrl = baseUrl + "/avaliador";
+
+        String corpo = """
+            Prezado(a) %s,
+
+            Lembramos que o processo abaixo permanece disponivel para a sua avaliacao
+            e aguarda o seu parecer.
+
+            Processo %s esta disponivel para sua avaliacao.
+
+            Para registrar seu parecer, acesse o Portal do Avaliador com suas credenciais:
+            %s
+
+            O nome do paciente foi omitido para preservar a imparcialidade do
+            julgamento; identificado apenas pelas iniciais.
+
+            Atenciosamente,
+            Equipe de Urgencia Renal - Secretaria de Saude
+            """.formatted(membro.getNome(), idProcesso, portalUrl);
+
+        return new EmailTemplate("lembrete-avaliador",
+            "Lembrete de avaliacao pendente - " + membro.getNome(), "bell",
+            "Urgencia Renal - Lembrete de avaliacao pendente - Processo " + idProcesso,
+            corpo);
+    }
+
+    /**
      * Template agrupado de convite ao portal (exibido na aba Envio do processo).
      * Lista todos os avaliadores com o link unico do portal.
      * SEM nome completo do paciente (so iniciais).
