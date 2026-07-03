@@ -81,10 +81,16 @@ public class UsuarioController {
     }
 
     @PostMapping("/{id}/editar")
-    public String atualizar(@PathVariable Long id, @ModelAttribute("usuario") Usuario form,
+    public String atualizar(@PathVariable Long id, @Valid @ModelAttribute("usuario") Usuario form,
+                            BindingResult result,
                             @RequestParam(required = false) String senha,
                             @RequestParam(required = false) Long membroId,
-                            RedirectAttributes ra) {
+                            Model model, RedirectAttributes ra) {
+        if (result.hasErrors()) {
+            model.addAttribute("edicao", true);
+            model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+            return "usuarios/form";
+        }
         try {
             service.atualizar(id, form, senha, membroId);
         } catch (IllegalArgumentException e) {

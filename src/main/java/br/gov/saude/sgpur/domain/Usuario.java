@@ -28,7 +28,13 @@ public class Usuario {
     @Column(nullable = false, length = 120)
     private String nome;
 
-    /** E-mail do usuario, usado para enviar a nova senha no fluxo "esqueci minha senha". */
+    /**
+     * E-mail do usuario, usado para enviar a nova senha no fluxo "esqueci
+     * minha senha". Obrigatorio no cadastro/edicao via UI (@NotBlank); a
+     * coluna permanece nullable no banco para nao quebrar o admin inicial
+     * criado por AdminBootstrap nem usuarios legados sem e-mail.
+     */
+    @NotBlank
     @Email
     @Column(length = 150)
     private String email;

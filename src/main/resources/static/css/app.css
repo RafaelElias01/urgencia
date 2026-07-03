@@ -1,12 +1,12 @@
 /* === SAUR - Tema Urgencia Renal === */
-/* Paleta SAUR: vermelho sangue #8b0000 (primaria), ouro #f5a623, verde #2d8546 */
+/* Paleta SAUR: azul #1a4d8f (primaria), ouro #f5a623, verde #2d8546 */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --rs-blue: #8b0000;
-    --rs-blue-light: #fbe4e4;
-    --rs-blue-dark: #5c0000;
+    --rs-blue: #1a4d8f;
+    --rs-blue-light: #e3edf7;
+    --rs-blue-dark: #0f3163;
     --rs-gold: #f5a623;
     --rs-gold-light: #fef3e2;
     --rs-green: #2d8546;
@@ -39,7 +39,7 @@ body {
 /* === Navbar === */
 .navbar-sgpur {
     background: linear-gradient(135deg, var(--rs-blue) 0%, var(--rs-blue-dark) 100%) !important;
-    box-shadow: 0 2px 8px rgba(139,0,0,.35);
+    box-shadow: 0 2px 8px rgba(26,77,143,.35);
     border-bottom: 2px solid var(--rs-gold);
 }
 
@@ -313,15 +313,15 @@ body {
 
 /* === Botoes com gradiente === */
 .btn-primary {
-    background: linear-gradient(135deg, var(--rs-blue), #c62828);
+    background: linear-gradient(135deg, var(--rs-blue), var(--rs-blue-dark));
     border: none;
-    box-shadow: 0 2px 4px rgba(139,0,0,.25);
+    box-shadow: 0 2px 4px rgba(26,77,143,.25);
     transition: var(--rs-transition);
 }
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(139,0,0,.35);
+    box-shadow: 0 4px 8px rgba(26,77,143,.35);
 }
 
 .btn-outline-primary {

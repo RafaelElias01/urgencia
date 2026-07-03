@@ -34,7 +34,7 @@ public class OficioService {
             Font fCorpo = FontFactory.getFont(FontFactory.HELVETICA, 11, Color.BLACK);
 
             // Cabecalho institucional
-            Paragraph cab = new Paragraph("GOVERNO DO ESTADO DO RIO GRANDE DO SUL", fCab);
+            Paragraph cab = new Paragraph("Central de Transplantes do Estado do Rio Grande do Sul", fCab);
             cab.setAlignment(Element.ALIGN_CENTER);
             doc.add(cab);
             Paragraph cab2 = new Paragraph("URGENCIA RENAL", fCabSub);

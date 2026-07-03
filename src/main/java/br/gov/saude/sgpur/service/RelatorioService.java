@@ -340,7 +340,7 @@ public class RelatorioService {
             log.warn("Logo nao encontrado em static/brasao.png, cabecalho sem imagem");
         }
 
-        String linha1 = "GOVERNO DO ESTADO DO RIO GRANDE DO SUL - URGENCIA RENAL";
+        String linha1 = "Central de Transplantes do Estado do Rio Grande do Sul - URGENCIA RENAL";
         String iniciais = Iniciais.de(p.getPacienteNome());
         String linha2 = "Processo CET-RS " + p.getNumero() + " - Paciente " + iniciais;
 

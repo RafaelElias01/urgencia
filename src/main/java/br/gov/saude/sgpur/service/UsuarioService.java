@@ -80,6 +80,7 @@ public class UsuarioService {
             u.setUsername(form.getUsername());
         }
         u.setNome(form.getNome());
+        u.setEmail(form.getEmail());
         u.setPerfil(form.getPerfil());
         u.setAtivo(form.isAtivo());
         aplicarMembro(u, membroId);

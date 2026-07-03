@@ -90,7 +90,7 @@ public class RelatorioAnualService {
         espaco.setSpacingAfter(80);
         doc.add(espaco);
 
-        Paragraph orgao = new Paragraph("GOVERNO DO ESTADO DO RIO GRANDE DO SUL", fOrgao);
+        Paragraph orgao = new Paragraph("Central de Transplantes do Estado do Rio Grande do Sul", fOrgao);
         orgao.setAlignment(Element.ALIGN_CENTER);
         doc.add(orgao);
 
