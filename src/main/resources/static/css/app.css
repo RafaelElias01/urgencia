@@ -92,11 +92,27 @@ body {
 .tabela-pareceres {
     width: 100%;
     table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
 }
-.tabela-pareceres th,
-.tabela-pareceres td {
-    padding: .75rem .625rem;
+.tabela-pareceres thead th {
+    padding: .6rem .75rem;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--rs-gray-500, #6c757d);
+    background: var(--rs-gray-100, #f8f9fa);
+    border-bottom: 2px solid var(--rs-gray-200, #e9ecef);
+    white-space: nowrap;
+}
+.tabela-pareceres tbody td {
+    padding: .9rem .75rem;
     vertical-align: middle;
+    line-height: 1.5;
+    border-bottom: 1px solid var(--rs-gray-200, #e9ecef);
+}
+.tabela-pareceres tbody tr:hover td {
+    background: var(--rs-gray-100, #f8f9fa);
 }
 .tabela-pareceres th:first-child,
 .tabela-pareceres td:first-child {
@@ -106,15 +122,29 @@ body {
 .tabela-pareceres td:last-child {
     padding-right: 1rem;
 }
+/* Coluna Medico: nome inteiro sem quebra agressiva, com peso visual */
+.tabela-pareceres td:first-child {
+    font-weight: 600;
+    min-width: 180px;
+}
 .tabela-pareceres th:nth-child(2),
 .tabela-pareceres td:nth-child(2) {
     white-space: normal;
-    min-width: 140px;
+    min-width: 150px;
+}
+/* Colunas Data / Origem / Resposta: nao deixar espremer */
+.tabela-pareceres th:nth-child(3),
+.tabela-pareceres td:nth-child(3),
+.tabela-pareceres th:nth-child(4),
+.tabela-pareceres td:nth-child(4),
+.tabela-pareceres th:nth-child(5),
+.tabela-pareceres td:nth-child(5) {
+    white-space: nowrap;
 }
 .tabela-pareceres th:nth-child(6),
 .tabela-pareceres td:nth-child(6) {
-    min-width: 220px;
-    max-width: 280px;
+    min-width: 240px;
+    max-width: 300px;
 }
 
 /* === Wizard horizontal (passo a passo) === */

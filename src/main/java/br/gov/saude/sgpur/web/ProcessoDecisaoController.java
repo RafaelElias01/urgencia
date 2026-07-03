@@ -19,6 +19,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Passos 2 a 4 do fluxo: envio aos avaliadores, respostas/pareceres, decisao
@@ -585,8 +587,94 @@ public class ProcessoDecisaoController {
                                           @RequestParam String assunto,
                                           @RequestParam String corpo) {
         Processo p = processoService.buscar(id);
-        String destinatarios;
-        boolean ok;
+        EmailPreparado prep = prepararEmailPronto(p, chave, assunto, corpo);
+        if (!prep.ok()) {
+            return AcaoResponse.erro(prep.erro());
+        }
+        boolean ok = emailSenderService.enviar(prep.to(), null, prep.assunto(), prep.corpo());
+        if (ok) {
+            auditoria.registrar("EMAIL_ENVIADO",
+                "Processo " + p.getNumero() + " - template " + chave + " -> " + prep.destinatarios());
+            return AcaoResponse.sucesso("E-mail enviado para " + prep.destinatarios() + ".");
+        }
+        auditoria.registrar("EMAIL_ENVIO_FALHA",
+            "Processo " + p.getNumero() + " - template " + chave + " -> " + prep.destinatarios());
+        return AcaoResponse.erro("Falha ao enviar o e-mail. Verifique a configuracao de SMTP.");
+    }
+
+    /**
+     * Pre-visualiza, sem enviar, o(s) e-mail(s) que uma acao dispararia -
+     * destinatario(s), assunto e corpo exatos. Alimenta o modal de confirmacao:
+     * NENHUM e-mail e enviado sem o operador conferir este conteudo antes.
+     * A resolucao de destinatarios e as validacoes de anexo obrigatorio usam a
+     * mesma logica do envio real, garantindo que o previsto e o enviado coincidam.
+     */
+    @PostMapping("/{id}/email/preview")
+    @ResponseBody
+    public EmailPreviewResponse preverEmail(@PathVariable Long id,
+                                            @RequestParam String tipo,
+                                            @RequestParam(required = false) String chave,
+                                            @RequestParam(required = false) String assunto,
+                                            @RequestParam(required = false) String corpo,
+                                            @RequestParam(required = false) Long parecerId) {
+        Processo p = processoService.buscar(id);
+        switch (tipo) {
+            case "pronto" -> {
+                EmailPreparado prep = prepararEmailPronto(p, chave, assunto, corpo);
+                if (!prep.ok()) {
+                    return EmailPreviewResponse.erro(prep.erro());
+                }
+                return EmailPreviewResponse.ok(List.of(
+                    new EmailPreviewResponse.Mensagem(prep.destinatarios(), prep.assunto(), prep.corpo())));
+            }
+            case "lembrete-avaliador" -> {
+                Parecer parecer = parecerRepository.findById(parecerId)
+                    .filter(par -> par.getProcesso().getId().equals(id))
+                    .orElse(null);
+                if (parecer == null) {
+                    return EmailPreviewResponse.erro("Parecer nao encontrado neste processo.");
+                }
+                if (parecer.getResultado() != null) {
+                    return EmailPreviewResponse.erro("Este avaliador ja registrou o parecer.");
+                }
+                MembroUrgenciaRenal membro = parecer.getMembro();
+                if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+                    return EmailPreviewResponse.erro("Avaliador sem e-mail cadastrado: " + membro.getNome() + ".");
+                }
+                EmailTemplate template = emailTemplateService.emailLembreteAvaliador(p, membro);
+                return EmailPreviewResponse.ok(List.of(
+                    new EmailPreviewResponse.Mensagem(membro.getEmail(), template.assunto(), template.corpo())));
+            }
+            case "lembrete-pendentes" -> {
+                var pendentes = parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(id);
+                List<EmailPreviewResponse.Mensagem> mensagens = new ArrayList<>();
+                for (Parecer parecer : pendentes) {
+                    MembroUrgenciaRenal membro = parecer.getMembro();
+                    if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+                        continue;
+                    }
+                    EmailTemplate template = emailTemplateService.emailLembreteAvaliador(p, membro);
+                    mensagens.add(new EmailPreviewResponse.Mensagem(
+                        membro.getEmail(), template.assunto(), template.corpo()));
+                }
+                if (mensagens.isEmpty()) {
+                    return EmailPreviewResponse.erro(
+                        "Nao ha avaliadores com parecer pendente e e-mail cadastrado neste processo.");
+                }
+                return EmailPreviewResponse.ok(mensagens);
+            }
+            default -> {
+                return EmailPreviewResponse.erro("Tipo de pre-visualizacao desconhecido: " + tipo);
+            }
+        }
+    }
+
+    /**
+     * Resolve destinatarios e valida anexos obrigatorios de um texto de e-mail
+     * pronto, sem enviar. Fonte unica usada tanto pela pre-visualizacao quanto
+     * pelo envio real - assim o que o operador confere e exatamente o que sai.
+     */
+    private EmailPreparado prepararEmailPronto(Processo p, String chave, String assunto, String corpo) {
         switch (chave) {
             case "medicos", "convite-avaliador", "convite-portal" -> {
                 var emails = p.getPareceres().stream()
@@ -594,38 +682,41 @@ public class ProcessoDecisaoController {
                     .filter(e -> e != null && !e.isBlank())
                     .toArray(String[]::new);
                 if (emails.length == 0) {
-                    return AcaoResponse.erro("Nenhum avaliador deste processo tem e-mail cadastrado.");
+                    return EmailPreparado.erro("Nenhum avaliador deste processo tem e-mail cadastrado.");
                 }
-                destinatarios = String.join(", ", emails);
-                ok = emailSenderService.enviar(emails, null, assunto, corpo);
+                return EmailPreparado.ok(emails, String.join(", ", emails), assunto, corpo);
             }
             case "solicita-info", "deferido", "indeferido" -> {
                 String email = p.getSolicitanteEmail();
                 if (email == null || email.isBlank()) {
-                    return AcaoResponse.erro("Processo sem e-mail do solicitante cadastrado.");
+                    return EmailPreparado.erro("Processo sem e-mail do solicitante cadastrado.");
                 }
                 if ("deferido".equals(chave)
                         && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.COMPROVANTE_SNT)) {
-                    return AcaoResponse.erro("Anexe o comprovante de insercao no SNT antes de enviar este e-mail.");
+                    return EmailPreparado.erro("Anexe o comprovante de insercao no SNT antes de enviar este e-mail.");
                 }
                 if ("indeferido".equals(chave)
                         && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO)) {
-                    return AcaoResponse.erro("Anexe o oficio de indeferimento antes de enviar este e-mail.");
+                    return EmailPreparado.erro("Anexe o oficio de indeferimento antes de enviar este e-mail.");
                 }
-                destinatarios = email;
-                ok = emailSenderService.enviar(email, assunto, corpo);
+                return EmailPreparado.ok(new String[]{email}, email, assunto, corpo);
             }
             default -> {
-                return AcaoResponse.erro("Tipo de e-mail desconhecido: " + chave);
+                return EmailPreparado.erro("Tipo de e-mail desconhecido: " + chave);
             }
         }
-        if (ok) {
-            auditoria.registrar("EMAIL_ENVIADO",
-                "Processo " + p.getNumero() + " - template " + chave + " -> " + destinatarios);
-            return AcaoResponse.sucesso("E-mail enviado para " + destinatarios + ".");
+    }
+
+    /** Resultado interno de {@link #prepararEmailPronto}: pronto para enviar ou erro. */
+    private record EmailPreparado(String[] to, String destinatarios, String assunto, String corpo, String erro) {
+        static EmailPreparado ok(String[] to, String destinatarios, String assunto, String corpo) {
+            return new EmailPreparado(to, destinatarios, assunto, corpo, null);
         }
-        auditoria.registrar("EMAIL_ENVIO_FALHA",
-            "Processo " + p.getNumero() + " - template " + chave + " -> " + destinatarios);
-        return AcaoResponse.erro("Falha ao enviar o e-mail. Verifique a configuracao de SMTP.");
+        static EmailPreparado erro(String erro) {
+            return new EmailPreparado(null, null, null, null, erro);
+        }
+        boolean ok() {
+            return erro == null;
+        }
     }
 }

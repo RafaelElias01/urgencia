@@ -956,6 +956,37 @@
 
 <div th:replace="~{layout :: footer}"></div>
 
+<!-- Modal de confirmacao de envio de e-mail: NENHUM e-mail e enviado sem que
+     este modal exiba antes os destinatarios e o conteudo completo. -->
+<div class="modal fade" id="modalConfirmaEmail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-envelope-check text-danger"></i>
+                    <span id="modalEmailTitulo">Confirmar envio de e-mail</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" id="modalEmailIntro">
+                    Confira os destinatarios e o conteudo abaixo. O e-mail so sera
+                    enviado ao clicar em <strong>Confirmar envio</strong>.
+                </p>
+                <div id="modalEmailMensagens"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmaEnvioEmail">
+                    <i class="bi bi-send"></i> Confirmar envio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script th:replace="~{layout :: scripts}"></script>
 <script>
     // Mostra/oculta o motivo conforme a decisao
@@ -1098,14 +1129,117 @@
             });
     }
 
+    // ===== Modal de confirmacao de e-mail (REGRA: nenhum e-mail sai sem que o
+    // operador confira, neste modal, os destinatarios e o conteudo completo) =====
+    var modalEmailEl = document.getElementById('modalConfirmaEmail');
+    var modalEmail = modalEmailEl ? new bootstrap.Modal(modalEmailEl) : null;
+    var btnConfirmaEnvio = document.getElementById('btnConfirmaEnvioEmail');
+    var envioPendente = null; // funcao disparada ao clicar em "Confirmar envio"
+
+    function renderMensagensEmail(mensagens) {
+        var cont = document.getElementById('modalEmailMensagens');
+        cont.innerHTML = '';
+        var lote = mensagens.length > 1;
+        mensagens.forEach(function (m, i) {
+            var card = document.createElement('div');
+            card.className = 'border rounded p-3 mb-3 bg-body-tertiary';
+
+            if (lote) {
+                var cab = document.createElement('div');
+                cab.className = 'small fw-semibold text-muted mb-2';
+                cab.textContent = 'Mensagem ' + (i + 1) + ' de ' + mensagens.length;
+                card.appendChild(cab);
+            }
+
+            var dest = document.createElement('div');
+            dest.className = 'mb-2';
+            var destLabel = document.createElement('span');
+            destLabel.className = 'badge bg-secondary me-1';
+            destLabel.textContent = 'Para';
+            var destVal = document.createElement('span');
+            destVal.className = 'fw-semibold';
+            destVal.textContent = m.destinatarios;
+            dest.appendChild(destLabel);
+            dest.appendChild(destVal);
+            card.appendChild(dest);
+
+            var assunto = document.createElement('div');
+            assunto.className = 'mb-2';
+            var asLabel = document.createElement('span');
+            asLabel.className = 'text-muted small me-1';
+            asLabel.textContent = 'Assunto:';
+            var asVal = document.createElement('span');
+            asVal.textContent = m.assunto;
+            assunto.appendChild(asLabel);
+            assunto.appendChild(asVal);
+            card.appendChild(assunto);
+
+            var corpo = document.createElement('pre');
+            corpo.className = 'small mb-0 p-2 border rounded bg-white';
+            corpo.style.whiteSpace = 'pre-wrap';
+            corpo.style.wordBreak = 'break-word';
+            corpo.textContent = m.corpo;
+            card.appendChild(corpo);
+
+            cont.appendChild(card);
+        });
+    }
+
+    // Busca a pre-visualizacao no servidor e so abre o modal se vier ok; se o
+    // servidor recusar (ex.: anexo obrigatorio ausente), exibe o erro e NAO envia.
+    function abrirPreviewEmail(botao, previewParams, enviarFn) {
+        var processoId = botao.getAttribute('data-processo-id');
+        var orig = botao.innerHTML;
+        botao.disabled = true;
+        botao.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Preparando...';
+        var headers = {'Content-Type': 'application/x-www-form-urlencoded'};
+        headers[csrfHeader] = csrfToken;
+        fetch('/processos/' + processoId + '/email/preview', {
+            method: 'POST',
+            headers: headers,
+            body: new URLSearchParams(previewParams)
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (!data.ok) {
+                    alert(data.erro);
+                    return;
+                }
+                renderMensagensEmail(data.mensagens);
+                document.getElementById('modalEmailTitulo').textContent = data.mensagens.length > 1
+                    ? 'Confirmar envio de ' + data.mensagens.length + ' e-mails'
+                    : 'Confirmar envio de e-mail';
+                envioPendente = function () { enviarFn(botao); };
+                modalEmail.show();
+            })
+            .catch(function () {
+                alert('Falha ao preparar a pre-visualizacao do e-mail. Tente novamente.');
+            })
+            .finally(function () {
+                botao.disabled = false;
+                botao.innerHTML = orig;
+            });
+    }
+
+    if (btnConfirmaEnvio) {
+        btnConfirmaEnvio.addEventListener('click', function () {
+            var fn = envioPendente;
+            envioPendente = null;
+            modalEmail.hide();
+            if (fn) fn();
+        });
+    }
+
     // 4) Lembrete individual de avaliacao pendente
     document.querySelectorAll('.btn-lembrete-avaliador').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var parecerId = this.getAttribute('data-parecer-id');
-            var processoId = this.getAttribute('data-processo-id');
-            chamarAcao(this,
-                '/processos/' + processoId + '/lembrete-avaliador?parecerId=' + parecerId,
-                {method: 'POST'}, 'Enviando...');
+            abrirPreviewEmail(this, {tipo: 'lembrete-avaliador', parecerId: parecerId}, function (b) {
+                var processoId = b.getAttribute('data-processo-id');
+                chamarAcao(b,
+                    '/processos/' + processoId + '/lembrete-avaliador?parecerId=' + parecerId,
+                    {method: 'POST'}, 'Enviando...');
+            });
         });
     });
 
@@ -1113,29 +1247,28 @@
     var btnLembretePendentes = document.getElementById('btnLembretePendentes');
     if (btnLembretePendentes) {
         btnLembretePendentes.addEventListener('click', function () {
-            if (!confirm('Enviar lembrete por e-mail a todos os avaliadores com parecer pendente neste processo?')) return;
-            var processoId = this.getAttribute('data-processo-id');
-            chamarAcao(this, '/processos/' + processoId + '/lembrete-pendentes', {method: 'POST'}, 'Enviando...');
+            abrirPreviewEmail(this, {tipo: 'lembrete-pendentes'}, function (b) {
+                var processoId = b.getAttribute('data-processo-id');
+                chamarAcao(b, '/processos/' + processoId + '/lembrete-pendentes', {method: 'POST'}, 'Enviando...');
+            });
         });
     }
 
-    // 6) Enviar e-mail pronto (accordion) - confirmacao mais forte para Deferido/Indeferido
+    // 6) Enviar e-mail pronto (accordion)
     document.querySelectorAll('.btn-enviar-email').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var processoId = this.getAttribute('data-processo-id');
             var chave = this.getAttribute('data-chave');
             var assunto = document.getElementById(this.getAttribute('data-assunto-id')).value;
-            var corpoEl = document.getElementById(this.getAttribute('data-corpo-id'));
-            var pergunta = (chave === 'deferido' || chave === 'indeferido')
-                ? 'Enviar o e-mail OFICIAL de ' + chave.toUpperCase() + ' ao solicitante? Esta acao nao pode ser desfeita.'
-                : 'Enviar este e-mail agora?';
-            if (!confirm(pergunta)) return;
-            var body = new URLSearchParams({chave: chave, assunto: assunto, corpo: corpoEl.value});
-            chamarAcao(this, '/processos/' + processoId + '/email/enviar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: body
-            }, 'Enviando...');
+            var corpo = document.getElementById(this.getAttribute('data-corpo-id')).value;
+            abrirPreviewEmail(this, {tipo: 'pronto', chave: chave, assunto: assunto, corpo: corpo}, function (b) {
+                var processoId = b.getAttribute('data-processo-id');
+                var body = new URLSearchParams({chave: chave, assunto: assunto, corpo: corpo});
+                chamarAcao(b, '/processos/' + processoId + '/email/enviar', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: body
+                }, 'Enviando...');
+            });
         });
     });
 </script>

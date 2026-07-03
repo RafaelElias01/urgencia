@@ -214,7 +214,7 @@ class ProcessoControllerEmailTest {
         Anexo comprovante = new Anexo();
         comprovante.setTipo(TipoAnexo.COMPROVANTE_SNT);
         processo.getAnexos().add(comprovante);
-        when(emailSenderService.enviar(eq("solicitante@example.com"), anyString(), anyString()))
+        when(emailSenderService.enviar(eq(new String[]{"solicitante@example.com"}), isNull(), anyString(), anyString()))
             .thenReturn(true);
 
         mvc.perform(post("/processos/1/email/enviar")
@@ -225,7 +225,7 @@ class ProcessoControllerEmailTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.ok").value(true));
 
-        verify(emailSenderService).enviar(eq("solicitante@example.com"), eq("assunto"), eq("corpo"));
+        verify(emailSenderService).enviar(eq(new String[]{"solicitante@example.com"}), isNull(), eq("assunto"), eq("corpo"));
         verify(auditoria).registrar(eq("EMAIL_ENVIADO"), anyString());
     }
 
@@ -244,5 +244,83 @@ class ProcessoControllerEmailTest {
             .andExpect(jsonPath("$.ok").value(true));
 
         verify(emailSenderService).enviar(eq(new String[]{"veronica@example.com"}), isNull(), eq("assunto"), eq("corpo"));
+    }
+
+    // ===== Pre-visualizacao (modal de confirmacao) =====
+
+    /** A pre-visualizacao nunca envia e-mail; apenas devolve o conteudo a exibir. */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void previewProntoDevolveDestinatariosEConteudoSemEnviar() throws Exception {
+        mvc.perform(post("/processos/1/email/preview")
+                .param("tipo", "pronto")
+                .param("chave", "medicos")
+                .param("assunto", "Assunto X")
+                .param("corpo", "Corpo Y")
+                .with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ok").value(true))
+            .andExpect(jsonPath("$.mensagens[0].destinatarios").value("veronica@example.com"))
+            .andExpect(jsonPath("$.mensagens[0].assunto").value("Assunto X"))
+            .andExpect(jsonPath("$.mensagens[0].corpo").value("Corpo Y"));
+
+        verifyNoInteractions(emailSenderService);
+    }
+
+    /** O bloqueio (anexo obrigatorio ausente) ja aparece na pre-visualizacao. */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void previewProntoDeferidoBloqueadoSemComprovanteSnt() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
+
+        mvc.perform(post("/processos/1/email/preview")
+                .param("tipo", "pronto")
+                .param("chave", "deferido")
+                .param("assunto", "a")
+                .param("corpo", "c")
+                .with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ok").value(false))
+            .andExpect(jsonPath("$.erro").isNotEmpty());
+
+        verifyNoInteractions(emailSenderService);
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void previewLembreteAvaliadorDevolveDestinatarioEConteudo() throws Exception {
+        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
+            .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell",
+                "Assunto lembrete", "Corpo do lembrete", false));
+
+        mvc.perform(post("/processos/1/email/preview")
+                .param("tipo", "lembrete-avaliador")
+                .param("parecerId", "100")
+                .with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ok").value(true))
+            .andExpect(jsonPath("$.mensagens[0].destinatarios").value("veronica@example.com"))
+            .andExpect(jsonPath("$.mensagens[0].assunto").value("Assunto lembrete"));
+
+        verifyNoInteractions(emailSenderService);
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void previewLembretePendentesUmaMensagemPorAvaliador() throws Exception {
+        when(parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(1L))
+            .thenReturn(List.of(parecerPendente));
+        when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
+            .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell", "Assunto", "Corpo", false));
+
+        mvc.perform(post("/processos/1/email/preview")
+                .param("tipo", "lembrete-pendentes")
+                .with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ok").value(true))
+            .andExpect(jsonPath("$.mensagens[0].destinatarios").value("veronica@example.com"));
+
+        verifyNoInteractions(emailSenderService);
     }
 }
