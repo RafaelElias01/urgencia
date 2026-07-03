@@ -80,7 +80,7 @@ Registros antigos permanecem `EM_ANALISE` e são tratados como "em andamento".
 
 ## Pendências / pontos de atenção
 - **Tailwind ainda via Play CDN** no `dashboard.html` (exige internet em
-  runtime; quebra perfil desktop/offline). A migração para CSS estático local
+  runtime). A migração para CSS estático local
   ficou **pendente**: tentei usar o binário standalone do Tailwind CLI (v3),
   mas a execução de binário externo recém-baixado foi bloqueada pelo sandbox
   por falta de autorização do usuário. Aguarda decisão do usuário (Opção A:
@@ -96,7 +96,7 @@ Registros antigos permanecem `EM_ANALISE` e são tratados como "em andamento".
 O painel (`templates/dashboard.html`) usa **Tailwind CSS pré-compilado** servido
 como estático em `static/css/tailwind-dashboard.css` (referenciado **só** no
 painel, com `preflight:false`, para não afetar o Bootstrap das demais telas).
-Não há mais dependência do Play CDN — funciona **offline** (perfil desktop).
+Não há mais dependência do Play CDN — funciona **offline**.
 
 ### Como regenerar o CSS (após mudar classes do painel)
 

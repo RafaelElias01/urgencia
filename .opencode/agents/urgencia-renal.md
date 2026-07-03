@@ -43,7 +43,7 @@ o dominio e as regras a seguir.
 - **Prod (Neon):** `.\start.ps1 prod` (usa `application-local.yml` gitignored)
 - **Testes:** `.\test.ps1` ou `mvn test` (sempre com JDK 21)
 - **Build:** `mvn -DskipTests package`
-- **Desktop:** `.\release.ps1` = pull + `.exe` + `SGPUR-Setup.exe` + reinstala
+- Projeto e so web agora (empacotamento desktop foi removido em 2026-07-03).
 
 ## Regras de negocio (NAO violar)
 

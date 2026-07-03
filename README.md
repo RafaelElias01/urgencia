@@ -71,7 +71,7 @@ mvn test
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `SGPUR_ADMIN_USER` | `admin` | login do administrador inicial |
-| `SGPUR_ADMIN_PASSWORD` | `admin123` em dev/desktop; **obrigatória em prod** (sem default, boot falha se ausente) | senha do administrador inicial |
+| `SGPUR_ADMIN_PASSWORD` | `admin123` em dev; **obrigatória em prod** (sem default, boot falha se ausente) | senha do administrador inicial |
 | `app.anexos.dir` | `./data/anexos` | diretório dos anexos |
 
 > Em produção, **defina `SGPUR_ADMIN_PASSWORD`** antes do primeiro deploy —

@@ -55,15 +55,23 @@ app:
   anexos:
     dir: ./data/anexos
   # Usuario administrador inicial: AdminBootstrap so cria esse usuario se a
-  # tabela usuario estiver vazia. Default (admin/admin123) vale para
-  # dev/desktop; o perfil prod (application-prod.yml) exige
-  # SGPUR_ADMIN_PASSWORD via env var e falha o boot se ela nao existir.
+  # tabela usuario estiver vazia. Default (admin/admin123) vale para dev;
+  # o perfil prod (application-prod.yml) exige SGPUR_ADMIN_PASSWORD via env
+  # var e falha o boot se ela nao existir.
   admin:
     username: ${SGPUR_ADMIN_USER:admin}
     password: ${SGPUR_ADMIN_PASSWORD:admin123}
   # URL base da aplicacao, usada nos links do Portal do Avaliador nos e-mails.
   # Sobrescreva em producao com a URL publica real (ex.: https://sgpur.saude.rs.gov.br).
   base-url: ${SGPUR_BASE_URL:http://localhost:3000}
+
+  # SEGURANCA DE TESTES: em dev, TODO e-mail enviado (independente do
+  # destinatario real calculado pelo sistema) vai para este endereco -
+  # nunca para avaliadores/solicitantes reais. So aparece aqui (nao em
+  # application-prod.yml); em producao a variavel fica vazia e o envio usa
+  # o destinatario real normalmente. Ver EmailSenderService.overrideRecipient.
+  mail:
+    override-recipient: ${SGPUR_MAIL_OVERRIDE:rafaelioppi@gmail.com}
 
   # Indicadores dos avaliadores: prazo-meta (SLA) em DIAS CORRIDOS para responder
   # um parecer. Tempos acima desse valor sao destacados como "fora do prazo" nos

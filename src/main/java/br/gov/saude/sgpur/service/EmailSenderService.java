@@ -28,11 +28,40 @@ public class EmailSenderService {
 
     private final JavaMailSender mailSender;
     private final String from;
+    private final String overrideRecipient;
 
     public EmailSenderService(JavaMailSender mailSender,
-                              @Value("${spring.mail.properties.mail.from:}") String from) {
+                              @Value("${spring.mail.properties.mail.from:}") String from,
+                              @Value("${app.mail.override-recipient:}") String overrideRecipient) {
         this.mailSender = mailSender;
         this.from = from;
+        this.overrideRecipient = overrideRecipient;
+        if (overrideRecipient != null && !overrideRecipient.isBlank()) {
+            log.warn("EmailSender: MODO TESTE ATIVO - todo e-mail sera redirecionado para {} "
+                    + "(app.mail.override-recipient). NAO usar isso em producao.", overrideRecipient);
+        }
+    }
+
+    /**
+     * Em dev/teste (app.mail.override-recipient configurado), redireciona
+     * TODO envio para um unico endereco fixo, preservando no assunto quem
+     * seriam os destinatarios reais - evita mandar e-mail de teste para
+     * avaliadores/solicitantes de verdade. Sem override, retorna os dados
+     * originais inalterados (comportamento de producao).
+     */
+    private record DestinoResolvido(String[] to, String[] cc, String subject) {}
+
+    private DestinoResolvido resolverDestino(String[] to, String[] cc, String subject) {
+        if (overrideRecipient == null || overrideRecipient.isBlank()) {
+            return new DestinoResolvido(to, cc, subject);
+        }
+        String originais = String.join(", ", to != null ? to : new String[0]);
+        if (cc != null && cc.length > 0) {
+            originais += " | cc: " + String.join(", ", cc);
+        }
+        return new DestinoResolvido(
+            new String[]{overrideRecipient}, null,
+            "[TESTE - para: " + originais + "] " + subject);
     }
 
     /**
@@ -60,22 +89,25 @@ public class EmailSenderService {
                     + "Defina SGPUR_MAIL_USER ou spring.mail.properties.mail.from.");
             return false;
         }
+        DestinoResolvido destino = resolverDestino(to, cc, subject);
         try {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(msg, false, "UTF-8");
             helper.setFrom(from);
-            helper.setTo(to);
-            if (cc != null && cc.length > 0) {
-                helper.setCc(cc);
+            helper.setTo(destino.to());
+            if (destino.cc() != null && destino.cc().length > 0) {
+                helper.setCc(destino.cc());
             }
-            helper.setSubject(subject);
+            helper.setSubject(destino.subject());
             helper.setText(body, false); // false = texto simples
 
             mailSender.send(msg);
-            log.info("EmailSender: e-mail enviado para {} - assunto: {}", String.join(", ", to), subject);
+            log.info("EmailSender: e-mail enviado para {} - assunto: {}",
+                String.join(", ", destino.to()), destino.subject());
             return true;
         } catch (MailException | MessagingException e) {
-            log.error("EmailSender: falha ao enviar e-mail para {}: {}", String.join(", ", to), e.getMessage());
+            log.error("EmailSender: falha ao enviar e-mail para {}: {}",
+                String.join(", ", destino.to()), e.getMessage());
             return false;
         }
     }
@@ -96,21 +128,23 @@ public class EmailSenderService {
             log.warn("EmailSender: remetente (from) nao configurado.");
             return false;
         }
+        DestinoResolvido destino = resolverDestino(new String[]{to}, null, subject);
         try {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
             helper.setFrom(from);
-            helper.setTo(to);
-            helper.setSubject(subject);
+            helper.setTo(destino.to());
+            helper.setSubject(destino.subject());
             helper.setText(body, false);
             if (anexo != null && anexo.exists()) {
                 helper.addAttachment(nomeAnexo != null ? nomeAnexo : anexo.getName(), anexo);
             }
             mailSender.send(msg);
-            log.info("EmailSender: e-mail com anexo enviado para {}", to);
+            log.info("EmailSender: e-mail com anexo enviado para {}", String.join(", ", destino.to()));
             return true;
         } catch (MailException | MessagingException e) {
-            log.error("EmailSender: falha ao enviar e-mail com anexo para {}: {}", to, e.getMessage());
+            log.error("EmailSender: falha ao enviar e-mail com anexo para {}: {}",
+                String.join(", ", destino.to()), e.getMessage());
             return false;
         }
     }

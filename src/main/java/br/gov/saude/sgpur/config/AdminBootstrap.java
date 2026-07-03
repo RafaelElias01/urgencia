@@ -19,9 +19,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>A senha vem de {@code app.admin.password} (env var SGPUR_ADMIN_PASSWORD).
  * No perfil {@code prod} essa propriedade NAO tem valor default em
- * {@code application-prod.yml} (so em dev/desktop) - se a env var nao
- * estiver setada, a resolucao do placeholder falha e o boot PARA antes
- * mesmo deste runner executar, em vez de subir com uma senha fraca.
+ * {@code application-prod.yml} (so em dev) - se a env var nao estiver
+ * setada, a resolucao do placeholder falha e o boot PARA antes mesmo deste
+ * runner executar, em vez de subir com uma senha fraca.
  */
 @Component
 @Order(2)

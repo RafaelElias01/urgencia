@@ -30,5 +30,9 @@ app:
     # Sem default aqui de proposito: se SGPUR_ADMIN_PASSWORD nao estiver
     # setada no ambiente, a resolucao deste placeholder falha e o boot
     # para - em vez de subir com a senha fraca "admin123" (default usado
-    # so em dev/desktop, em application.yml).
+    # so em dev, em application.yml).
     password: ${SGPUR_ADMIN_PASSWORD}
+  mail:
+    # Em producao o e-mail SEMPRE vai para o destinatario real - o override
+    # de teste (application.yml, dev) fica explicitamente desligado aqui.
+    override-recipient: ""

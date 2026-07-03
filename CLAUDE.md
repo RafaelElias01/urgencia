@@ -20,12 +20,19 @@ Pacote base `br.gov.saude.sgpur`.
 - App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
   automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
   vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
-- Testes: `.\test.ps1` (ou `mvn test`) — **98 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **105 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
-- **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +
-  **reinstala** em `C:\Program Files\SGPUR`). Use ao mexer em telas/CSS — só
-  `package-desktop.ps1` não atualiza a versão instalada (causa do bug "CSS
-  antigo": o atalho abria a versão velha em Program Files).
+- **Não há mais empacotamento desktop** (`release.ps1`/`package-desktop.ps1`/
+  Inno Setup foram removidos em 2026-07-03). O projeto é só web agora — rode
+  via `start.ps1` e acesse pelo navegador.
+- **Modo teste de e-mail:** em dev, `app.mail.override-recipient`
+  (`application.yml`, default `rafaelioppi@gmail.com`) faz **todo** e-mail
+  enviado pelo `EmailSenderService` ser redirecionado para esse endereço,
+  independente do destinatário real calculado pelo sistema — nunca manda
+  e-mail de teste para avaliadores/solicitantes de verdade. O assunto ganha
+  um prefixo `[TESTE - para: ...]` com os destinatários originais. Em prod
+  (`application-prod.yml`) fica explicitamente vazio, então o envio real
+  funciona normalmente.
 
 ## Regras de negócio (não violar)
 - Cada processo vai para **exatamente 3 médicos**. Decisão por **maioria
