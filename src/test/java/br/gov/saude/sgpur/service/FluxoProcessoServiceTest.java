@@ -22,7 +22,7 @@ class FluxoProcessoServiceTest {
     MembroUrgenciaRenalRepository membroRepository;
 
     private FluxoProcessoService fluxo() {
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository);
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator());
         return new FluxoProcessoService(ps);
     }
 

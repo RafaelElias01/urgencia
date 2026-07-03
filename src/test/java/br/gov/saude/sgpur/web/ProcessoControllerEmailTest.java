@@ -31,13 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * nunca vai no corpo do lembrete ao avaliador) e o bloqueio de envio do
  * e-mail oficial de Deferido sem o comprovante SNT anexado.
  */
-@WebMvcTest(ProcessoController.class)
+@WebMvcTest(ProcessoDecisaoController.class)
 class ProcessoControllerEmailTest {
 
     @Autowired
     private MockMvc mvc;
 
     @MockBean private ProcessoService processoService;
+    @MockBean private ProcessoValidator processoValidator;
     @MockBean private FluxoProcessoService fluxoService;
     @MockBean private EmailTemplateService emailTemplateService;
     @MockBean private RelatorioService relatorioService;

@@ -3,9 +3,9 @@ package br.gov.saude.sgpur.service;
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,8 +20,14 @@ class ProcessoServiceTest {
     ProcessoRepository processoRepository;
     @Mock
     MembroUrgenciaRenalRepository membroRepository;
-    @InjectMocks
     ProcessoService service;
+
+    // Usa o ProcessoValidator real (funcoes puras): as regras de negocio vivem
+    // nele, e o servico apenas delega.
+    @BeforeEach
+    void setUp() {
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator());
+    }
 
     private Parecer parecer(ResultadoParecer r) {
         Parecer p = new Parecer(new MembroUrgenciaRenal("HCPA", "Medico", null));
