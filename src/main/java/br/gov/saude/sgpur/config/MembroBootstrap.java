@@ -17,7 +17,7 @@ import java.util.List;
  * membro_urgencia_renal NAO tem nenhum registro - nunca mexe num banco que
  * ja tem membros cadastrados (mesmo padrao do AdminBootstrap).
  *
- * <p>Rogerio Caruso Bezerra (CET/RS) e o coordenador: seu voto favoravel
+ * <p>Rogerio Caruso Bezerra (CET-RS) e o coordenador: seu voto favoravel
  * DEFERE o processo independentemente dos demais pareceres.
  */
 @Component
@@ -44,7 +44,7 @@ public class MembroBootstrap implements ApplicationRunner {
             new MembroUrgenciaRenal("HSLPUC", "Ivan Antonello", "Ivan.antonello@pucrs.br"),
             new MembroUrgenciaRenal("ISCMPA", "Clotilde Garcia", "cdruckgarcia@gmail.com"),
             new MembroUrgenciaRenal("HCPA", "Verônica Horbe", "horbe@cpovo.net"),
-            coordenador(new MembroUrgenciaRenal("CET/RS", "Rogerio Caruso Bezerra", null)),
+            coordenador(new MembroUrgenciaRenal("CET-RS", "Rogerio Caruso Bezerra", null)),
             new MembroUrgenciaRenal("Sem Hospital", "Marcelo Generali", "margenerali@uol.com.br"),
             new MembroUrgenciaRenal("HCI", "Ana Lúcia", "anacaetano.vascular@terra.com.br")
         );

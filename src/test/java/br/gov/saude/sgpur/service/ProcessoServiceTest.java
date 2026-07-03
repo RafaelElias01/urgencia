@@ -29,6 +29,15 @@ class ProcessoServiceTest {
         return p;
     }
 
+    /** Parecer de um avaliador marcado como coordenador CET-RS. */
+    private Parecer parecerCoordenador(ResultadoParecer r) {
+        MembroUrgenciaRenal coordenador = new MembroUrgenciaRenal("CET-RS", "Coordenador", null);
+        coordenador.setCoordenador(true);
+        Parecer p = new Parecer(coordenador);
+        p.setResultado(r);
+        return p;
+    }
+
     private Processo comPareceres(ResultadoParecer... resultados) {
         Processo p = new Processo();
         long id = 1;
@@ -67,6 +76,64 @@ class ProcessoServiceTest {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
             ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         assertThat(service.sugerirDecisao(p)).contains(StatusProcesso.INDEFERIDO);
+    }
+
+    @Test
+    void coordenadorFavoravelDefereSozinhoMesmoComOutrosPareceresPendentes() {
+        Processo p = new Processo();
+        Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
+        parCoord.setId(1L);
+        p.addParecer(parCoord);
+        // os outros 2 avaliadores ainda nao responderam (resultado == null)
+        Parecer par2 = parecer(null);
+        par2.setId(2L);
+        Parecer par3 = parecer(null);
+        par3.setId(3L);
+        p.addParecer(par2);
+        p.addParecer(par3);
+
+        assertThat(service.temVotoCoordenadorFavoravel(p)).isTrue();
+        assertThat(service.favoraveisNecessariosParaDeferir(p)).isEqualTo(1);
+        assertThat(service.sugerirDecisao(p)).contains(StatusProcesso.DEFERIDO);
+    }
+
+    @Test
+    void decidirDeferidoComApenasUmFavoravelDoCoordenador() {
+        Processo p = new Processo();
+        Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
+        parCoord.setId(10L);
+        p.addParecer(parCoord);
+        anexarResposta(p, parCoord);
+        when(processoRepository.findById(30L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        service.decidir(30L, StatusProcesso.DEFERIDO, null);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+        assertThat(service.deferidoPeloCoordenador(p)).isTrue();
+    }
+
+    @Test
+    void indeferidoContinuaExigindoDoisDesfavoraveisMesmoComCoordenadorNoProcesso() {
+        // O peso especial do coordenador vale so para Deferir; um unico voto
+        // desfavoravel do coordenador NAO indefere sozinho - continua exigindo
+        // a maioria simples normal (2 de 3 desfavoraveis).
+        Processo p = new Processo();
+        Parecer coordDesfavoravel = parecerCoordenador(ResultadoParecer.NAO_FAVORAVEL);
+        coordDesfavoravel.setId(99L);
+        p.addParecer(coordDesfavoravel);
+        Parecer par2 = parecer(null);
+        par2.setId(100L);
+        Parecer par3 = parecer(null);
+        par3.setId(101L);
+        p.addParecer(par2);
+        p.addParecer(par3);
+        anexarRespostasParaTodosRecebidos(p);
+        when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.decidir(31L, StatusProcesso.INDEFERIDO, "motivo"))
+            .isInstanceOf(IllegalStateException.class);
+        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
     }
 
     @Test

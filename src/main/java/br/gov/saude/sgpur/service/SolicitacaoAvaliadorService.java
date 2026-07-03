@@ -122,7 +122,7 @@ public class SolicitacaoAvaliadorService {
         if (pdf == null || pdf.length == 0) {
             throw new IllegalArgumentException("PDF vazio para carimbar.");
         }
-        String linha1 = "Central de Transplantes do Estado do Rio Grande do Sul - URGENCIA RENAL";
+        String linha1 = PdfCabecalhoStamper.NOME_INSTITUICAO + " - URGENCIA RENAL";
         String iniciais = Iniciais.de(p.getPacienteNome());
         if (iniciais.endsWith(".")) {
             iniciais = iniciais.substring(0, iniciais.length() - 1);
@@ -195,14 +195,14 @@ public class SolicitacaoAvaliadorService {
         tabCab.setWidthPercentage(100);
         tabCab.setSpacingAfter(14);
 
-        PdfPCell c1 = new PdfPCell(new Phrase("Central de Transplantes do Estado do Rio Grande do Sul", fGov));
+        PdfPCell c1 = new PdfPCell(new Phrase(PdfCabecalhoStamper.NOME_INSTITUICAO, fGov));
         c1.setHorizontalAlignment(Element.ALIGN_CENTER);
         c1.setPadding(6);
         c1.setBorderColor(AZUL_ESCURO);
         c1.setBorderWidth(1.5f);
         tabCab.addCell(c1);
 
-        PdfPCell c2 = new PdfPCell(new Phrase("SECRETARIA DE SAUDE — EQUIPE DE URGENCIA RENAL", fSec));
+        PdfPCell c2 = new PdfPCell(new Phrase(PdfCabecalhoStamper.SECRETARIA + " - URGENCIA RENAL", fSec));
         c2.setHorizontalAlignment(Element.ALIGN_CENTER);
         c2.setPadding(4);
         c2.setBorderColor(AZUL_ESCURO);

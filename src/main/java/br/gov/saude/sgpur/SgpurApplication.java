@@ -7,7 +7,7 @@ import java.util.TimeZone;
 
 /**
  * SAUR - Sistema de Avaliacao de Urgencia Renal.
- * Substitui a planilha Excel da Camara Tecnica Estadual de Urgencia Renal.
+ * Substitui a planilha Excel da equipe de Urgencia Renal da Secretaria de Saude.
  */
 @SpringBootApplication
 public class SgpurApplication {

@@ -20,7 +20,7 @@ Pacote base `br.gov.saude.sgpur`.
 - App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
   automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
   vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
-- Testes: `.\test.ps1` (ou `mvn test`) — **93 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **98 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Desktop:** `.\release.ps1` faz tudo (pull + `.exe` + `SGPUR-Setup.exe` +
   **reinstala** em `C:\Program Files\SGPUR`). Use ao mexer em telas/CSS — só
@@ -33,6 +33,16 @@ Pacote base `br.gov.saude.sgpur`.
   Indeferido** (exige **ofício + motivo**). As duas regras são **impostas** no
   serviço e no controller (`decidir` rejeita Deferido sem 2 favoráveis e
   Indeferido sem 2 desfavoráveis).
+- **Exceção — coordenador CET-RS defere sozinho:** se o médico marcado como
+  `MembroUrgenciaRenal.coordenador` votar **Favorável**, o processo é
+  **Deferido com esse único voto**, sem esperar os outros 2 pareceres
+  (`ProcessoService.temVotoCoordenadorFavoravel` /
+  `favoraveisNecessariosParaDeferir` — usado em `sugerirDecisao` e `decidir`).
+  A regra de **Indeferido continua exigindo ≥2 desfavoráveis** sempre (o
+  coordenador não tem peso especial para indeferir). O detalhe do processo
+  exibe o badge "Deferido pelo Coordenador da CET-RS"
+  (`ProcessoService.deferidoPeloCoordenador`). Só 1 membro deve ter
+  `coordenador = true` por vez (seed em `MembroBootstrap`).
 - **Toda resposta de médico recebida** (parecer com `resultado` preenchido)
   **precisa ter o anexo comprobatório** (`TipoAnexo.RESPOSTA_AVALIADOR`
   vinculado ao parecer) **antes de Deferir/Indeferir**. Imposto no serviço e no

@@ -1,7 +1,7 @@
 package br.gov.saude.sgpur.domain;
 
 /**
- * Resultado do parecer de um membro da Camara Tecnica sobre o processo.
+ * Resultado do parecer de um membro da Urgencia Renal sobre o processo.
  * Valores extraidos da aba "Validacao" da planilha original.
  */
 public enum ResultadoParecer {

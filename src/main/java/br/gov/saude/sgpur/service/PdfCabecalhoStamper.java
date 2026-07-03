@@ -28,6 +28,18 @@ import java.io.ByteArrayOutputStream;
  */
 final class PdfCabecalhoStamper {
 
+    /**
+     * Nome institucional padrao, usado em TODOS os documentos oficiais
+     * (Oficio, Relatorio Final, Relatorio Anual, carimbo do avaliador) - uma
+     * unica fonte de verdade para evitar o que ja aconteceu uma vez: um
+     * documento ficar com o nome do orgao desatualizado enquanto os outros
+     * ja tinham sido corrigidos.
+     */
+    static final String NOME_INSTITUICAO = "Central de Transplantes do Estado do Rio Grande do Sul";
+
+    /** Linha da secretaria, usada nas capas dos relatorios (Final e Anual). */
+    static final String SECRETARIA = "SECRETARIA DE SAUDE";
+
     private static final Logger log = LoggerFactory.getLogger(PdfCabecalhoStamper.class);
 
     private static final float MARGEM_ESQ = 40;

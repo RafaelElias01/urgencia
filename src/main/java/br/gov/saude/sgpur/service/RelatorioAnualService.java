@@ -60,7 +60,7 @@ public class RelatorioAnualService {
     public byte[] gerar(int ano, List<Processo> processos) {
         byte[] semCabecalho = gerarSemCabecalho(ano, processos);
         return PdfCabecalhoStamper.estampar(semCabecalho,
-            "Central de Transplantes do Estado do Rio Grande do Sul - URGENCIA RENAL",
+            PdfCabecalhoStamper.NOME_INSTITUICAO + " - URGENCIA RENAL",
             "Relatorio Geral de Urgencia Renal - Ano " + ano);
     }
 
@@ -150,11 +150,11 @@ public class RelatorioAnualService {
             log.warn("Logo nao encontrado em static/brasao.png, capa do relatorio anual sem imagem");
         }
 
-        Paragraph orgao = new Paragraph("Central de Transplantes do Estado do Rio Grande do Sul", fOrgao);
+        Paragraph orgao = new Paragraph(PdfCabecalhoStamper.NOME_INSTITUICAO, fOrgao);
         orgao.setAlignment(Element.ALIGN_CENTER);
         doc.add(orgao);
 
-        Paragraph secretaria = new Paragraph("SECRETARIA DE SAUDE", fSubOrgao);
+        Paragraph secretaria = new Paragraph(PdfCabecalhoStamper.SECRETARIA, fSubOrgao);
         secretaria.setAlignment(Element.ALIGN_CENTER);
         doc.add(secretaria);
 
