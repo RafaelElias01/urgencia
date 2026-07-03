@@ -14,7 +14,8 @@
 <body>
 <nav class="navbar navbar-expand-lg navbar-sgpur" th:fragment="navbar">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/}">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2"
+           th:href="@{${#authorization.expression('hasRole(''AVALIADOR'')')} ? '/avaliador' : '/'}">
             <i class="bi bi-droplet-fill" style="font-size: 1.25rem;"></i>
             <span>SAUR</span>
             <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
@@ -25,9 +26,9 @@
         </button>
         <div class="collapse navbar-collapse" id="nav">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" th:href="@{/}"><i class="bi bi-grid-1x2-fill me-1"></i>Painel</a></li>
-                <li class="nav-item"><a class="nav-link" th:href="@{/processos}">Processos</a></li>
-                <li class="nav-item"><a class="nav-link" th:href="@{/controle-urgencias}">
+                <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/}"><i class="bi bi-grid-1x2-fill me-1"></i>Painel</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/processos}">Processos</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/controle-urgencias}">
                     <i class="bi bi-clock-history me-1"></i>Urgencias</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>

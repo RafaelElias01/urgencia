@@ -146,12 +146,13 @@ public class UsuarioService {
         repo.save(u);
     }
 
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
     private String gerarSenhaTemporaria() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
         StringBuilder sb = new StringBuilder(8);
-        java.util.Random rnd = new java.util.Random();
         for (int i = 0; i < 8; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
+            sb.append(chars.charAt(RANDOM.nextInt(chars.length())));
         }
         return sb.toString();
     }

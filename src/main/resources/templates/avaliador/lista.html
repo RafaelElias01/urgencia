@@ -128,7 +128,7 @@
                             <!-- PDF anonimizado passado pelo controller via pdfPorProcesso -->
                             <th:block th:with="pdf=${pdfPorProcesso[par.processo.id]}">
                                 <a th:if="${pdf != null}"
-                                   th:href="@{/processos/anexos/{id}/download(id=${pdf.id})}"
+                                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processo.id},pdfId=${pdf.id})}"
                                    class="btn btn-sm btn-outline-danger" target="_blank"
                                    title="Baixar o processo anonimizado para avaliacao">
                                     <i class="bi bi-file-earmark-pdf"></i> Baixar processo

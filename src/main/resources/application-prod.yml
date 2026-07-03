@@ -16,6 +16,15 @@ spring:
     console:
       enabled: false
 
+# Roda atras do nginx com TLS (ver deploy/) - exige HTTPS para o cookie de
+# sessao trafegar, evitando roubo de sessao em rede insegura.
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: lax
+
 app:
   admin:
     # Sem default aqui de proposito: se SGPUR_ADMIN_PASSWORD nao estiver

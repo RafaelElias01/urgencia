@@ -67,7 +67,7 @@ public class GlobalExceptionHandler {
         log.error("Erro de E/S: {}", ex.getMessage(), ex);
         model.addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         model.addAttribute("error", "Erro ao processar arquivo");
-        model.addAttribute("message", ex.getMessage());
+        model.addAttribute("message", "Ocorreu um erro ao processar o arquivo. Tente novamente ou contacte o suporte.");
         return "error";
     }
 

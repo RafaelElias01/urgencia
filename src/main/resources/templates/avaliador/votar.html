@@ -47,7 +47,7 @@
             </p>
             <div th:if="${!pdfsAvaliador.isEmpty()}">
                 <a th:each="pdf : ${pdfsAvaliador}"
-                   th:href="@{/processos/anexos/{id}/download(id=${pdf.id})}"
+                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
                    class="btn btn-danger mb-1" target="_blank">
                     <i class="bi bi-download"></i>
                     <span th:text="${pdf.nomeArquivo}">processo.pdf</span>

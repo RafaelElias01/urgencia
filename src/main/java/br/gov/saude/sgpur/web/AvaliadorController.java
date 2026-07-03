@@ -4,18 +4,28 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
 import br.gov.saude.sgpur.service.Iniciais;
 import br.gov.saude.sgpur.service.ProcessoService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.net.MalformedURLException;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,9 +47,12 @@ import java.util.Map;
 @RequestMapping("/avaliador")
 public class AvaliadorController {
 
+    private static final Logger log = LoggerFactory.getLogger(AvaliadorController.class);
+
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
     private final AnexoRepository anexoRepo;
+    private final AnexoStorageService anexoStorage;
     private final ProcessoService processoService;
     private final AuditoriaService auditoria;
     private final DecisaoFinalService decisaoFinalService;
@@ -47,12 +60,14 @@ public class AvaliadorController {
     public AvaliadorController(UsuarioRepository usuarioRepo,
                                ParecerRepository parecerRepo,
                                AnexoRepository anexoRepo,
+                               AnexoStorageService anexoStorage,
                                ProcessoService processoService,
                                AuditoriaService auditoria,
                                DecisaoFinalService decisaoFinalService) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
         this.anexoRepo = anexoRepo;
+        this.anexoStorage = anexoStorage;
         this.processoService = processoService;
         this.auditoria = auditoria;
         this.decisaoFinalService = decisaoFinalService;
@@ -197,7 +212,8 @@ public class AvaliadorController {
         if (pDecidido.getStatus().isFinalizado()) {
             try { decisaoFinalService.gerarDocumentos(pDecidido); }
             catch (IllegalStateException e) {
-                // PDF falhou mas a decisao ja foi gravada — apenas loga o aviso.
+                log.warn("Falha ao gerar documentos finais do processo {} apos decisao automatica no portal: {}",
+                    pDecidido.getNumero(), e.getMessage());
             }
             auditoria.registrar("PROCESSO_DECIDIDO",
                 "Processo " + pDecidido.getNumero() + " - decisao automatica portal: "
@@ -214,6 +230,39 @@ public class AvaliadorController {
         ra.addFlashAttribute("msg",
             "Voto registrado: " + resultado.getDescricao() + ". Obrigado pela avaliacao.");
         return "redirect:/avaliador";
+    }
+
+    /**
+     * Download do PDF anonimizado (SOLICITACAO_AVALIADOR) do processo pelo
+     * proprio avaliador. Antes vinha de /processos/anexos/{id}/download, que
+     * exige ROLE_ADMIN/OPERADOR e por isso dava 403 para o avaliador - sem
+     * este endpoint o medico nao conseguia ler o material antes de votar.
+     * So permite o download se o membro for avaliador do processo (posse
+     * verificada via Parecer, independente de ja ter votado ou nao).
+     */
+    @GetMapping("/{processoId}/pdf/{anexoId}")
+    public ResponseEntity<Resource> baixarPdf(@PathVariable Long processoId,
+                                              @PathVariable Long anexoId,
+                                              Principal principal)
+            throws MalformedURLException {
+        MembroUrgenciaRenal membro = resolverMembro(principal);
+        if (parecerRepo.findByProcessoIdAndMembroId(processoId, membro.getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Voce nao e avaliador deste processo.");
+        }
+        List<Anexo> pdfs = anexoRepo.findByProcessoIdAndTipo(processoId, TipoAnexo.SOLICITACAO_AVALIADOR);
+        Anexo anexo = pdfs.stream().filter(a -> a.getId().equals(anexoId)).findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Anexo nao pertence ao material de avaliacao deste processo."));
+        Path arquivo = anexoStorage.resolverArquivo(anexo);
+        Resource resource = new UrlResource(arquivo.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + anexo.getNomeArquivo() + "\"")
+            .body(resource);
     }
 
     // -------------------------------------------------------------------------

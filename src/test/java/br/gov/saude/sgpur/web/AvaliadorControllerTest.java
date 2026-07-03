@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
 import br.gov.saude.sgpur.service.ProcessoService;
@@ -40,6 +41,7 @@ class AvaliadorControllerTest {
     @MockBean private UsuarioRepository usuarioRepo;
     @MockBean private ParecerRepository parecerRepo;
     @MockBean private AnexoRepository anexoRepo;
+    @MockBean private AnexoStorageService anexoStorage;
     @MockBean private ProcessoService processoService;
     @MockBean private DecisaoFinalService decisaoFinalService;
     @MockBean private AuditoriaService auditoria;
