@@ -47,6 +47,10 @@ public class SecurityConfig {
                 // deslogado consegue acessar a recuperacao de senha, justamente quando
                 // mais precisa (nao consegue logar).
                 .requestMatchers("/usuarios/esqueci-senha").permitAll()
+                // Troca da propria senha: qualquer usuario logado (ADMIN/OPERADOR/
+                // AVALIADOR). Precisa vir ANTES da regra /usuarios/** (ADMIN), senao
+                // OPERADOR/AVALIADOR ficariam sem como trocar a propria senha.
+                .requestMatchers("/usuarios/minha-senha").authenticated()
                 .requestMatchers("/usuarios/**", "/auditoria/**").hasRole("ADMIN")
                 .requestMatchers("/membros/**", "/relatorios/**").hasRole("ADMIN")
                 .requestMatchers("/controle-urgencias/**").hasAnyRole("ADMIN", "OPERADOR")

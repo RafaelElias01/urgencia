@@ -117,6 +117,34 @@ public class UsuarioController {
         return "redirect:/usuarios";
     }
 
+    /**
+     * Tela de troca da PROPRIA senha, disponivel para qualquer usuario logado
+     * (ADMIN/OPERADOR/AVALIADOR) - diferente da edicao em /usuarios/{id}/editar,
+     * que e exclusiva do ADMIN. A rota /usuarios/minha-senha e liberada para
+     * autenticados no SecurityConfig, antes da regra geral /usuarios/** (ADMIN).
+     */
+    @GetMapping("/minha-senha")
+    public String minhaSenha() {
+        return "usuarios/minha-senha";
+    }
+
+    @PostMapping("/minha-senha")
+    public String trocarMinhaSenha(java.security.Principal principal,
+                                   @RequestParam String senhaAtual,
+                                   @RequestParam String novaSenha,
+                                   @RequestParam String confirmacao,
+                                   RedirectAttributes ra) {
+        try {
+            service.alterarPropriaSenha(principal.getName(), senhaAtual, novaSenha, confirmacao);
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/usuarios/minha-senha";
+        }
+        auditoria.registrar("SENHA_ALTERADA", "Usuario " + principal.getName());
+        ra.addFlashAttribute("msg", "Senha alterada com sucesso.");
+        return "redirect:/usuarios/minha-senha";
+    }
+
     @GetMapping("/esqueci-senha")
     public String esqueciSenha() {
         return "usuarios/esqueci-senha";

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Trocar minha senha')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 480px;">
+    <h1 class="h3 mb-3">Trocar minha senha</h1>
+
+    <div th:if="${erro}" class="alert alert-danger" th:text="${erro}"></div>
+
+    <form th:action="@{/usuarios/minha-senha}" method="post" class="card" id="formSenha">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Senha atual *</label>
+                <div class="input-group">
+                    <input type="password" name="senhaAtual" class="form-control" id="senhaAtual"
+                           required autofocus autocomplete="current-password">
+                    <button class="btn btn-outline-secondary olho" type="button" data-alvo="senhaAtual">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nova senha *</label>
+                <div class="input-group">
+                    <input type="password" name="novaSenha" class="form-control" id="novaSenha"
+                           required minlength="6" autocomplete="new-password">
+                    <button class="btn btn-outline-secondary olho" type="button" data-alvo="novaSenha">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="form-text text-muted">Ao menos 6 caracteres, diferente da senha atual.</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Confirmar nova senha *</label>
+                <div class="input-group">
+                    <input type="password" name="confirmacao" class="form-control" id="confirmacao"
+                           required minlength="6" autocomplete="new-password">
+                    <button class="btn btn-outline-secondary olho" type="button" data-alvo="confirmacao">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="text-danger small" id="msgConfere" style="display:none;">
+                    A confirmacao nao confere com a nova senha.
+                </div>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a th:href="@{/}" class="btn btn-outline-secondary">Voltar</a>
+            <button type="submit" class="btn btn-primary">Salvar nova senha</button>
+        </div>
+    </form>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+<script>
+(function () {
+    document.querySelectorAll('.olho').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = document.getElementById(this.dataset.alvo);
+            var icon = this.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        });
+    });
+
+    var nova = document.getElementById('novaSenha');
+    var conf = document.getElementById('confirmacao');
+    var msg = document.getElementById('msgConfere');
+    document.getElementById('formSenha').addEventListener('submit', function (e) {
+        if (nova.value !== conf.value) {
+            e.preventDefault();
+            msg.style.display = '';
+            conf.focus();
+        }
+    });
+})();
+</script>
+</body>
+</html>

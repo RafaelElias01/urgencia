@@ -147,6 +147,34 @@ public class UsuarioService {
         repo.save(u);
     }
 
+    /**
+     * Permite que o proprio usuario logado troque sua senha, informando a
+     * senha atual (verificada) e a nova. Disponivel para todos os perfis
+     * (ADMIN/OPERADOR/AVALIADOR), ao contrario da edicao em /usuarios que e
+     * exclusiva do ADMIN. Lanca IllegalArgumentException com mensagem amigavel
+     * quando a senha atual esta errada ou a nova e invalida.
+     */
+    @Transactional
+    public void alterarPropriaSenha(String username, String senhaAtual,
+                                    String novaSenha, String confirmacao) {
+        Usuario u = repo.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario nao encontrado."));
+        if (senhaAtual == null || !encoder.matches(senhaAtual, u.getSenha())) {
+            throw new IllegalArgumentException("Senha atual incorreta.");
+        }
+        if (novaSenha == null || novaSenha.length() < 6) {
+            throw new IllegalArgumentException("A nova senha deve ter ao menos 6 caracteres.");
+        }
+        if (!novaSenha.equals(confirmacao)) {
+            throw new IllegalArgumentException("A confirmacao nao confere com a nova senha.");
+        }
+        if (encoder.matches(novaSenha, u.getSenha())) {
+            throw new IllegalArgumentException("A nova senha deve ser diferente da atual.");
+        }
+        u.setSenha(encoder.encode(novaSenha));
+        repo.save(u);
+    }
+
     private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
     private String gerarSenhaTemporaria() {
