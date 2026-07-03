@@ -6,7 +6,9 @@ Excel da equipe de Urgência Renal da Secretaria de Saúde.
 ## Stack
 Java 21 · Spring Boot 3.5.16 (web, data-jpa, thymeleaf, security, validation) ·
 PostgreSQL/Neon (prod) e H2 (dev) · Thymeleaf + Bootstrap · OpenPDF · Maven.
-Pacote base `br.gov.saude.sgpur`.
+Pacote base `br.gov.saude.sgpur` e env vars `SGPUR_*` (mantidos por enquanto,
+não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
+`target/saur-0.0.1-SNAPSHOT.jar`).
 
 ## Toolchain (Windows desta máquina)
 - JDK 21: `C:\Users\rafae\Tools\jdk-21.0.11+10` (NÃO usar o Java 17 do sistema).

@@ -12,7 +12,7 @@
     </parent>
 
     <groupId>br.gov.saude</groupId>
-    <artifactId>sgpur</artifactId>
+    <artifactId>saur</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>SAUR</name>
     <description>Sistema de Avaliacao de Urgencia Renal</description>
@@ -91,6 +91,15 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        <!-- Gera spring-configuration-metadata.json (a partir de
+             @ConfigurationProperties + META-INF/additional-spring-configuration-metadata.json)
+             para o IDE reconhecer as propriedades custom (app.*, sgpur.*) em
+             vez de marcar "Unknown property" no application.yml. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>

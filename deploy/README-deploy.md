@@ -64,7 +64,7 @@ Primeiro crie o `deploy/sgpur.env` a partir do `deploy/sgpur.env.example`,
 preenchendo a senha do Neon e uma `SGPUR_ADMIN_PASSWORD` forte. Depois:
 
 ```bash
-scp target/sgpur-0.0.1-SNAPSHOT.jar ubuntu@<IP>:/tmp/sgpur.jar
+scp target/saur-0.0.1-SNAPSHOT.jar ubuntu@<IP>:/tmp/sgpur.jar
 scp deploy/sgpur.env                ubuntu@<IP>:/tmp/sgpur.env
 scp deploy/sgpur.service            ubuntu@<IP>:/tmp/sgpur.service
 ```
@@ -114,7 +114,7 @@ sudo certbot --nginx -d seu.dominio.gov.br
 
 Na sua máquina: `mvn -DskipTests clean package`. Depois:
 ```bash
-scp target/sgpur-0.0.1-SNAPSHOT.jar ubuntu@<IP>:/tmp/sgpur.jar
+scp target/saur-0.0.1-SNAPSHOT.jar ubuntu@<IP>:/tmp/sgpur.jar
 ssh ubuntu@<IP> 'sudo mv /tmp/sgpur.jar /opt/sgpur/sgpur.jar && sudo chown sgpur:sgpur /opt/sgpur/sgpur.jar && sudo systemctl restart sgpur'
 ```
 
