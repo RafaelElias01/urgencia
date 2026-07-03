@@ -116,14 +116,12 @@ public class UsuarioService {
             log.debug("resetarSenha: usuario '{}' nao encontrado.", username);
             return;
         }
-        String novaSenha = gerarSenhaTemporaria();
-        u.setSenha(encoder.encode(novaSenha));
-        repo.save(u);
         if (u.getEmail() == null || u.getEmail().isBlank()) {
             log.warn("resetarSenha: usuario '{}' nao tem e-mail cadastrado - "
-                + "senha foi alterada mas nao pode ser enviada. Peca ao ADMIN redefinir manualmente.", username);
+                + "senha NAO foi alterada. Peca ao ADMIN redefinir manualmente.", username);
             return;
         }
+        String novaSenha = gerarSenhaTemporaria();
         String corpo = """
             Ola, %s,
 
@@ -139,7 +137,13 @@ public class UsuarioService {
             Atenciosamente,
             Equipe SAUR - Secretaria de Saude
             """.formatted(u.getNome(), novaSenha);
-        emailSenderService.enviar(u.getEmail(), "SAUR - Redefinicao de senha", corpo);
+        boolean enviado = emailSenderService.enviar(u.getEmail(), "SAUR - Redefinicao de senha", corpo);
+        if (!enviado) {
+            log.warn("resetarSenha: falha ao enviar e-mail para '{}' - senha NAO foi alterada.", username);
+            return;
+        }
+        u.setSenha(encoder.encode(novaSenha));
+        repo.save(u);
     }
 
     private String gerarSenhaTemporaria() {

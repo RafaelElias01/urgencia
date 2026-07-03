@@ -52,6 +52,7 @@ class UsuarioServiceTest {
         Usuario u = usuarioComEmail();
         when(repo.findByUsername("operador1")).thenReturn(Optional.of(u));
         when(encoder.encode(any())).thenReturn("hash-fake");
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(true);
 
         service.resetarSenha("operador1");
 
@@ -75,16 +76,28 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void resetarSenhaSemEmailCadastradoAlteraSenhaMasNaoEnvia() {
+    void resetarSenhaSemEmailCadastradoNaoAlteraSenhaNemEnvia() {
         Usuario u = new Usuario();
         u.setUsername("sememail");
         u.setNome("Sem Email");
         when(repo.findByUsername("sememail")).thenReturn(Optional.of(u));
-        when(encoder.encode(any())).thenReturn("hash-fake");
 
         service.resetarSenha("sememail");
 
-        verify(repo).save(u);
+        verify(repo, never()).save(any());
         verifyNoInteractions(emailSenderService);
+    }
+
+    @Test
+    void resetarSenhaComFalhaNoEnvioNaoAlteraSenha() {
+        Usuario u = usuarioComEmail();
+        String senhaOriginal = u.getSenha();
+        when(repo.findByUsername("operador1")).thenReturn(Optional.of(u));
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(false);
+
+        service.resetarSenha("operador1");
+
+        verify(repo, never()).save(any());
+        assertThat(u.getSenha()).isEqualTo(senhaOriginal);
     }
 }
