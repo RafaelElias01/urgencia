@@ -139,7 +139,7 @@ public class TempoRespostaService {
     }
 
     private static final DecimalFormat FMT =
-        new DecimalFormat("#,##0.#", new DecimalFormatSymbols(new Locale("pt", "BR")));
+        new DecimalFormat("#,##0.#", new DecimalFormatSymbols(Locale.of("pt", "BR")));
 
     /**
      * Formata a media de dias para exibicao pt-BR: {@code null} vira "—";
