@@ -71,8 +71,12 @@
                     <span th:unless="${tempoTexto.containsKey(m.id)}" class="text-muted small">—</span>
                 </td>
                 <td>
-                    <span class="badge" th:classappend="${m.ativo} ? 'bg-success' : 'bg-secondary'"
-                          th:text="${m.ativo} ? 'Ativo' : 'Inativo'">Ativo</span>
+                    <span th:if="${m.ativo}" class="text-nowrap">
+                        <span th:replace="~{layout :: status(true)}"></span> Ativo
+                    </span>
+                    <span th:unless="${m.ativo}" class="text-nowrap text-muted">
+                        <span th:replace="~{layout :: statusNa('Inativo')}"></span> Inativo
+                    </span>
                 </td>
                 <td class="text-end">
                     <a th:href="@{/membros/{id}/editar(id=${m.id})}" class="btn btn-sm btn-outline-secondary">Editar</a>

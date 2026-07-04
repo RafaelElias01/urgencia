@@ -24,8 +24,12 @@
                 <td th:text="${u.nome}">Nome</td>
                 <td><span class="badge bg-secondary" th:text="${u.perfil.descricao}">Perfil</span></td>
                 <td>
-                    <span class="badge" th:classappend="${u.ativo} ? 'bg-success' : 'bg-secondary'"
-                          th:text="${u.ativo} ? 'Ativo' : 'Inativo'">Ativo</span>
+                    <span th:if="${u.ativo}" class="text-nowrap">
+                        <span th:replace="~{layout :: status(true)}"></span> Ativo
+                    </span>
+                    <span th:unless="${u.ativo}" class="text-nowrap text-muted">
+                        <span th:replace="~{layout :: statusNa('Inativo')}"></span> Inativo
+                    </span>
                 </td>
                 <td class="text-end">
                     <a th:href="@{/usuarios/{id}/editar(id=${u.id})}" class="btn btn-sm btn-outline-secondary">Editar</a>

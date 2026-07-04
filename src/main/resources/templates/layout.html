@@ -95,6 +95,28 @@
     </div>
 </div>
 
+<!-- ============================================================
+     Padrao de status do sistema (design-system). Use SEMPRE estes
+     fragments para indicar estado, para o padrao ficar consistente
+     em todas as telas. Icone + cor + texto (visually-hidden) por
+     acessibilidade (nunca cor sozinha).
+       - status(ok):    ok=true  -> visto verde (bi-check-lg)
+                        ok=false -> X vermelho SOLTO (bi-x-lg)  [pendente obrigatorio]
+       - statusNa(txt): traco cinza (bi-dash-lg) [opcional vazio / dispensado /
+                        inativo / nao-aplicavel — estados intencionais, NAO pendencia]
+     Uso: <span th:replace="~{layout :: status(${cond})}"></span>
+     ============================================================ -->
+<span th:fragment="status(ok)" class="status-mark"
+      th:title="${ok} ? 'Concluido' : 'Pendente'">
+    <i class="bi" th:classappend="${ok} ? 'bi-check-lg text-success' : 'bi-x-lg text-danger'"
+       aria-hidden="true"></i>
+    <span class="visually-hidden" th:text="${ok} ? 'Concluido' : 'Pendente'">status</span>
+</span>
+<span th:fragment="statusNa(rotulo)" class="status-mark" th:title="${rotulo}">
+    <i class="bi bi-dash-lg text-secondary" aria-hidden="true"></i>
+    <span class="visually-hidden" th:text="${rotulo}">status</span>
+</span>
+
 <div th:fragment="footer" class="footer-sgpur mt-auto">
     <small>SAUR &mdash; Sistema de Avaliacao de Urgencia Renal &bull; Secretaria da Saude RS</small>
     <small class="d-block text-muted" style="font-size:.7rem;opacity:.7;">Produzido por Rafael Elias Ioppi</small>

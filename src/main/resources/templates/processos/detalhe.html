@@ -255,7 +255,7 @@
                             <ul class="list-group mb-3">
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span>
-                                        <i class="bi" th:classappend="${solicitacaoOriginal != null} ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'"></i>
+                                        <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
                                         Copia da solicitacao original
                                     </span>
                                     <a th:if="${solicitacaoOriginal != null}"
@@ -337,6 +337,7 @@
                     <!-- ========== PASSO 1: Documentos clinicos ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-primary ps-3 mb-4">
                         <h6 class="fw-bold text-primary mb-2">
+                            <span th:replace="~{layout :: status(${!documentosClinicos.isEmpty()})}"></span>
                             <span class="badge bg-primary me-2 rounded-pill">1</span>
                             Anexar documentos clinicos anonimizados
                         </h6>
@@ -399,6 +400,8 @@
                     <!-- ========== PASSO 2: Comprovante de envio ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-secondary ps-3 mb-4">
                         <h6 class="fw-bold text-secondary mb-2">
+                            <span th:if="${comprovanteEnvioAvaliadores != null}"><span th:replace="~{layout :: status(true)}"></span></span>
+                            <span th:unless="${comprovanteEnvioAvaliadores != null}"><span th:replace="~{layout :: statusNa('Opcional - nao enviado')}"></span></span>
                             <span class="badge bg-secondary me-2 rounded-pill">2</span>
                             Anexar comprovante de envio (opcional)
                         </h6>
@@ -406,7 +409,7 @@
                             Anexe o PDF ou e-mail de envio enviado aos 3 avaliadores como comprovante.
                         </p>
                         <div th:if="${comprovanteEnvioAvaliadores != null}" class="alert alert-success py-2 mb-2">
-                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span th:replace="~{layout :: status(true)}"></span>
                             Comprovante anexado:
                             <a th:href="@{/processos/anexos/{id}/download(id=${comprovanteEnvioAvaliadores.id})}"
                                th:text="${comprovanteEnvioAvaliadores.nomeArquivo}">arquivo</a>
@@ -428,6 +431,7 @@
                     <!-- ========== PASSO 3: Registrar envio ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-success ps-3 mb-3">
                         <h6 class="fw-bold text-success mb-2">
+                            <span th:replace="~{layout :: status(${envioFeito})}"></span>
                             <span class="badge bg-success me-2 rounded-pill">3</span>
                             Registrar envio
                         </h6>
@@ -574,13 +578,21 @@
                                 </span>
                             </td>
                             <td>
-                                <span th:if="${pareceresComResposta.contains(par.id)}" class="badge bg-success">
-                                    <i class="bi bi-paperclip"></i> Sim
+                                <span th:if="${pareceresComResposta.contains(par.id)}" class="text-nowrap">
+                                    <span th:replace="~{layout :: status(true)}"></span> Sim
                                 </span>
-                                <span th:unless="${pareceresComResposta.contains(par.id)}"
-                                      th:classappend="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'bg-primary' : (${processo.status.finalizado} ? 'bg-secondary' : 'bg-secondary')"
-                                      class="badge"
-                                      th:text="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'} ? 'Dispensado' : (${processo.status.finalizado} ? 'Dispensado' : 'Nao')">Nao</span>
+                                <th:block th:unless="${pareceresComResposta.contains(par.id)}">
+                                    <!-- Dispensado (voto no portal dispensa anexo, ou processo finalizado): estado
+                                         intencional, NAO pendencia -> traco cinza, nunca X vermelho. -->
+                                    <span th:if="${(par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA') or processo.status.finalizado}"
+                                          class="text-nowrap text-muted">
+                                        <span th:replace="~{layout :: statusNa('Dispensado')}"></span> Dispensado
+                                    </span>
+                                    <span th:unless="${(par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA') or processo.status.finalizado}"
+                                          class="text-nowrap">
+                                        <span th:replace="~{layout :: status(false)}"></span> Nao
+                                    </span>
+                                </th:block>
                             </td>
                             <td>
                                 <!-- Portal: voto imutavel, sem acao do operador -->
@@ -769,7 +781,7 @@
                     <div th:if="${processo.status.name() == 'INDEFERIDO'}" class="border rounded p-3 mb-3 bg-light">
                         <h6 class="mb-2"><i class="bi bi-file-earmark-text text-danger"></i> Oficio de Indeferimento</h6>
                         <div th:if="${oficioAnexo != null}" class="alert alert-success py-2 mb-2">
-                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span th:replace="~{layout :: status(true)}"></span>
                             Oficio anexado:
                             <a th:href="@{/processos/anexos/{id}/download(id=${oficioAnexo.id})}"
                                th:text="${oficioAnexo.nomeArquivo}">arquivo</a>
@@ -777,7 +789,7 @@
                                   th:text="${#temporals.format(oficioAnexo.dataUpload,'dd/MM/yyyy')}"></span>
                         </div>
                         <div th:unless="${oficioAnexo != null}" class="alert alert-warning py-2 mb-2">
-                            <i class="bi bi-x-circle-fill text-danger"></i> Oficio ainda nao anexado.
+                            <span th:replace="~{layout :: status(false)}"></span> Oficio ainda nao anexado.
                             O sistema gera automaticamente ao indeferir — ou faca upload manual abaixo.
                         </div>
                         <div class="row g-2 align-items-end">
@@ -828,7 +840,7 @@
                             Sistema Nacional de Transplantes (SNT). Obrigatorio para concluir o processo.
                         </p>
                         <div th:if="${comprovanteSnT != null}" class="alert alert-success py-2 mb-2">
-                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span th:replace="~{layout :: status(true)}"></span>
                             Comprovante anexado:
                             <a th:href="@{/processos/anexos/{id}/download(id=${comprovanteSnT.id})}"
                                th:text="${comprovanteSnT.nomeArquivo}">arquivo</a>
@@ -836,7 +848,7 @@
                                   th:text="${#temporals.format(comprovanteSnT.dataUpload,'dd/MM/yyyy')}"></span>
                         </div>
                         <div th:unless="${comprovanteSnT != null}" class="alert alert-warning py-2 mb-2">
-                            <i class="bi bi-x-circle-fill text-danger"></i> Comprovante SNT ainda nao anexado.
+                            <span th:replace="~{layout :: status(false)}"></span> Comprovante SNT ainda nao anexado.
                         </div>
                         <form th:action="@{/processos/{id}/comprovante-snt(id=${processo.id})}" method="post"
                               enctype="multipart/form-data" class="row g-2 align-items-end">
@@ -864,13 +876,13 @@
 
                         <!-- Comprovante de envio (print/PDF do e-mail enviado) -->
                         <div th:if="${comprovanteEnvioSolicitante != null}" class="alert alert-success py-2 mb-2">
-                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span th:replace="~{layout :: status(true)}"></span>
                             Comprovante de envio anexado:
                             <a th:href="@{/processos/anexos/{id}/download(id=${comprovanteEnvioSolicitante.id})}"
                                th:text="${comprovanteEnvioSolicitante.nomeArquivo}">arquivo</a>
                         </div>
                         <div th:unless="${comprovanteEnvioSolicitante != null}" class="alert alert-warning py-2 mb-2">
-                            <i class="bi bi-x-circle-fill text-danger"></i>
+                            <span th:replace="~{layout :: status(false)}"></span>
                             Comprovante de envio ao solicitante ainda nao anexado (obrigatorio para concluir).
                         </div>
                         <form th:action="@{/processos/{id}/comprovante-envio-solicitante(id=${processo.id})}"
