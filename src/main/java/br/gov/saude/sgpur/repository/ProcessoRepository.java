@@ -67,7 +67,12 @@ public interface ProcessoRepository extends JpaRepository<Processo, Long> {
                or lower(p.pacienteNome) like lower(concat('%', :q, '%'))
                or p.numero like concat('%', :q, '%')
                or lower(p.solicitanteEquipe) like lower(concat('%', :q, '%')))
-        order by p.ano desc, p.sequencial desc
+        order by
+          case when p.status in (
+            br.gov.saude.sgpur.domain.StatusProcesso.DEFERIDO,
+            br.gov.saude.sgpur.domain.StatusProcesso.INDEFERIDO,
+            br.gov.saude.sgpur.domain.StatusProcesso.CANCELADO) then 1 else 0 end asc,
+          p.ano desc, p.sequencial desc
         """)
     Page<Processo> buscar(@Param("q") String q, @Param("status") StatusProcesso status, Pageable pageable);
 }

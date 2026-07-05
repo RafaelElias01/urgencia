@@ -46,9 +46,12 @@ public class HomeController {
         model.addAttribute("anoCorrente", anoCorrente);
 
         List<Processo> processos = processoRepository.findByAnoComPareceres(anoCorrente).stream()
-            // "mais recente primeiro" no painel (a query vem em sequencial asc)
-            .sorted(java.util.Comparator.comparing(Processo::getSequencial,
-                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+            // Pendencias primeiro: processos EM ANDAMENTO vao para o topo; dentro de
+            // cada grupo, "mais recente primeiro" (a query vem em sequencial asc).
+            .sorted(java.util.Comparator
+                .comparing((Processo p) -> p.getStatus().isEmAndamento() ? 0 : 1)
+                .thenComparing(Processo::getSequencial,
+                    java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
             .toList();
 
         long deferidos = 0;
