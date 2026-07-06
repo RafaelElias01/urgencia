@@ -43,12 +43,27 @@ class AnexoStorageServiceTest {
     }
 
     @Test
-    void salvarAceitaPdf() throws Exception {
+    void salvarRenomeiaParaNomePadrao() throws Exception {
         when(anexoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         MockMultipartFile arquivo = new MockMultipartFile(
-            "arquivo", "solicitacao.pdf", "application/pdf", "conteudo".getBytes());
+            "arquivo", "scan0012.pdf", "application/pdf", "conteudo".getBytes());
         var anexo = service.salvar(processo(), TipoAnexo.SOLICITACAO_RECEBIDA, "desc", arquivo);
-        assertThat(anexo.getNomeArquivo()).isEqualTo("solicitacao.pdf");
+        // Nome padrao: "AAAA-MM-DD - CET-RS 07-2026 - Solicitacao recebida.pdf"
+        // (a barra do numero vira traco; o nome original do upload e descartado).
+        assertThat(anexo.getNomeArquivo())
+            .matches("\\d{4}-\\d{2}-\\d{2} - CET-RS 07-2026 - Solicitacao recebida\\.pdf");
+    }
+
+    @Test
+    void salvarNumeraNomesRepetidosDoMesmoTipo() throws Exception {
+        when(anexoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var p = processo();
+        service.salvar(p, TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR, "d",
+            new MockMultipartFile("arquivo", "a.pdf", "application/pdf", "1".getBytes()));
+        var segundo = service.salvar(p, TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR, "d",
+            new MockMultipartFile("arquivo", "b.pdf", "application/pdf", "2".getBytes()));
+        // O segundo arquivo do mesmo tipo/dia recebe o sufixo " (2)".
+        assertThat(segundo.getNomeArquivo()).endsWith("- Documento clinico (2).pdf");
     }
 
     @Test

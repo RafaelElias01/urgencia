@@ -15,9 +15,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * Armazena os arquivos anexados em disco e registra os metadados no banco.
@@ -44,15 +44,21 @@ public class AnexoStorageService {
     }
 
     /**
-     * Retorna o diretorio de armazenamento do processo usando o nome legivel
-     * derivado de {@code processo.identificacao()}. Para retrocompatibilidade
-     * com registros antigos que usavam "processo-{id}", o metodo
-     * {@link #resolverArquivo(Anexo)} ja faz o fallback automatico.
+     * Retorna o diretorio de armazenamento do processo no padrao legivel
+     * {@code "NN-AAAA - Nome do Paciente"} (a barra do numero vira traco, pois
+     * "/" e separador de caminho). Para retrocompatibilidade com registros
+     * antigos (pasta "processo-{id}" ou a que incluia o RGCT), o metodo
+     * {@link #resolverArquivo(Anexo)} usa o caminho gravado no banco, entao
+     * downloads de anexos antigos continuam funcionando.
      */
     public Path resolverDirProcesso(Processo processo) {
-        String nome = processo.identificacao()
-                .replace("/", "-")
-                .replaceAll("[\\\\:*?\"<>|]", "_");
+        String numero = (processo.getNumero() == null || processo.getNumero().isBlank())
+                ? "SN" : processo.getNumero().replace("/", "-");
+        String nome = numero;
+        if (processo.getPacienteNome() != null && !processo.getPacienteNome().isBlank()) {
+            nome = numero + " - " + processo.getPacienteNome();
+        }
+        nome = nome.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
         if (nome.length() > 120) {
             nome = nome.substring(0, 120);
         }
@@ -76,6 +82,25 @@ public class AnexoStorageService {
         }
     }
 
+    /**
+     * Nome de arquivo unico dentro da pasta: parte do {@code nomeDesejado} e,
+     * se ja existir um arquivo com esse nome, acrescenta " (2)", " (3)"... antes
+     * da extensao. Sanitiza caracteres ilegais em nome de arquivo.
+     */
+    private static String nomeArquivoUnico(Path pasta, String nomeDesejado) {
+        String sanitized = nomeDesejado.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+        int dot = sanitized.lastIndexOf('.');
+        String base = dot > 0 ? sanitized.substring(0, dot) : sanitized;
+        String ext = dot > 0 ? sanitized.substring(dot) : "";
+        String candidato = sanitized;
+        int n = 1;
+        while (Files.exists(pasta.resolve(candidato))) {
+            n++;
+            candidato = base + " (" + n + ")" + ext;
+        }
+        return candidato;
+    }
+
     @Transactional
     public Anexo salvar(Processo processo, TipoAnexo tipo, String descricao, MultipartFile arquivo)
             throws IOException {
@@ -87,8 +112,9 @@ public class AnexoStorageService {
         Files.createDirectories(pastaProcesso);
 
         String original = arquivo.getOriginalFilename() == null ? "anexo" : arquivo.getOriginalFilename();
-        String nomeFisico = UUID.randomUUID() + "_" + original.replaceAll("[^A-Za-z0-9._-]", "_");
-        Path destino = pastaProcesso.resolve(nomeFisico);
+        String nomePadrao = NomePadraoAnexo.gerar(processo, tipo, original, LocalDate.now());
+        String nomeFinal = nomeArquivoUnico(pastaProcesso, nomePadrao);
+        Path destino = pastaProcesso.resolve(nomeFinal);
 
         try (InputStream in = arquivo.getInputStream()) {
             Files.copy(in, destino);
@@ -98,7 +124,7 @@ public class AnexoStorageService {
         anexo.setProcesso(processo);
         anexo.setTipo(tipo);
         anexo.setDescricao(descricao);
-        anexo.setNomeArquivo(original);
+        anexo.setNomeArquivo(nomeFinal);
         anexo.setContentType(arquivo.getContentType());
         anexo.setTamanhoBytes(arquivo.getSize());
         anexo.setCaminhoArmazenado(raiz.relativize(destino).toString());
@@ -120,8 +146,9 @@ public class AnexoStorageService {
         Files.createDirectories(pastaProcesso);
 
         String original = arquivo.getOriginalFilename() == null ? "anexo" : arquivo.getOriginalFilename();
-        String nomeFisico = UUID.randomUUID() + "_" + original.replaceAll("[^A-Za-z0-9._-]", "_");
-        Path destino = pastaProcesso.resolve(nomeFisico);
+        String nomePadrao = NomePadraoAnexo.gerar(processo, TipoAnexo.RESPOSTA_AVALIADOR, original, LocalDate.now());
+        String nomeFinal = nomeArquivoUnico(pastaProcesso, nomePadrao);
+        Path destino = pastaProcesso.resolve(nomeFinal);
 
         try (InputStream in = arquivo.getInputStream()) {
             Files.copy(in, destino);
@@ -132,28 +159,37 @@ public class AnexoStorageService {
         anexo.setParecer(parecer);
         anexo.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
         anexo.setDescricao(descricao);
-        anexo.setNomeArquivo(original);
+        anexo.setNomeArquivo(nomeFinal);
         anexo.setContentType(arquivo.getContentType());
         anexo.setTamanhoBytes(arquivo.getSize());
         anexo.setCaminhoArmazenado(raiz.relativize(destino).toString());
         return anexoRepository.save(anexo);
     }
 
-    /** Salva um arquivo a partir de bytes (ex.: Relatorio Final gerado em PDF). */
+    /**
+     * Salva um arquivo a partir de bytes (ex.: Oficio/Relatorio Final gerados
+     * na decisao). Aplica o NOME PADRAO, exceto para {@code SOLICITACAO_AVALIADOR},
+     * cujo nome oficial ("Processo CET-RS NN-AAAA - Paciente X.X.X.pdf", so
+     * iniciais) e definido por {@code SolicitacaoAvaliadorService.nomeArquivoOficial}
+     * e nao deve ser sobrescrito (imparcialidade + convencao ja documentada).
+     */
     @Transactional
     public Anexo salvarBytes(Processo processo, TipoAnexo tipo, String descricao,
                              String nomeArquivo, String contentType, byte[] dados) throws IOException {
         Path pastaProcesso = resolverDirProcesso(processo);
         Files.createDirectories(pastaProcesso);
-        String nomeFisico = UUID.randomUUID() + "_" + nomeArquivo.replaceAll("[^A-Za-z0-9._-]", "_");
-        Path destino = pastaProcesso.resolve(nomeFisico);
+        String nomeDesejado = (tipo == TipoAnexo.SOLICITACAO_AVALIADOR)
+                ? nomeArquivo
+                : NomePadraoAnexo.gerar(processo, tipo, nomeArquivo, LocalDate.now());
+        String nomeFinal = nomeArquivoUnico(pastaProcesso, nomeDesejado);
+        Path destino = pastaProcesso.resolve(nomeFinal);
         Files.write(destino, dados);
 
         Anexo anexo = new Anexo();
         anexo.setProcesso(processo);
         anexo.setTipo(tipo);
         anexo.setDescricao(descricao);
-        anexo.setNomeArquivo(nomeArquivo);
+        anexo.setNomeArquivo(nomeFinal);
         anexo.setContentType(contentType);
         anexo.setTamanhoBytes((long) dados.length);
         anexo.setCaminhoArmazenado(raiz.relativize(destino).toString());
