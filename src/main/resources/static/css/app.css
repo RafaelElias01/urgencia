@@ -184,8 +184,8 @@ tr.linha-inativa > td:first-child {
 }
 .tabela-pareceres th:nth-child(6),
 .tabela-pareceres td:nth-child(6) {
-    min-width: 210px;
-    max-width: 260px;
+    min-width: 360px;
+    width: 40%;
 }
 .tabela-pareceres .badge {
     font-size: .7rem;

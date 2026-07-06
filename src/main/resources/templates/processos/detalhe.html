@@ -6,7 +6,7 @@
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
 
-<div class="container-fluid my-4 px-4">
+<div class="container-fluid px-lg-5 my-4">
     <div class="d-flex justify-content-between align-items-start mb-3 animate-fade-in">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
@@ -706,44 +706,52 @@
             <div class="card mb-4" id="decisao">
                 <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">
-                        A sugestao automatica (exibida no passo anterior) considera a
-                        <strong>maioria simples (2 de 3)</strong>. Confira os pareceres e registre
-                        a decisao:
-                        <br>
-                        <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
-                        <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
-                        (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
-                        a qualquer momento.
-                    </p>
-                    <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label">Decisao</label>
-                                <select name="decisao" class="form-select" id="decisaoSelect">
-                                    <option th:each="s : ${decisaoValores}"
-                                            th:value="${s.name()}" th:text="${s.descricao}"
-                                            th:selected="${processo.status.name() == s.name()}"></option>
-                                </select>
-                            </div>
-                            <div class="col-md-8" id="motivoBox">
-                                <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
-                                <div class="input-group">
-                                    <input type="text" name="motivoIndeferimento" id="motivoIndeferimentoInput"
-                                           class="form-control" th:value="${processo.motivoIndeferimento}">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                            id="btnSugerirMotivo" th:if="${iaDisponivel}"
-                                            th:attr="data-processo-id=${processo.id}"
-                                            title="Sugerir motivo com IA a partir das justificativas dos avaliadores">
-                                        <i class="bi bi-stars"></i> Sugerir com IA
-                                    </button>
+                    <!-- Processo ja decidido (manual ou automaticamente ao atingir a maioria):
+                         some o formulario, so a confirmacao. Evita o formulario "Registrar
+                         decisao" ficar exibido ao lado da confirmacao, dando a falsa impressao
+                         de que falta uma acao quando a decisao ja esta valendo. -->
+                    <div th:unless="${processo.status.finalizado}">
+                        <p class="small text-muted mb-3">
+                            A sugestao automatica (exibida no passo anterior) considera a
+                            <strong>maioria simples (2 de 3)</strong>. Quando a maioria e atingida
+                            e todos os anexos comprobatorios estao presentes, o sistema decide
+                            automaticamente; caso contrario, confira os pareceres e registre a
+                            decisao manualmente:
+                            <br>
+                            <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
+                            <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
+                            (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
+                            a qualquer momento.
+                        </p>
+                        <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label">Decisao</label>
+                                    <select name="decisao" class="form-select" id="decisaoSelect">
+                                        <option th:each="s : ${decisaoValores}"
+                                                th:value="${s.name()}" th:text="${s.descricao}"
+                                                th:selected="${processo.status.name() == s.name()}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8" id="motivoBox">
+                                    <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
+                                    <div class="input-group">
+                                        <input type="text" name="motivoIndeferimento" id="motivoIndeferimentoInput"
+                                               class="form-control" th:value="${processo.motivoIndeferimento}">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                id="btnSugerirMotivo" th:if="${iaDisponivel}"
+                                                th:attr="data-processo-id=${processo.id}"
+                                                title="Sugerir motivo com IA a partir das justificativas dos avaliadores">
+                                            <i class="bi bi-stars"></i> Sugerir com IA
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="text-end mt-2">
-                            <button class="btn btn-primary btn-sm">Registrar decisao</button>
-                        </div>
-                    </form>
+                            <div class="text-end mt-2">
+                                <button class="btn btn-primary btn-sm">Registrar decisao</button>
+                            </div>
+                        </form>
+                    </div>
 
                     <!-- Finalizacao explicita da etapa -->
                     <div th:if="${processo.status.finalizado}"
@@ -907,15 +915,25 @@
                             </div>
                         </form>
 
-                        <!-- Confirmacao de envio -->
+                        <hr class="my-3">
+
+                        <!-- Confirmacao de envio do e-mail de resposta -->
                         <form th:action="@{/processos/{id}/resposta-solicitante(id=${processo.id})}" method="post">
-                            <div class="form-check mb-2">
-                                <input type="checkbox" name="emailEnviadoSolicitante" value="true"
-                                       class="form-check-input" id="emailEnvSolicitante"
-                                       th:checked="${processo.emailEnviadoSolicitante}">
-                                <label class="form-check-label" for="emailEnvSolicitante">
-                                    E-mail de resposta enviado ao solicitante
-                                </label>
+                            <div class="border rounded p-3 mb-3"
+                                 th:classappend="${processo.emailEnviadoSolicitante} ? 'border-success bg-success-subtle' : 'bg-white'">
+                                <div class="form-check mb-0">
+                                    <input type="checkbox" name="emailEnviadoSolicitante" value="true"
+                                           class="form-check-input" id="emailEnvSolicitante"
+                                           th:checked="${processo.emailEnviadoSolicitante}">
+                                    <label class="form-check-label fw-semibold d-flex align-items-center gap-1" for="emailEnvSolicitante">
+                                        <i class="bi" th:classappend="${processo.emailEnviadoSolicitante} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'"></i>
+                                        E-mail de resposta enviado ao solicitante
+                                    </label>
+                                    <div class="form-text ms-4 mb-0">
+                                        Marque quando o e-mail com a decisao (deferimento ou indeferimento) tiver
+                                        sido enviado a equipe solicitante, com o comprovante acima anexado.
+                                    </div>
+                                </div>
                             </div>
                             <button class="btn btn-primary btn-sm">
                                 <i class="bi bi-save"></i> Salvar finalizacao
@@ -1016,14 +1034,17 @@
 
 <script th:replace="~{layout :: scripts}"></script>
 <script>
-    // Mostra/oculta o motivo conforme a decisao
+    // Mostra/oculta o motivo conforme a decisao (formulario some quando o
+    // processo ja esta finalizado, entao os elementos podem nao existir).
     const sel = document.getElementById('decisaoSelect');
     const box = document.getElementById('motivoBox');
-    function toggleMotivo() {
-        box.style.display = (sel.value === 'INDEFERIDO') ? '' : 'none';
+    if (sel && box) {
+        function toggleMotivo() {
+            box.style.display = (sel.value === 'INDEFERIDO') ? '' : 'none';
+        }
+        sel.addEventListener('change', toggleMotivo);
+        toggleMotivo();
     }
-    sel.addEventListener('change', toggleMotivo);
-    toggleMotivo();
 
     // Confirmacao ao alterar parecer ja preenchido
     document.querySelectorAll('.parecer-select').forEach(function (select) {
