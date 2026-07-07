@@ -94,6 +94,12 @@ body {
     vertical-align: -0.1em;
     line-height: 1;
 }
+/* O "x" (pendente) do bootstrap-icons e visualmente mais fino que o "check":
+   engrossa o traco com text-shadow (icone de fonte nao tem variante bold). */
+.status-mark .bi-x-lg {
+    font-size: 1.2rem;
+    text-shadow: 0 0 .4px currentColor, 0 0 .4px currentColor;
+}
 
 /* Linha de membro/usuario inativo: fundo cinza visivel + faixa lateral e texto
    atenuado, para distinguir claramente na listagem sem ser gritante.
@@ -184,8 +190,8 @@ tr.linha-inativa > td:first-child {
 }
 .tabela-pareceres th:nth-child(6),
 .tabela-pareceres td:nth-child(6) {
-    min-width: 210px;
-    max-width: 260px;
+    min-width: 360px;
+    width: 40%;
 }
 .tabela-pareceres .badge {
     font-size: .7rem;

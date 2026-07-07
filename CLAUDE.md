@@ -66,6 +66,21 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   Finais: Deferido/Indeferido/Cancelado. `Em análise` é mantido como sinônimo
   legado de `Enviado` (registros antigos continuam válidos). Ver
   `docs/PLANO-FLUXO.md`.
+- **Processo ENCERRADO trava a edição:** quando o status é final
+  (Deferido/Indeferido/Cancelado), `ProcessoValidator.edicaoBloqueada` é `true`
+  e **toda alteração é rejeitada** — imposto no controller (guarda
+  `bloqueadoPorEncerrado` que devolve flash `erro` com
+  `ProcessoValidator.MSG_ENCERRADO`) e reforçado no serviço
+  (`ProcessoService.atualizarDados`/`decidir` lançam `IllegalStateException`).
+  Bloqueia as etapas 1–4 (recebimento, envio/documento clínico/comprovante aos
+  avaliadores, pareceres/resposta-avaliador, redecidir), o upload genérico
+  `/anexos`, a exclusão de anexos e os lembretes. **Continuam liberadas** as
+  etapas 5–6 (ofício, comprovante SNT, comprovante de envio ao solicitante,
+  confirmar resposta) e o e-mail de resposta ao solicitante (`email/enviar`) —
+  são a papelada pós-decisão. Downloads/relatórios (GET) sempre liberados. Para
+  voltar a editar, **só o ADMIN reabre** (`POST /processos/{id}/reabrir`, que
+  volta o status para `Enviado`). O detalhe mostra banner "Processo encerrado" e
+  esconde os formulários bloqueados.
 - **Solicita informação (PAUSA):** quando um avaliador vota
   `ResultadoParecer.SOLICITA_INFORMACAO`, o processo entra em
   `StatusProcesso.SOLICITA_INFORMACAO` (via

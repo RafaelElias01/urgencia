@@ -323,4 +323,35 @@ class ProcessoControllerEmailTest {
 
         verifyNoInteractions(emailSenderService);
     }
+
+    // ===== Bloqueio de edicao em processo encerrado =====
+
+    /** Processo encerrado bloqueia o registro de envio (redirect com flash de erro). */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void registrarEnvioBloqueadoQuandoProcessoEncerrado() throws Exception {
+        when(processoValidator.edicaoBloqueada(processo)).thenReturn(true);
+
+        mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attributeExists("erro"));
+
+        verifyNoInteractions(anexoStorage);
+        verify(processoService, never()).registrarEnvio(anyLong());
+    }
+
+    /** Processo encerrado bloqueia o lembrete a avaliador (resposta JSON de erro). */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void lembreteAvaliadorBloqueadoQuandoProcessoEncerrado() throws Exception {
+        when(processoValidator.edicaoBloqueada(processo)).thenReturn(true);
+
+        mvc.perform(post("/processos/1/lembrete-avaliador")
+                .param("parecerId", "100")
+                .with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ok").value(false));
+
+        verifyNoInteractions(emailSenderService);
+    }
 }

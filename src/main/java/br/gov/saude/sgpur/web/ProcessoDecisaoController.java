@@ -72,6 +72,9 @@ public class ProcessoDecisaoController {
                                   @RequestParam(required = false) java.util.List<String> dataEnvio,
                                   RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#respostas";
+        }
         if (parecerId != null) {
             for (int i = 0; i < parecerId.size(); i++) {
                 Long pid = parecerId.get(i);
@@ -144,6 +147,9 @@ public class ProcessoDecisaoController {
                                 @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
                                 RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#respostas";
+        }
         if (arquivo != null && !arquivo.isEmpty()) {
             try {
                 anexoStorage.salvar(p, TipoAnexo.INFO_COMPLEMENTAR,
@@ -172,6 +178,9 @@ public class ProcessoDecisaoController {
                                  @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
                                  RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#respostas";
+        }
         if (arquivo != null && !arquivo.isEmpty()) {
             try {
                 anexoStorage.salvar(p, TipoAnexo.INFO_COMPLEMENTAR,
@@ -214,6 +223,9 @@ public class ProcessoDecisaoController {
     public String registrarEnvio(@PathVariable Long id,
                                  RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#envio";
+        }
         LocalDate hoje = LocalDate.now();
 
         boolean temComprovanteEnvio = p.getAnexos().stream()
@@ -335,6 +347,9 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id + "#envio";
         }
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#envio";
+        }
         try {
             anexoStorage.removerPorTipo(id, TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
             anexoStorage.salvar(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES,
@@ -359,6 +374,9 @@ public class ProcessoDecisaoController {
                                          @RequestParam(required = false) String descricao,
                                          RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#envio";
+        }
         try {
             String desc = (descricao != null && !descricao.isBlank())
                 ? descricao : "Documento clinico anonimizado para os avaliadores";
@@ -390,6 +408,9 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id;
         }
         Processo atual = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(atual, ra)) {
+            return "redirect:/processos/" + id;
+        }
         // Regras de negocio centralizadas em ProcessoValidator (mesmas mensagens
         // do servico). A ancora do redirect distingue pausa/anexos (#respostas)
         // das demais (topo), por isso os grupos sao consultados separadamente.
@@ -462,6 +483,9 @@ public class ProcessoDecisaoController {
                                     @RequestParam(required = false) String resultado,
                                     RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#respostas";
+        }
         Parecer parecer = parecerRepository.findById(parecerId)
             .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado: " + parecerId));
         if (parecer.getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
@@ -512,6 +536,9 @@ public class ProcessoDecisaoController {
     @ResponseBody
     public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
         Processo p = processoService.buscar(id);
+        if (validator.edicaoBloqueada(p)) {
+            return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
+        }
         Parecer parecer = parecerRepository.findById(parecerId)
             .filter(par -> par.getProcesso().getId().equals(id))
             .orElse(null);
@@ -545,6 +572,9 @@ public class ProcessoDecisaoController {
     @ResponseBody
     public AcaoResponse lembretePendentes(@PathVariable Long id) {
         Processo p = processoService.buscar(id);
+        if (validator.edicaoBloqueada(p)) {
+            return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
+        }
         var pendentes = parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(id);
         if (pendentes.isEmpty()) {
             return AcaoResponse.erro("Nao ha avaliadores com parecer pendente neste processo.");
@@ -690,6 +720,20 @@ public class ProcessoDecisaoController {
                 return EmailPreviewResponse.erro("Tipo de pre-visualizacao desconhecido: " + tipo);
             }
         }
+    }
+
+    /**
+     * Guarda de edicao: se o processo esta encerrado, registra o flash de erro e
+     * retorna true (o chamador deve redirecionar sem efetivar a alteracao). Usada
+     * nas etapas 1 a 4 e nos lembretes; as etapas 5-6 e os e-mails de resposta ao
+     * solicitante NAO usam esta guarda (continuam liberados apos a decisao).
+     */
+    private boolean bloqueadoPorEncerrado(Processo p, RedirectAttributes ra) {
+        if (validator.edicaoBloqueada(p)) {
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return true;
+        }
+        return false;
     }
 
     /**

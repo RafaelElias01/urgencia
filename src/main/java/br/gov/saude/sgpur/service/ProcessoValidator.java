@@ -17,6 +17,26 @@ import java.util.Optional;
 @Service
 public class ProcessoValidator {
 
+    /**
+     * Mensagem exibida quando o operador tenta alterar um processo ENCERRADO
+     * (Deferido/Indeferido/Cancelado). A edicao fica travada; so o ADMIN pode
+     * reabrir (POST /processos/{id}/reabrir) para voltar a alterar.
+     */
+    public static final String MSG_ENCERRADO =
+        "Processo encerrado: nenhuma alteracao e permitida. "
+        + "Um administrador precisa reabrir o processo para altera-lo.";
+
+    /**
+     * True se o processo esta ENCERRADO e, portanto, com a edicao travada.
+     * Usado como guarda nos endpoints de alteracao (etapas 1 a 4, upload
+     * generico de anexos, exclusao de anexos e lembretes). As etapas 5 e 6
+     * (oficio, comprovante SNT, resposta ao solicitante) e a leitura NAO usam
+     * esta guarda — elas continuam liberadas apos a decisao.
+     */
+    public boolean edicaoBloqueada(Processo processo) {
+        return processo.getStatus() != null && processo.getStatus().isFinalizado();
+    }
+
     // ----- Contagem de votos (consultas puras) -----
 
     public long contarFavoraveis(Processo processo) {

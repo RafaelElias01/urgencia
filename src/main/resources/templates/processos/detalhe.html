@@ -6,7 +6,7 @@
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
 
-<div class="container-fluid my-4 px-4">
+<div class="container-fluid px-lg-5 my-4">
     <div class="d-flex justify-content-between align-items-start mb-3 animate-fade-in">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
@@ -44,6 +44,19 @@
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir processo
             </button>
         </form>
+    </div>
+
+    <!-- Aviso de processo ENCERRADO: edicao travada (etapas 1 a 4, anexos gerais
+         e lembretes bloqueados). So o ADMIN pode reabrir. As etapas 5-6 (oficio,
+         comprovante SNT, resposta ao solicitante) continuam liberadas. -->
+    <div th:if="${processo.status.finalizado}"
+         class="alert alert-secondary border d-flex align-items-center gap-2 mb-4" role="alert">
+        <i class="bi bi-lock-fill fs-5"></i>
+        <div>
+            <strong>Processo encerrado.</strong>
+            Nenhuma alteracao e permitida (anexos, pareceres, envio). Para voltar a
+            editar, um administrador precisa <em>reabrir</em> o processo.
+        </div>
     </div>
 
     <div class="row g-4">
@@ -269,7 +282,8 @@
                             </ul>
 
                             <!-- Acao: anexar a original + gerar a copia para as equipes -->
-                            <form th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
+                            <form th:unless="${processo.status.finalizado}"
+                                  th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
                                   enctype="multipart/form-data" class="row g-2 align-items-end">
                                 <div class="col-md-7">
                                     <label class="form-label">Solicitacao original recebida (PDF/e-mail)</label>
@@ -365,7 +379,8 @@
                                                 th:attr="data-anexo-id=${doc.id}" title="Resumir com IA">
                                             <i class="bi bi-stars"></i> Resumir
                                         </button>
-                                        <form th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
+                                        <form th:unless="${processo.status.finalizado}"
+                                              th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
                                               class="d-inline" onsubmit="return confirm('Remover este documento clinico?');">
                                             <button class="btn btn-sm btn-outline-danger" title="Remover">
                                                 <i class="bi bi-trash"></i>
@@ -379,7 +394,8 @@
                         <p class="small text-muted fst-italic mb-2" th:if="${documentosClinicos.isEmpty()}">
                             Nenhum documento clinico anexado ainda.
                         </p>
-                        <form th:action="@{/processos/{id}/documento-clinico(id=${processo.id})}" method="post"
+                        <form th:unless="${processo.status.finalizado}"
+                              th:action="@{/processos/{id}/documento-clinico(id=${processo.id})}" method="post"
                               enctype="multipart/form-data" class="row g-2 align-items-end">
                             <div class="col-md-7">
                                 <label class="form-label small">Documento clinico anonimizado (PDF)</label>
@@ -414,7 +430,8 @@
                             <a th:href="@{/processos/anexos/{id}/download(id=${comprovanteEnvioAvaliadores.id})}"
                                th:text="${comprovanteEnvioAvaliadores.nomeArquivo}">arquivo</a>
                         </div>
-                        <form th:action="@{/processos/{id}/comprovante-envio-avaliadores(id=${processo.id})}" method="post"
+                        <form th:unless="${processo.status.finalizado}"
+                              th:action="@{/processos/{id}/comprovante-envio-avaliadores(id=${processo.id})}" method="post"
                               enctype="multipart/form-data" class="row g-2 align-items-end">
                             <div class="col-md-8">
                                 <label class="form-label small">Arquivo do e-mail de envio (PDF, EML, MSG)</label>
@@ -442,7 +459,8 @@
                         <p class="small text-muted mb-2">
                             Confirma o envio e gera o PDF consolidado com cabecalho para os avaliadores.
                         </p>
-                        <form th:action="@{/processos/{id}/registrar-envio(id=${processo.id})}" method="post">
+                        <form th:unless="${processo.status.finalizado}"
+                              th:action="@{/processos/{id}/registrar-envio(id=${processo.id})}" method="post">
                             <button class="btn btn-primary btn-sm">
                                 <i class="bi bi-calendar-check"></i> Registrar envio (data de hoje)
                             </button>
@@ -610,8 +628,9 @@
                                           th:if="${processo.status.finalizado and par.resultado == null}">
                                     <span class="small text-muted">—</span>
                                 </th:block>
-                                <!-- Form unificado: resultado + upload em uma unica acao -->
-                                <form th:unless="${pareceresPortal.contains(par.id) or (processo.status.finalizado and par.resultado == null)}"
+                                <!-- Form unificado: resultado + upload em uma unica acao.
+                                     Processo encerrado: nenhuma acao (o form some por completo). -->
+                                <form th:unless="${pareceresPortal.contains(par.id) or processo.status.finalizado}"
                                       th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
                                       method="post" enctype="multipart/form-data"
                                       class="acao-form">
@@ -648,6 +667,14 @@
                                         title="Enviar lembrete por e-mail ao avaliador">
                                     <i class="bi bi-envelope"></i> Lembrar por e-mail
                                 </button>
+                                <!-- Sem o botao acima (parecer pendente, processo aberto, nao votado
+                                     pelo portal) so por falta de e-mail cadastrado: avisa o motivo em
+                                     vez de sumir silenciosamente, para nao parecer que falta uma acao. -->
+                                <span class="small text-muted fst-italic d-block mt-1"
+                                      th:if="${par.resultado == null and !processo.status.finalizado and !pareceresPortal.contains(par.id) and (par.membro.email == null or par.membro.email.isBlank())}"
+                                      title="Cadastre o e-mail do medico em Membros da Urgencia Renal para poder enviar o lembrete">
+                                    <i class="bi bi-envelope-slash"></i> Sem e-mail cadastrado
+                                </span>
                             </td>
                         </tr>
                         <!-- Justificativa do avaliador (material INTERNO do operador;
@@ -706,44 +733,52 @@
             <div class="card mb-4" id="decisao">
                 <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
                 <div class="card-body">
-                    <p class="small text-muted mb-3">
-                        A sugestao automatica (exibida no passo anterior) considera a
-                        <strong>maioria simples (2 de 3)</strong>. Confira os pareceres e registre
-                        a decisao:
-                        <br>
-                        <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
-                        <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
-                        (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
-                        a qualquer momento.
-                    </p>
-                    <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label">Decisao</label>
-                                <select name="decisao" class="form-select" id="decisaoSelect">
-                                    <option th:each="s : ${decisaoValores}"
-                                            th:value="${s.name()}" th:text="${s.descricao}"
-                                            th:selected="${processo.status.name() == s.name()}"></option>
-                                </select>
-                            </div>
-                            <div class="col-md-8" id="motivoBox">
-                                <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
-                                <div class="input-group">
-                                    <input type="text" name="motivoIndeferimento" id="motivoIndeferimentoInput"
-                                           class="form-control" th:value="${processo.motivoIndeferimento}">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                            id="btnSugerirMotivo" th:if="${iaDisponivel}"
-                                            th:attr="data-processo-id=${processo.id}"
-                                            title="Sugerir motivo com IA a partir das justificativas dos avaliadores">
-                                        <i class="bi bi-stars"></i> Sugerir com IA
-                                    </button>
+                    <!-- Processo ja decidido (manual ou automaticamente ao atingir a maioria):
+                         some o formulario, so a confirmacao. Evita o formulario "Registrar
+                         decisao" ficar exibido ao lado da confirmacao, dando a falsa impressao
+                         de que falta uma acao quando a decisao ja esta valendo. -->
+                    <div th:unless="${processo.status.finalizado}">
+                        <p class="small text-muted mb-3">
+                            A sugestao automatica (exibida no passo anterior) considera a
+                            <strong>maioria simples (2 de 3)</strong>. Quando a maioria e atingida
+                            e todos os anexos comprobatorios estao presentes, o sistema decide
+                            automaticamente; caso contrario, confira os pareceres e registre a
+                            decisao manualmente:
+                            <br>
+                            <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
+                            <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
+                            (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
+                            a qualquer momento.
+                        </p>
+                        <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label">Decisao</label>
+                                    <select name="decisao" class="form-select" id="decisaoSelect">
+                                        <option th:each="s : ${decisaoValores}"
+                                                th:value="${s.name()}" th:text="${s.descricao}"
+                                                th:selected="${processo.status.name() == s.name()}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8" id="motivoBox">
+                                    <label class="form-label">Motivo do indeferimento (obrigatorio se reprovado)</label>
+                                    <div class="input-group">
+                                        <input type="text" name="motivoIndeferimento" id="motivoIndeferimentoInput"
+                                               class="form-control" th:value="${processo.motivoIndeferimento}">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                id="btnSugerirMotivo" th:if="${iaDisponivel}"
+                                                th:attr="data-processo-id=${processo.id}"
+                                                title="Sugerir motivo com IA a partir das justificativas dos avaliadores">
+                                            <i class="bi bi-stars"></i> Sugerir com IA
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="text-end mt-2">
-                            <button class="btn btn-primary btn-sm">Registrar decisao</button>
-                        </div>
-                    </form>
+                            <div class="text-end mt-2">
+                                <button class="btn btn-primary btn-sm">Registrar decisao</button>
+                            </div>
+                        </form>
+                    </div>
 
                     <!-- Finalizacao explicita da etapa -->
                     <div th:if="${processo.status.finalizado}"
@@ -907,15 +942,25 @@
                             </div>
                         </form>
 
-                        <!-- Confirmacao de envio -->
+                        <hr class="my-3">
+
+                        <!-- Confirmacao de envio do e-mail de resposta -->
                         <form th:action="@{/processos/{id}/resposta-solicitante(id=${processo.id})}" method="post">
-                            <div class="form-check mb-2">
-                                <input type="checkbox" name="emailEnviadoSolicitante" value="true"
-                                       class="form-check-input" id="emailEnvSolicitante"
-                                       th:checked="${processo.emailEnviadoSolicitante}">
-                                <label class="form-check-label" for="emailEnvSolicitante">
-                                    E-mail de resposta enviado ao solicitante
-                                </label>
+                            <div class="border rounded p-3 mb-3"
+                                 th:classappend="${processo.emailEnviadoSolicitante} ? 'border-success bg-success-subtle' : 'bg-white'">
+                                <div class="form-check mb-0">
+                                    <input type="checkbox" name="emailEnviadoSolicitante" value="true"
+                                           class="form-check-input" id="emailEnvSolicitante"
+                                           th:checked="${processo.emailEnviadoSolicitante}">
+                                    <label class="form-check-label fw-semibold d-flex align-items-center gap-1" for="emailEnvSolicitante">
+                                        <i class="bi" th:classappend="${processo.emailEnviadoSolicitante} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'"></i>
+                                        E-mail de resposta enviado ao solicitante
+                                    </label>
+                                    <div class="form-text ms-4 mb-0">
+                                        Marque quando o e-mail com a decisao (deferimento ou indeferimento) tiver
+                                        sido enviado a equipe solicitante, com o comprovante acima anexado.
+                                    </div>
+                                </div>
                             </div>
                             <button class="btn btn-primary btn-sm">
                                 <i class="bi bi-save"></i> Salvar finalizacao
@@ -943,7 +988,8 @@
                             </span>
                             <span class="d-flex align-items-center gap-2">
                                 <small class="text-muted" th:text="${#temporals.format(a.dataUpload, 'dd/MM/yyyy HH:mm')}"></small>
-                                <form th:action="@{/processos/anexos/{id}/excluir(id=${a.id})}" method="post"
+                                <form th:unless="${processo.status.finalizado}"
+                                      th:action="@{/processos/anexos/{id}/excluir(id=${a.id})}" method="post"
                                       onsubmit="return confirm('Remover este anexo?');">
                                     <button class="btn btn-sm btn-outline-danger" title="Remover">
                                         <i class="bi bi-trash"></i>
@@ -954,7 +1000,13 @@
                     </ul>
                     <p class="text-muted small" th:if="${processo.anexos.isEmpty()}">Nenhum anexo ainda.</p>
 
-                    <form th:action="@{/processos/{id}/anexos(id=${processo.id})}" method="post"
+                    <p class="text-muted small mb-0" th:if="${processo.status.finalizado}">
+                        <i class="bi bi-lock-fill"></i> Processo encerrado: nao e possivel
+                        adicionar ou remover anexos.
+                    </p>
+
+                    <form th:unless="${processo.status.finalizado}"
+                          th:action="@{/processos/{id}/anexos(id=${processo.id})}" method="post"
                           enctype="multipart/form-data" class="row g-2 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label">Tipo</label>
@@ -1016,14 +1068,17 @@
 
 <script th:replace="~{layout :: scripts}"></script>
 <script>
-    // Mostra/oculta o motivo conforme a decisao
+    // Mostra/oculta o motivo conforme a decisao (formulario some quando o
+    // processo ja esta finalizado, entao os elementos podem nao existir).
     const sel = document.getElementById('decisaoSelect');
     const box = document.getElementById('motivoBox');
-    function toggleMotivo() {
-        box.style.display = (sel.value === 'INDEFERIDO') ? '' : 'none';
+    if (sel && box) {
+        function toggleMotivo() {
+            box.style.display = (sel.value === 'INDEFERIDO') ? '' : 'none';
+        }
+        sel.addEventListener('change', toggleMotivo);
+        toggleMotivo();
     }
-    sel.addEventListener('change', toggleMotivo);
-    toggleMotivo();
 
     // Confirmacao ao alterar parecer ja preenchido
     document.querySelectorAll('.parecer-select').forEach(function (select) {

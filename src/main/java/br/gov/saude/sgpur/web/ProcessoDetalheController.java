@@ -9,6 +9,7 @@ import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.ProcessoService;
+import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -285,6 +286,9 @@ public class ProcessoDetalheController {
         if (result.hasErrors()) {
             return "processos/editar";
         }
+        if (bloqueadoPorEncerrado(processoService.buscar(id), ra)) {
+            return "redirect:/processos/" + id;
+        }
         processoService.atualizarDados(id, form);
         auditoria.registrar("PROCESSO_EDITADO", "Processo id " + id);
         ra.addFlashAttribute("msg", "Processo atualizado.");
@@ -337,6 +341,9 @@ public class ProcessoDetalheController {
                                        @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
                                        RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#recebimento";
+        }
 
         // 1) Copia da solicitacao original (com nome completo) — anexo manual.
         if (arquivo != null && !arquivo.isEmpty()) {
@@ -354,5 +361,18 @@ public class ProcessoDetalheController {
 
         ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada.");
         return "redirect:/processos/" + id + "#recebimento";
+    }
+
+    /**
+     * Guarda de edicao: se o processo esta encerrado, registra o flash de erro e
+     * retorna true (o chamador deve redirecionar sem efetivar a alteracao). So o
+     * ADMIN pode reabrir para voltar a alterar.
+     */
+    private boolean bloqueadoPorEncerrado(Processo p, RedirectAttributes ra) {
+        if (processoService.edicaoBloqueada(p)) {
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return true;
+        }
+        return false;
     }
 }

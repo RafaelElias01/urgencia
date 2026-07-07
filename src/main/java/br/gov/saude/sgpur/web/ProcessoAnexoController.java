@@ -171,6 +171,10 @@ public class ProcessoAnexoController {
                          @RequestParam("arquivo") MultipartFile arquivo,
                          RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (validator.edicaoBloqueada(p)) {
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return "redirect:/processos/" + id + "#anexos";
+        }
         try {
             anexoStorage.salvar(p, tipo, descricao, arquivo);
             auditoria.registrar("ANEXO_ADICIONADO",
@@ -187,6 +191,12 @@ public class ProcessoAnexoController {
         // Bloqueia a exclusao de RESPOSTA_AVALIADOR de parecer votado pelo portal
         // (nao-repudio: o registro autenticado nao pode ser apagado pelo operador).
         Anexo anexoParaExcluir = anexoStorage.buscar(anexoId);
+        // Processo encerrado: nenhum anexo pode ser removido (edicao travada).
+        if (validator.edicaoBloqueada(anexoParaExcluir.getProcesso())) {
+            Long pid = anexoParaExcluir.getProcesso().getId();
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return "redirect:/processos/" + pid + "#anexos";
+        }
         if (anexoParaExcluir.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR
                 && anexoParaExcluir.getParecer() != null
                 && anexoParaExcluir.getParecer().getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {

@@ -120,6 +120,42 @@ class ProcessoServiceTest {
     }
 
     @Test
+    void edicaoBloqueadaSomenteQuandoProcessoEncerrado() {
+        Processo emAndamento = new Processo();
+        emAndamento.setStatus(StatusProcesso.ENVIADO);
+        assertThat(service.edicaoBloqueada(emAndamento)).isFalse();
+
+        for (StatusProcesso encerrado : java.util.List.of(
+                StatusProcesso.DEFERIDO, StatusProcesso.INDEFERIDO, StatusProcesso.CANCELADO)) {
+            Processo p = new Processo();
+            p.setStatus(encerrado);
+            assertThat(service.edicaoBloqueada(p)).isTrue();
+        }
+    }
+
+    @Test
+    void atualizarDadosRejeitaProcessoEncerrado() {
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.DEFERIDO);
+        when(processoRepository.findById(50L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.atualizarDados(50L, new Processo()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("encerrado");
+    }
+
+    @Test
+    void decidirRejeitaProcessoJaEncerrado() {
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.DEFERIDO);
+        when(processoRepository.findById(51L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.decidir(51L, StatusProcesso.INDEFERIDO, "motivo"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("encerrado");
+    }
+
+    @Test
     void indeferidoContinuaExigindoDoisDesfavoraveisMesmoComCoordenadorNoProcesso() {
         // O peso especial do coordenador vale so para Deferir; um unico voto
         // desfavoravel do coordenador NAO indefere sozinho - continua exigindo

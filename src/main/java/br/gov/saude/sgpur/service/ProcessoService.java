@@ -225,6 +225,11 @@ public class ProcessoService {
     @Transactional
     public Processo atualizarDados(Long id, Processo form) {
         Processo p = buscar(id);
+        // Defesa em profundidade: processo encerrado nao pode ser alterado
+        // (o controller ja bloqueia; aqui garante que nenhum caminho escape).
+        if (validator.edicaoBloqueada(p)) {
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
+        }
         p.setPacienteNome(form.getPacienteNome());
         p.setPacienteRgct(form.getPacienteRgct());
         p.setSolicitanteEquipe(form.getSolicitanteEquipe());
@@ -258,6 +263,11 @@ public class ProcessoService {
         return validator.pareceresRecebidosSemAnexo(processo);
     }
 
+    /** True se o processo esta encerrado e, portanto, com a edicao travada. */
+    public boolean edicaoBloqueada(Processo processo) {
+        return validator.edicaoBloqueada(processo);
+    }
+
     public Optional<StatusProcesso> sugerirDecisao(Processo processo) {
         return validator.sugerirDecisao(processo);
     }
@@ -282,6 +292,11 @@ public class ProcessoService {
     @Transactional
     public Processo decidir(Long id, StatusProcesso decisao, String motivoIndeferimento) {
         Processo p = buscar(id);
+        // Processo ja encerrado nao pode ser redecidido sem antes reabrir (ADMIN).
+        // O fluxo de reabertura volta o status para ENVIADO antes de redecidir.
+        if (validator.edicaoBloqueada(p)) {
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
+        }
         // Regras impostas em defesa (decidir() e publico e nao pode confiar apenas
         // na camada web): pausa por informacao complementar, votos suficientes,
         // motivo do indeferimento e anexo de toda resposta recebida. Centralizadas

@@ -24,10 +24,11 @@ public record PainelLinha(Processo processo, List<CelulaMedico> medicos) {
      * preenchendo com celulas vazias quando ha menos de 3 medicos definidos.
      */
     public static PainelLinha de(Processo p) {
+        boolean finalizado = p.getStatus().isFinalizado();
         List<CelulaMedico> celulas = new ArrayList<>();
         for (var par : p.getPareceres()) {
             celulas.add(CelulaMedico.de(par.getMembro().getRotulo(),
-                par.getResultado(), par.isImpedido()));
+                par.getResultado(), par.isImpedido(), finalizado));
         }
         while (celulas.size() < COLUNAS_MEDICO) {
             celulas.add(CelulaMedico.vazia());
@@ -51,11 +52,17 @@ public record PainelLinha(Processo processo, List<CelulaMedico> medicos) {
             return new CelulaMedico(null, "Nao definido", "muted", "dash-circle", false);
         }
 
-        static CelulaMedico de(String medico, ResultadoParecer resultado, boolean impedido) {
+        static CelulaMedico de(String medico, ResultadoParecer resultado, boolean impedido,
+                               boolean finalizado) {
             if (impedido) {
                 return new CelulaMedico(medico, "Impedido", "muted", "slash-circle", true);
             }
             if (resultado == null) {
+                // Processo ja encerrado: o parecer pendente foi dispensado pela
+                // maioria (mesma logica do detalhe do processo), nao ficou "Aguardando".
+                if (finalizado) {
+                    return new CelulaMedico(medico, "Dispensado", "muted", "dash-circle", true);
+                }
                 return new CelulaMedico(medico, "Aguardando", "warning", "hourglass-split", true);
             }
             return switch (resultado) {
