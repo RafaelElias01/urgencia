@@ -350,10 +350,12 @@
 
                     <!-- ========== PASSO 1: Documentos clinicos ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-primary ps-3 mb-4">
-                        <h6 class="fw-bold text-primary mb-2">
+                        <h6 class="fw-bold text-primary mb-2 d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge bg-primary me-2 rounded-pill">1</span>
+                                Anexar documentos clinicos anonimizados
+                            </span>
                             <span th:replace="~{layout :: status(${!documentosClinicos.isEmpty()})}"></span>
-                            <span class="badge bg-primary me-2 rounded-pill">1</span>
-                            Anexar documentos clinicos anonimizados
                         </h6>
                         <p class="small text-muted mb-2">
                             Anexe o(s) documento(s) clinico(s) <strong>ja anonimizados</strong> (sem o nome do
@@ -415,10 +417,12 @@
 
                     <!-- ========== PASSO 2: Comprovante de envio ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-primary ps-3 mb-4">
-                        <h6 class="fw-bold text-primary mb-2">
+                        <h6 class="fw-bold text-primary mb-2 d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge bg-primary me-2 rounded-pill">2</span>
+                                Anexar comprovante de envio
+                            </span>
                             <span th:replace="~{layout :: status(${comprovanteEnvioAvaliadores != null})}"></span>
-                            <span class="badge bg-primary me-2 rounded-pill">2</span>
-                            Anexar comprovante de envio
                         </h6>
                         <p class="small text-muted mb-2">
                             Anexe o PDF ou e-mail de envio enviado aos 3 avaliadores como comprovante.
@@ -451,10 +455,12 @@
 
                     <!-- ========== PASSO 3: Registrar envio ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-success ps-3 mb-3">
-                        <h6 class="fw-bold text-success mb-2">
+                        <h6 class="fw-bold text-success mb-2 d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge bg-success me-2 rounded-pill">3</span>
+                                Registrar envio
+                            </span>
                             <span th:replace="~{layout :: status(${envioFeito})}"></span>
-                            <span class="badge bg-success me-2 rounded-pill">3</span>
-                            Registrar envio
                         </h6>
                         <p class="small text-muted mb-2">
                             Confirma o envio e gera o PDF consolidado com cabecalho para os avaliadores.
