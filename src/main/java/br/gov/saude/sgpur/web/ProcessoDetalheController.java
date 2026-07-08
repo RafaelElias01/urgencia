@@ -322,6 +322,9 @@ public class ProcessoDetalheController {
     @PostMapping("/{id}/excluir")
     public String excluir(@PathVariable Long id, RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id;
+        }
         String numero = p.getNumero();
         processoService.excluir(id);
         anexoStorage.removerPastaProcesso(p);

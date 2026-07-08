@@ -112,12 +112,17 @@
                            class="btn btn-outline-primary btn-sm text-start">
                             <i class="bi bi-pencil me-2"></i> Editar processo
                         </a>
-                        <form th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
+                        <form th:unless="${processo.status.finalizado}"
+                              th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
                               onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
                             <button type="submit" class="btn btn-outline-danger btn-sm w-100 text-start">
                                 <i class="bi bi-trash me-2"></i> Excluir processo
                             </button>
                         </form>
+                        <p class="text-muted small mb-0" th:if="${processo.status.finalizado}">
+                            <i class="bi bi-lock-fill"></i> Processo encerrado: nao e
+                            possivel excluir.
+                        </p>
                     </div>
                 </div>
             </div>

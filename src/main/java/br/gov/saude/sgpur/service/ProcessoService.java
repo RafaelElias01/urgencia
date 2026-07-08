@@ -241,7 +241,13 @@ public class ProcessoService {
 
     @Transactional
     public void excluir(Long id) {
-        processoRepository.delete(buscar(id));
+        Processo p = buscar(id);
+        // Defesa em profundidade: processo encerrado nao pode ser excluido
+        // (o controller ja bloqueia; aqui garante que nenhum caminho escape).
+        if (validator.edicaoBloqueada(p)) {
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
+        }
+        processoRepository.delete(p);
     }
 
     // As consultas de contagem/sugestao/anexos foram centralizadas em
