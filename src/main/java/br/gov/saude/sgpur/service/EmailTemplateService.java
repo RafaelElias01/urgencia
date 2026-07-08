@@ -26,7 +26,7 @@ public class EmailTemplateService {
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /** URL base da aplicacao, usada nos links do Portal do Avaliador. */
-    @Value("${app.base-url:http://localhost:8080}")
+    @Value("${app.base-url:http://localhost:3000}")
     private String baseUrl;
 
     private final EmailProperties emailProperties;
