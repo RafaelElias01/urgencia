@@ -2,10 +2,9 @@
 
 > Documento de **referência** dos médicos avaliadores da equipe de Urgência
 > Renal (POP — Controle das Urgências Renais). **Somente registro** — não é
-> fonte de importação automática. A criação real dos membros no banco é feita
-> pelo `MembroBootstrap` **apenas quando a tabela `membro_urgencia_renal` está
-> vazia**; depois disso, quem cadastra/edita/inativa é o OPERADOR pela tela
-> `/membros`. Alterar esta lista **não** altera o banco.
+> fonte de importação automática no seed (o seed foi removido; os membros são
+> cadastrados manualmente pelo OPERADOR na tela `/membros` ou via script de
+> migração). Alterar esta lista **não** altera o banco.
 
 ## Lista oficial (8 membros)
 
@@ -39,7 +38,6 @@ desfeitas manualmente.
 
 ## Fonte
 
-Valores de produção conforme
-`src/main/java/br/gov/saude/sgpur/config/MembroBootstrap.java` (seed inicial).
-Este documento é uma cópia legível para referência; a fonte de verdade do seed
-continua sendo o código.
+Valores de produção conforme planilha oficial da equipe de Urgência Renal.
+Este documento é a fonte de verdade — os membros devem ser cadastrados
+manualmente na tela `/membros` por um OPERADOR ou ADMIN.

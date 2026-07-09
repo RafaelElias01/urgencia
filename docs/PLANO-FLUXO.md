@@ -44,20 +44,28 @@ Não há Flyway (dev=H2, prod=Neon). A expansão é **aditiva**: novos valores n
 enum + coluna `status` ampliada para `length=30` (cabe `SOLICITA_INFORMACAO`).
 Registros antigos permanecem `EM_ANALISE` e são tratados como "em andamento".
 
-## As 10 etapas mapeadas no código
+## As 6 etapas do checklist (fluxo dividido em 6 abas)
 
-| # | Etapa (planilha) | Código (controller / service / template) | Status resultante |
-|---|---|---|---|
-| 1 | Recebimento por e-mail → registra processo c/ 3 médicos | `ProcessoController.salvar` → `ProcessoService.cadastrar` (cria 3 `Parecer`) · `processos/form.html` | **SOLICITADO** (default em `Processo`) |
-| 2 | Cria pasta no computador (XX-2026 – Nome – RGCT) | `AnexoStorageService` (pasta por processo) | — |
-| 3 | Gera capa PDF | `RelatorioService` (capa formal) · `ProcessoController.relatorio` | — |
-| 4 | Prepara: só iniciais, junta anexos, envia aos 3 médicos | `Iniciais.java` · `SolicitacaoAvaliadorService` · `EmailTemplateService.emailMedicos` (oculta dados — LGPD) | — |
-| 5 | Envio aos médicos | `ProcessoController.registrarEnvio` → `ProcessoService.registrarEnvio` (gera PDF de solicitação) | **ENVIADO** |
-| 6 | Recebe pareceres (2/3 favoráveis = deferido; solicita info) | `ProcessoController.salvarPareceres` → `ProcessoService.atualizarStatusPorPareceres` + `sugerirDecisao` · `processos/detalhe.html#respostas` | **SOLICITA_INFORMACAO** se algum médico pediu info; senão permanece ENVIADO |
-| 7 | Decisão final (manual, com sugestão automática) | `ProcessoController.decidir` → `ProcessoService.decidir` · `detalhe.html#decisao` | **DEFERIDO / INDEFERIDO** (ou CANCELADO) |
-| 8 | Médico pede info → e-mail ao solicitante | `EmailTemplateService.emailSolicitaInfo` (chave `solicita-info`), exibido quando status=SOLICITA_INFORMACAO · `detalhe.html` (lista de e-mails) | mantém SOLICITA_INFORMACAO |
-| 9 | Comunica decisão ao solicitante. **Se DEFERIDO:** obrigatório anexar o comprovante de inserção da urgência renal no SNT e enviá-lo junto. **Se INDEFERIDO:** ofício + motivo + data. | `OficioService` (ofício no indeferimento) · `EmailTemplateService.emailDeferido` (texto cita o comprovante SNT EM ANEXO) / `emailIndeferido` · etapa "Comprovante SNT" em `FluxoProcessoService` bloqueia até `temAnexo(COMPROVANTE_SNT)` · upload via `detalhe.html#anexos` (tipo `COMPROVANTE_SNT`) | — |
-| 10 | Arquivamento final (relatório PDF) | `RelatorioService` (anexado automaticamente ao finalizar, guard `status.isFinalizado()`) | — |
+| # | Etapa | Controller (endpoint) | Service | Template |
+|---|---|---|---|---|
+| 1 | Recebimento | `ProcessoDetalheController.recebimento` | `ProcessoService.registrarRecebimento` | `detalhe.html#recebimento` |
+| 2 | Envio (documentos clínicos + comprovante + registrar) | `ProcessoDecisaoController.registrarEnvio` / `.anexarDocumentoClinico` / `.anexarComprovanteEnvioAvaliadores` | `SolicitacaoAvaliadorService.consolidar` + `carimbarCabecalho` / `ProcessoService.registrarEnvio` | `detalhe.html#envio` |
+| 3 | Respostas (pareceres) | `ProcessoDecisaoController.salvarPareceres` / `.respostaAvaliador` | `ProcessoService.atualizarStatusPorPareceres` + `tentarDecisaoAutomatica` | `detalhe.html#respostas` |
+| 4 | Decisão | `ProcessoDecisaoController.decidir` | `ProcessoService.decidir` + `DecisaoFinalService.gerarDocumentos` | `detalhe.html#decisao` |
+| 5 | Ofício/Comprovante | `ProcessoAnexoController.uploadOficio` / `.uploadComprovanteSnt` / `.finalizacao` | `AnexoStorageService` | `detalhe.html#finalizacao` |
+| 6 | Resposta ao solicitante | `ProcessoAnexoController.respostaSolicitante` / `ProcessoDecisaoController.enviarEmailPronto` | `EmailSenderService` + `EmailTemplateService` | `detalhe.html#finalizacao` |
+
+- O controller monolítico `ProcessoController` foi dividido em:
+  `ProcessoListaController` (busca/filtro/paginação), `ProcessoDetalheController`
+  (detalhe/recebimento), `ProcessoDecisaoController` (envio/pareceres/decisão/
+  e-mails/lembretes) e `ProcessoAnexoController` (upload/download/exclusão de
+  anexos, ofício, comprovantes, relatório).
+- Operador acessa o processo via `GET /processos/{id}` (`ProcessoDetalheController`),
+  que monta o modelo completo com abas, checklist, pareceres, anexos e textos de
+  e-mail. Cada aba chama seu próprio endpoint POST.
+- A decisão automática (`tentarDecisaoAutomatica`) é chamada após salvar
+  pareceres, retomar análise e na resposta-avaliador — não precisa mais de um
+  passo separado do operador para maioria simples.
 
 ## Regra de decisão (inalterada)
 - Exatamente 3 médicos (`AVALIADORES_POR_PROCESSO = 3`).
@@ -79,24 +87,15 @@ Registros antigos permanecem `EM_ANALISE` e são tratados como "em andamento".
 - `lista.html` e `detalhe.html` usam `status.bootstrapBadge`.
 
 ## Pendências / pontos de atenção
-- **Tailwind ainda via Play CDN** no `dashboard.html` (exige internet em
-  runtime). A migração para CSS estático local
-  ficou **pendente**: tentei usar o binário standalone do Tailwind CLI (v3),
-  mas a execução de binário externo recém-baixado foi bloqueada pelo sandbox
-  por falta de autorização do usuário. Aguarda decisão do usuário (Opção A:
-  binário standalone gerando `static/css/tailwind-dashboard.css`; Opção B:
-  vendorizar um CSS pré-compilado).
-- E-mails são apenas **textos prontos** (copiar/colar) + PDFs; o sistema não
-  dispara e-mail de verdade. O template da etapa 8 segue esse padrão.
+
+- **Capa do processo não é gerada automaticamente:** o método
+  `RelatorioService.gerarCapaProcesso` não é chamado por nenhum controller —
+  a `CAPA_PROCESSO` só existe se alguém anexar manualmente. Avaliar se vale
+  automatizar no `registrarRecebimento`.
 - A transição para SOLICITA_INFORMACAO/ENVIADO é recalculada ao salvar
   pareceres; nunca rebaixa um processo já finalizado.
 
 ## Painel (Tailwind CSS estático/offline)
-
-O painel (`templates/dashboard.html`) usa **Tailwind CSS pré-compilado** servido
-como estático em `static/css/tailwind-dashboard.css` (referenciado **só** no
-painel, com `preflight:false`, para não afetar o Bootstrap das demais telas).
-Não há mais dependência do Play CDN — funciona **offline**.
 
 ### Como regenerar o CSS (após mudar classes do painel)
 
