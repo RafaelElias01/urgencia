@@ -14,7 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.io.IOException;
 
@@ -69,7 +68,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> {
                 auth.requestMatchers("/css/**", "/js/**", "/webjars/**", "/favicon.ico").permitAll();
                 if (dev) {
-                    auth.requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll();
+                    auth.requestMatchers("/h2-console/**").permitAll();
                 }
                 // Precisa vir ANTES da regra geral /usuarios/** (ADMIN) - senao ninguem
                 // deslogado consegue acessar a recuperacao de senha, justamente quando
@@ -109,7 +108,7 @@ public class SecurityConfig {
             .csrf(csrf -> {
                 // H2 console usa frames e nao envia CSRF token - excecao so em dev
                 if (dev) {
-                    csrf.ignoringRequestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**"));
+                    csrf.ignoringRequestMatchers("/h2-console/**");
                 }
             })
             .headers(headers -> {

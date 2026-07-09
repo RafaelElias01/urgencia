@@ -103,7 +103,24 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   limpo) para o voto definitivo, e o fluxo de Respostas/Decisão é liberado.
 - **Fluxo em 6 passos** (checklist `FluxoProcessoService` + abas na tela):
   **1 Recebimento · 2 Envio · 3 Respostas · 4 Decisão · 5 Ofício/Comprovante ·
-  6 Resposta ao solicitante**.
+  6 Resposta ao solicitante**. Cada etapa só fica **CONCLUIDA (verde)** na
+  timeline se a **sua própria condição** estiver satisfeita **E** todas as
+  etapas anteriores também estiverem `CONCLUIDA` (`montar()`: `concluida &&
+  anterioresConcluidas`). Sem essa segunda checagem uma etapa posterior pode
+  ficar verde "fora de ordem" mesmo com uma etapa anterior ainda pendente
+  (bug real corrigido em 2026-07-09: "Resposta ao solicitante" aparecia
+  concluída antes do "Comprovante SNT" ser anexado, num processo Deferido).
+  Auditoria da mesma sessão também achou e corrigiu uma inconsistência no
+  Passo 1: `FluxoProcessoService` só conferia `SOLICITACAO_RECEBIDA`, mas o
+  gate real que libera a aba de Envio (`ProcessoDetalheController.
+  recebimentoFeito`) sempre exigiu **também** `CAPA_PROCESSO` — a timeline
+  podia mostrar "Recebimento" verde mesmo sem a capa, embora a aba de Envio
+  já estivesse corretamente bloqueada (inconsistência só visual, sem
+  regressão funcional). **Gap conhecido, não corrigido**: o método que
+  geraria a capa automaticamente (`RelatorioService.gerarCapaProcesso`) não
+  é chamado por nenhum controller — na prática, `CAPA_PROCESSO` só existe
+  num processo se alguém anexar manualmente pelo upload genérico. Avaliar se
+  vale automatizar isso no fluxo de `registrarRecebimento`.
 - **Passo 1 (Recebimento):** exige a **cópia da solicitação original**
   (`SOLICITACAO_RECEBIDA`, manual) **+** a **capa do processo**
   (`CAPA_PROCESSO`, **gerada pelo sistema** com dados do solicitante e os 3
@@ -251,6 +268,14 @@ autenticado do próprio médico no sistema.
 - Templates Thymeleaf usam os fragments de `templates/layout.html`.
 - Não commitar segredos: `application-local.yml`, `deploy/sgpur.env` e `/dist/`
   estão no `.gitignore`.
+- Testes `@WebMvcTest` usam `@MockitoBean` (import
+  `org.springframework.test.context.bean.override.mockito.MockitoBean`), **não**
+  o `@MockBean` antigo (`org.springframework.boot.test.mock.mockito.MockBean`)
+  — depreciado desde o Spring Boot 3.4 e removido em versão futura.
+- `SecurityConfig`: `requestMatchers(String...)` usa padrão de string simples
+  (ex.: `"/h2-console/**"`), **não** `AntPathRequestMatcher.antMatcher(...)`
+  — o Spring Security resolve o matcher automaticamente; `AntPathRequestMatcher`
+  está deprecated e marcado para remoção.
 - **`dashboard.html` (Painel) usa Tailwind PRÉ-COMPILADO estático**
   (`static/css/tailwind-dashboard.css`), não o CDN — só as classes que
   existiam quando o arquivo foi gerado funcionam. Usar uma classe nova (ex.:

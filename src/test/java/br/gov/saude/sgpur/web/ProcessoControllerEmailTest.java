@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,21 +37,21 @@ class ProcessoControllerEmailTest {
     @Autowired
     private MockMvc mvc;
 
-    @MockBean private ProcessoService processoService;
-    @MockBean private ProcessoValidator processoValidator;
-    @MockBean private FluxoProcessoService fluxoService;
-    @MockBean private EmailTemplateService emailTemplateService;
-    @MockBean private RelatorioService relatorioService;
-    @MockBean private OficioService oficioService;
-    @MockBean private SolicitacaoAvaliadorService solicitacaoAvaliadorService;
-    @MockBean private MembroUrgenciaRenalRepository membroRepository;
-    @MockBean private ParecerRepository parecerRepository;
-    @MockBean private UsuarioRepository usuarioRepository;
-    @MockBean private AnexoStorageService anexoStorage;
-    @MockBean private AuditoriaService auditoria;
-    @MockBean private DecisaoFinalService decisaoFinalService;
-    @MockBean private GeminiService geminiService;
-    @MockBean private EmailSenderService emailSenderService;
+    @MockitoBean private ProcessoService processoService;
+    @MockitoBean private ProcessoValidator processoValidator;
+    @MockitoBean private FluxoProcessoService fluxoService;
+    @MockitoBean private EmailTemplateService emailTemplateService;
+    @MockitoBean private RelatorioService relatorioService;
+    @MockitoBean private OficioService oficioService;
+    @MockitoBean private SolicitacaoAvaliadorService solicitacaoAvaliadorService;
+    @MockitoBean private MembroUrgenciaRenalRepository membroRepository;
+    @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private UsuarioRepository usuarioRepository;
+    @MockitoBean private AnexoStorageService anexoStorage;
+    @MockitoBean private AuditoriaService auditoria;
+    @MockitoBean private DecisaoFinalService decisaoFinalService;
+    @MockitoBean private GeminiService geminiService;
+    @MockitoBean private EmailSenderService emailSenderService;
 
     private Processo processo;
     private MembroUrgenciaRenal membro;

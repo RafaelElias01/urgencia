@@ -26,16 +26,27 @@ public class FluxoProcessoService {
         List<EtapaFluxo> etapas = new ArrayList<>();
         boolean anterioresConcluidas = true;
 
-        // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL.
-        //    A copia anonimizada para as equipes e gerada no passo 2 (Envio).
-        //    A capa com os resultados e gerada apenas no Relatorio Final.
+        // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL
+        //    (manual) E a capa do processo (CAPA_PROCESSO, gerada pelo sistema
+        //    com os dados do solicitante e os 3 medicos). A copia anonimizada
+        //    para as equipes e gerada no passo 2 (Envio). Mantido em sincronia
+        //    com ProcessoDetalheController.recebimentoFeito, que usa a mesma
+        //    dupla condicao para liberar a aba de Envio.
         boolean temOriginal = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
-        String detReceb = temOriginal
-            ? "Solicitacao original anexada."
-            : "Falta: copia da solicitacao original.";
+        boolean temCapa = temAnexo(p, TipoAnexo.CAPA_PROCESSO);
+        boolean recebimentoOk = temOriginal && temCapa;
+        String detReceb;
+        if (recebimentoOk) {
+            detReceb = "Solicitacao original e capa do processo anexadas.";
+        } else {
+            List<String> faltasReceb = new ArrayList<>();
+            if (!temOriginal) faltasReceb.add("copia da solicitacao original");
+            if (!temCapa) faltasReceb.add("capa do processo");
+            detReceb = "Falta: " + String.join(", ", faltasReceb) + ".";
+        }
         etapas.add(montar("Recebimento da solicitacao", "inbox-fill",
-            temOriginal, anterioresConcluidas, detReceb));
-        anterioresConcluidas = anterioresConcluidas && temOriginal;
+            recebimentoOk, anterioresConcluidas, detReceb));
+        anterioresConcluidas = anterioresConcluidas && recebimentoOk;
 
         // 2. Envio aos 3 medicos (data de envio registrada em todos os pareceres).
         //    Exige ao menos um documento clinico (PDF) anexado: o PDF dos
@@ -183,8 +194,13 @@ public class FluxoProcessoService {
 
     private EtapaFluxo montar(String titulo, String icone, boolean concluida,
                               boolean anterioresConcluidas, String detalhe) {
+        // So mostra CONCLUIDA (verde) se as etapas anteriores tambem estiverem
+        // concluidas - senao a etapa fica "verde fora de ordem" mesmo com sua
+        // propria condicao satisfeita (ex.: resposta ao solicitante marcada
+        // antes do comprovante SNT ser anexado). Timeline le como progressao
+        // sequencial, entao a cor precisa respeitar essa ordem.
         Estado estado;
-        if (concluida) {
+        if (concluida && anterioresConcluidas) {
             estado = Estado.CONCLUIDA;
         } else if (anterioresConcluidas) {
             estado = Estado.ATUAL;
