@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Decide o conteudo do Relatorio Final do Processo de Urgencia Renal -
@@ -54,6 +55,7 @@ public class RelatorioService {
      * Gera o Relatorio Final completo: sumario + copia de todos os anexos +
      * cabecalho e numeracao em todas as paginas.
      */
+    @Transactional(readOnly = true)
     public byte[] gerar(Processo p) {
         try {
             // 1. Gera o sumario executivo (capa + dados + pareceres + decisao + anexos)
@@ -160,7 +162,7 @@ public class RelatorioService {
                     FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA)));
                 cj.setColspan(4);
                 cj.setPadding(4);
-                cj.setBorderColor(new Color(222, 226, 230));
+                cj.setBorderColor(PdfRelatorioBuilder.CINZA_BORDA);
                 t2.addCell(cj);
             }
         }
@@ -222,7 +224,7 @@ public class RelatorioService {
         }
 
         Paragraph rodape = new Paragraph(
-            "Documento gerado automaticamente pelo SAUR - Sistema de Avaliacao de Urgencia Renal.",
+            "Documento gerado automaticamente pelo SAUR - Sistema de Gestao de Processos de Urgencia Renal.",
             FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA));
         rodape.setAlignment(Element.ALIGN_CENTER);
         rodape.setSpacingBefore(20);

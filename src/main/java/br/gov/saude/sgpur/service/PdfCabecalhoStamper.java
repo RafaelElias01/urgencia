@@ -50,6 +50,21 @@ final class PdfCabecalhoStamper {
     /** Altura (pt) reservada no topo para o cabecalho completo (logo + 2 linhas + numeracao). */
     static final float ALTURA_CABECALHO = 55;
 
+    /** Logo do RS em cache (carregado uma vez e reusado em todos os documentos). */
+    private static Image LOGO_CACHE;
+
+    private static Image carregarLogo() {
+        if (LOGO_CACHE != null) return LOGO_CACHE;
+        try {
+            byte[] logoBytes = PdfCabecalhoStamper.class.getClassLoader()
+                .getResourceAsStream("static/brasao.png").readAllBytes();
+            LOGO_CACHE = Image.getInstance(logoBytes);
+        } catch (Exception e) {
+            log.warn("Logo nao encontrado em static/brasao.png, cabecalho sem imagem");
+        }
+        return LOGO_CACHE;
+    }
+
     private PdfCabecalhoStamper() {
     }
 
@@ -93,14 +108,7 @@ final class PdfCabecalhoStamper {
             PdfReader reader = new PdfReader(pdf);
             PdfStamper stamper = new PdfStamper(reader, baos);
 
-            Image logo = null;
-            try {
-                byte[] logoBytes = PdfCabecalhoStamper.class.getClassLoader()
-                    .getResourceAsStream("static/brasao.png").readAllBytes();
-                logo = Image.getInstance(logoBytes);
-            } catch (Exception e) {
-                log.warn("Logo nao encontrado em static/brasao.png, cabecalho sem imagem");
-            }
+            Image logo = carregarLogo();
 
             BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
             int totalPaginas = reader.getNumberOfPages();

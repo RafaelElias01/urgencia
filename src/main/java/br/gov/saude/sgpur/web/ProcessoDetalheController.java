@@ -10,6 +10,7 @@ import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
+import br.gov.saude.sgpur.service.RelatorioService;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -37,6 +38,7 @@ public class ProcessoDetalheController {
     private final AuditoriaService auditoria;
     private final GeminiService geminiService;
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
+    private final RelatorioService relatorioService;
 
     public ProcessoDetalheController(ProcessoService processoService,
                                      FluxoProcessoService fluxoService,
@@ -45,7 +47,8 @@ public class ProcessoDetalheController {
                                      AnexoStorageService anexoStorage,
                                      AuditoriaService auditoria,
                                      GeminiService geminiService,
-                                     ConflitoEquipeMatcher conflitoEquipeMatcher) {
+                                     ConflitoEquipeMatcher conflitoEquipeMatcher,
+                                     RelatorioService relatorioService) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
@@ -54,6 +57,7 @@ public class ProcessoDetalheController {
         this.auditoria = auditoria;
         this.geminiService = geminiService;
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
+        this.relatorioService = relatorioService;
     }
 
     /**
@@ -362,7 +366,25 @@ public class ProcessoDetalheController {
             }
         }
 
-        ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada.");
+        // 2) CAPA DO PROCESSO — gerada automaticamente pelo sistema com os
+        // dados do solicitante + 3 medicos avaliadores (reaproveita a capa do
+        // Relatorio Final). Sempre substitui a capa anterior ao registrar
+        // recebimento, garantindo que esteja atualizada.
+        try {
+            anexoStorage.removerPorTipo(id, TipoAnexo.CAPA_PROCESSO);
+            byte[] pdfCapa = relatorioService.gerarCapaProcesso(p);
+            String nomeCapa = "capa-processo-" + p.getNumero().replace("/", "-") + ".pdf";
+            anexoStorage.salvarBytes(p, TipoAnexo.CAPA_PROCESSO,
+                "Capa do processo gerada automaticamente no recebimento",
+                nomeCapa, "application/pdf", pdfCapa);
+            auditoria.registrar("ANEXO_ADICIONADO",
+                "Processo " + p.getNumero() + " - Capa do processo gerada automaticamente");
+        } catch (Exception e) {
+            ra.addFlashAttribute("erro", "Falha ao gerar a capa do processo: " + e.getMessage());
+            return "redirect:/processos/" + id + "#recebimento";
+        }
+
+        ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada e capa gerada.");
         return "redirect:/processos/" + id + "#recebimento";
     }
 

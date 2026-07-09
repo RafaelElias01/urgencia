@@ -33,6 +33,7 @@ class PdfRelatorioBuilder {
 
     static final Color AZUL = new Color(13, 110, 253);
     static final Color CINZA = new Color(108, 117, 125);
+    static final Color CINZA_BORDA = new Color(222, 226, 230);
     static final Color VERDE_ESCURO = new Color(25, 135, 84);
     static final Color VERMELHO = new Color(220, 53, 69);
 
@@ -204,14 +205,8 @@ class PdfRelatorioBuilder {
             adicionarLinhaCapa(tDados, "Data da situacao especial:", dataSit, fRotulo, fValor);
         }
 
-        String dataDecisaoStr;
-        if (p.getDataDecisao() != null) {
-            dataDecisaoStr = p.getDataDecisao().format(DATA);
-        } else if (p.getStatus().isFinalizado()) {
-            dataDecisaoStr = LocalDate.now().format(DATA);
-        } else {
-            dataDecisaoStr = "-";
-        }
+        String dataDecisaoStr = p.getDataDecisao() != null
+            ? p.getDataDecisao().format(DATA) : "-";
         adicionarLinhaCapa(tDados, "Data da decisao:", dataDecisaoStr, fRotulo, fValor);
 
         if (p.getStatus().isFinalizado()) {
@@ -229,12 +224,13 @@ class PdfRelatorioBuilder {
             }
             Font fResultado = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, corResultado);
             PdfPCell cRotulo = new PdfPCell(new Phrase("Resultado:", fRotulo));
+            cRotulo.setPadding(5);
+            cRotulo.setBorderColor(CINZA_BORDA);
+            cRotulo.setHorizontalAlignment(Element.ALIGN_RIGHT);
             PdfPCell cValor = new PdfPCell(new Phrase(textoResultado, fResultado));
-            for (PdfPCell c : new PdfPCell[]{cRotulo, cValor}) {
-                c.setPadding(5);
-                c.setBorderColor(new Color(222, 226, 230));
-                c.setHorizontalAlignment(Element.ALIGN_CENTER);
-            }
+            cValor.setPadding(5);
+            cValor.setBorderColor(CINZA_BORDA);
+            cValor.setHorizontalAlignment(Element.ALIGN_LEFT);
             tDados.addCell(cRotulo);
             tDados.addCell(cValor);
         } else {
@@ -286,7 +282,7 @@ class PdfRelatorioBuilder {
 
             for (PdfPCell c : new PdfPCell[]{cNome, cInst, cPar}) {
                 c.setPadding(5);
-                c.setBorderColor(new Color(222, 226, 230));
+                c.setBorderColor(CINZA_BORDA);
                 c.setHorizontalAlignment(Element.ALIGN_CENTER);
             }
             tAval.addCell(cNome);
@@ -305,12 +301,13 @@ class PdfRelatorioBuilder {
     private void adicionarLinhaCapa(PdfPTable t, String rotulo, String valor,
                                     Font fRotulo, Font fValor) {
         PdfPCell c1 = new PdfPCell(new Phrase(rotulo, fRotulo));
+        c1.setPadding(5);
+        c1.setBorderColor(CINZA_BORDA);
+        c1.setHorizontalAlignment(Element.ALIGN_RIGHT);
         PdfPCell c2 = new PdfPCell(new Phrase(valor, fValor));
-        for (PdfPCell c : new PdfPCell[]{c1, c2}) {
-            c.setPadding(5);
-            c.setBorderColor(new Color(222, 226, 230));
-            c.setHorizontalAlignment(Element.ALIGN_CENTER);
-        }
+        c2.setPadding(5);
+        c2.setBorderColor(CINZA_BORDA);
+        c2.setHorizontalAlignment(Element.ALIGN_LEFT);
         t.addCell(c1);
         t.addCell(c2);
     }
@@ -346,7 +343,7 @@ class PdfRelatorioBuilder {
         PdfPCell c2 = new PdfPCell(new Phrase(valor, fv));
         for (PdfPCell c : new PdfPCell[]{c1, c2}) {
             c.setPadding(4);
-            c.setBorderColor(new Color(222, 226, 230));
+            c.setBorderColor(CINZA_BORDA);
         }
         t.addCell(c1);
         t.addCell(c2);
@@ -367,7 +364,7 @@ class PdfRelatorioBuilder {
         PdfPCell c = new PdfPCell(new Phrase(texto, f));
         c.setPadding(4);
         c.setHorizontalAlignment(align);
-        c.setBorderColor(new Color(222, 226, 230));
+        c.setBorderColor(CINZA_BORDA);
         t.addCell(c);
     }
 
