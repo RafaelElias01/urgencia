@@ -154,6 +154,89 @@ não havia indicação de que haviam mais passos para scrollar.
 
 ---
 
+## 6. Correções de responsividade mobile
+
+Realizadas em 2026-07-09 (commit `1a06043`). 13 correções implementadas,
+divididas em 2 críticas, 4 graves e 7 menores.
+
+### Críticas (C1, C2) — Tabelas sem `table-responsive`
+
+**Problema:** As listas de Membros e Usuários não tinham `table-responsive`.
+Em telas < 768px as tabelas extrapolavam o container e quebravam o layout da
+página inteira.
+
+**O que foi feito:**
+- **`membros/lista.html`**: `<table>` envolvida em `<div class="table-responsive">`
+- **`usuarios/lista.html`**: mesma correção
+
+### Graves (G1-G4)
+
+#### G1 — Tabela de pareceres com `min-width: 360px`
+**`app.css`**: Adicionado no `@media (max-width: 768px)`:
+```css
+.tabela-pareceres th:nth-child(6),
+.tabela-pareceres td:nth-child(6) {
+    min-width: 220px;
+    width: auto;
+}
+```
+Reduz a largura mínima da coluna "Ação" em mobile, evitando scroll horizontal
+excessivo.
+
+#### G2 — Sidebar antes do conteúdo principal
+**`detalhe.html`**: Adicionado `order-lg-2` na sidebar (`col-lg-3`) e `order-lg-1`
+no conteúdo principal (`col-lg-9`). Em mobile, o operador vê primeiro o wizard
+com as abas de trabalho; a timeline + atalhos + e-mails ficam depois.
+
+#### G3 — Botão "Enviar" em `col-md-1`
+**`detalhe.html`**: Alterado para `col-md-2`. O botão agora tem espaço adequado
+em desktop sem comprimir o texto. Removido `w-100` que não era mais necessário.
+
+#### G4 — Breakpoint para celulares pequenos
+**`app.css`**: Adicionado `@media (max-width: 576px)` com:
+- Stat-cards: `font-size: 1.25rem` e ícones reduzidos para 36px
+- Toast: `left: .5rem; right: .5rem` ocupando largura total
+- Card-body: padding reduzido para `.75rem`
+- Badges `fs-5` no controle-urgencias: reduzidos para `1rem`
+
+### Menores (M1-M7)
+
+#### M1 — `max-height: 70vh` cortando tabela em mobile
+**`dashboard.html` + `app.css`**: A classe `dashboard-tabela-scroll` foi criada
+com `max-height: 70vh; overflow-y: auto` escopada a `@media (min-width: 768px)`.
+Em mobile a tabela ocupa a altura natural sem corte.
+
+#### M2 — Controle de Urgências: 8 colunas em mobile
+**`controle-urgencias/lista.html`**: Colunas RGCT, ABO e Última renovação
+ganharam `d-none d-md-table-cell` — somem em telas < 768px, reduzindo para
+5 colunas essenciais (Nome, Equipe, Vencimento, Situação, Ações).
+
+#### M3 — Auditoria: coluna "Detalhe" sem truncamento
+**`auditoria/lista.html`**: Adicionado `text-truncate` com `max-width: 240px`
+e `th:title` na célula de detalhe. Textos longos são cortados com ellipsis;
+o conteúdo completo aparece ao tocar/ passar o mouse.
+
+#### M4 — Navbar colapsando cedo demais em tablets
+**`layout.html`**: `navbar-expand-lg` → `navbar-expand-md`. Tablets entre
+768px-992px agora veem o menu horizontal completo em vez do hamburguer.
+
+#### M5 — Wizard circles abaixo do touch target mínimo
+**`app.css`**: Aumentado de 36px para 40px no breakpoint mobile (o máximo que
+cabe no layout sem desalinhar). Acima dos 36px anteriores, ainda abaixo dos
+44px recomendados pela WCAG, mas com ganho significativo.
+
+#### M6 — Scrollbar fina difícil de agarrar em touch
+**`app.css`**: `scrollbar-width: thin` e `::-webkit-scrollbar` escopados em
+`@media (min-width: 768px)`. Em mobile, as scrollbars voltam ao tamanho
+nativo do sistema, mais fáceis de usar com o dedo.
+
+#### M7 — Toast vazando da tela em viewports muito estreitos
+**`app.css`**: No breakpoint 576px, `.toast-container-sgpur` ganha
+`left: .5rem; right: .5rem` e `.toast-sgpur` ganha `max-width: 100%;
+min-width: 0`, ocupando a largura total da tela com margem.
+
+---
+
 ## Resumo de arquivos alterados/criados
 
 | Arquivo | Ação | Linhas |
@@ -165,6 +248,7 @@ não havia indicação de que haviam mais passos para scrollar.
 | `templates/login.html` | Alterado | +11 |
 | `templates/processos/detalhe.html` | Alterado | -290 (JS inline removido) |
 
-**Total:** 6 arquivos, +600 linhas adicionadas, -490 removidas.
+**Total (1a rodada):** 6 arquivos, +600 linhas adicionadas, -490 removidas.
+**Total (2a rodada — responsividade):** 8 arquivos, +59 linhas, -22 removidas.
 **Testes:** 142/142 passando.
-**Commit:** `3bfba9b`
+**Commits:** `3bfba9b` (UI), `1a06043` (responsividade)
