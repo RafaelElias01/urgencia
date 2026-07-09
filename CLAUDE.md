@@ -22,7 +22,7 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 - App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
   automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
   vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
-- Testes: `.\test.ps1` (ou `mvn test`) — **113 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **142 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Não há mais empacotamento desktop** (`release.ps1`/`package-desktop.ps1`/
   Inno Setup foram removidos em 2026-07-03). O projeto é só web agora — rode
@@ -115,12 +115,11 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   gate real que libera a aba de Envio (`ProcessoDetalheController.
   recebimentoFeito`) sempre exigiu **também** `CAPA_PROCESSO` — a timeline
   podia mostrar "Recebimento" verde mesmo sem a capa, embora a aba de Envio
-  já estivesse corretamente bloqueada (inconsistência só visual, sem
-  regressão funcional). **Gap conhecido, não corrigido**: o método que
-  geraria a capa automaticamente (`RelatorioService.gerarCapaProcesso`) não
-  é chamado por nenhum controller — na prática, `CAPA_PROCESSO` só existe
-  num processo se alguém anexar manualmente pelo upload genérico. Avaliar se
-  vale automatizar isso no fluxo de `registrarRecebimento`.
+   já estivesse corretamente bloqueada (inconsistência só visual, sem
+   regressão funcional). **Capa automática corrigida em 2026-07-09:**
+   `ProcessoDetalheController.registrarRecebimento` agora chama
+   `RelatorioService.gerarCapaProcesso` automaticamente, gerando a capa
+   sempre que o recebimento é registrado.
 - **Passo 1 (Recebimento):** exige a **cópia da solicitação original**
   (`SOLICITACAO_RECEBIDA`, manual) **+** a **capa do processo**
   (`CAPA_PROCESSO`, **gerada pelo sistema** com dados do solicitante e os 3
@@ -262,6 +261,19 @@ autenticado do próprio médico no sistema.
   (só `dataResposta` é limpo) — o 2º voto conta desde o envio original, não
   reseta o relógio.
 
+## UI / Frontend
+- Design system completo em `app.css` com variáveis `--rs-*` (azul, dourado,
+  verde, vermelho, escala de cinza). **Nunca usar Tailwind** — o dashboard foi
+  migrado para Bootstrap + app.css.
+- Templates usam `layout.html` com fragments `head`, `navbar`, `flash`,
+  `status(ok)`, `statusRotulo(ok, r)`, `statusNa(r)`, `footer`, `scripts`.
+- JavaScript específico fica em `static/js/*.js` (ex.: `processo-detalhe.js`),
+  nunca inline nos templates. Feedback ao usuário usa `mostrarToast()` (toast
+  estilizado), nunca `alert()`.
+- Responsividade: Bootstrap grid, `table-responsive` em TODAS as tabelas,
+  breakpoints em 576px, 768px e 992px. Ver `docs/AJUSTES-UI.md` para histórico
+  completo de correções.
+
 ## Convenções de código
 - Entidades JPA em `domain/` com getters/setters simples (sem Lombok).
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
@@ -276,18 +288,11 @@ autenticado do próprio médico no sistema.
   (ex.: `"/h2-console/**"`), **não** `AntPathRequestMatcher.antMatcher(...)`
   — o Spring Security resolve o matcher automaticamente; `AntPathRequestMatcher`
   está deprecated e marcado para remoção.
-- **`dashboard.html` (Painel) usa Tailwind PRÉ-COMPILADO estático**
-  (`static/css/tailwind-dashboard.css`), não o CDN — só as classes que
-  existiam quando o arquivo foi gerado funcionam. Usar uma classe nova (ex.:
-  `lg:grid-cols-7`, `border-sky-200`) que não está nesse CSS **não dá erro**,
-  simplesmente não aplica estilo nenhum, silenciosamente quebrando o layout
-  (já aconteceu: um card novo com `grid-cols-7`/`sky-*` estourou o grid para 3
-  colunas e os cards de contador ficaram enormes). Antes de usar uma classe
-  Tailwind nova nessa página, `grep` no CSS compilado para confirmar que
-  existe; se não existir, reusar uma cor/utilitário já presente (as paletas
-  `slate/amber/emerald/rose/indigo` já usadas nos cards existentes estão
-  compiladas) em vez de regenerar o CSS. Ver `docs/PLANO-FLUXO.md` para o
-  procedimento de regeneração, caso seja mesmo necessário.
+- **`dashboard.html` (Painel) foi migrado para Bootstrap + app.css**
+  (commit `3bfba9b`, 2026-07-09): removeu Tailwind em favor das classes
+  `stat-card-*` com `--rs-*` CSS variables e grid Bootstrap (`row-cols-*`).
+  O arquivo `static/css/tailwind-dashboard.css` não é mais referenciado por
+  nenhum template. Ver `docs/AJUSTES-UI.md` para detalhes.
 
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
@@ -295,8 +300,9 @@ Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
 A **Vercel não hospeda o app Java** (só serve de banco).
 
 **Status em produção (2026-07-09)**: SAUR está no ar em
-https://urgenciarenal.duckdns.org/, JAR atualizado com o fix do parecer
-(commit `3b960c1`), banco Neon e envio de e-mail (SMTP Gmail) funcionando.
+https://urgenciarenal.duckdns.org/, JAR atualizado com UI overhaul +
+responsividade (commit `8118cee`), banco Neon e envio de e-mail (SMTP Gmail)
+funcionando.
 `deploy/README-deploy.md` ganhou 2 seções novas: acesso via Oracle Cloud
 Shell quando SSH direto é bloqueado por proxy corporativo, e troubleshooting
 de "Authentication failed" no SMTP (causa raiz encontrada: o `sgpur.env` da
