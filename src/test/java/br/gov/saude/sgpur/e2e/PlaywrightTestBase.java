@@ -28,9 +28,9 @@ import java.util.List;
  * classes *IT.java) - nunca no "mvn test"/.\test.ps1 do dia a dia, que
  * continua rapido e sem dependencia de browser instalado.
  *
- * <p>Por padrao a janela do browser fica VISIVEL, com slowMo de 900ms entre
- * acoes (dá pra acompanhar o "bot" navegando). Para rodar sem janela (mais
- * rapido, ex. CI): ".\e2e.ps1 -Headless" (equivale a
+ * <p>Por padrao a janela do browser fica VISIVEL, com slowMo de 1200ms entre
+ * acoes (dá pra acompanhar o "bot" navegando com folga). Para rodar sem
+ * janela (mais rapido, ex. CI): ".\e2e.ps1 -Headless" (equivale a
  * "-Dsaur.e2e.headed=false").
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -59,7 +59,7 @@ public abstract class PlaywrightTestBase {
             System.getenv().getOrDefault("SAUR_E2E_HEADED", "true")));
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
             .setHeadless(!headed)
-            .setSlowMo(headed ? 400 : 0)
+            .setSlowMo(headed ? 1200 : 0)
             // Flags de estabilidade para Chromium automatizado no Windows: evita
             // problemas de GPU/compositor que podem derrubar o processo quando
             // varias janelas (BrowserContext) ficam abertas ao mesmo tempo.
@@ -68,8 +68,8 @@ public abstract class PlaywrightTestBase {
 
     @AfterAll
     static void closeBrowser() {
-        if (browser != null) browser.close();
-        if (playwright != null) playwright.close();
+        fecharSilenciosamente(browser);
+        fecharSilenciosamente(playwright);
     }
 
     @BeforeEach
@@ -87,14 +87,30 @@ public abstract class PlaywrightTestBase {
         page = context.newPage();
     }
 
+    /**
+     * Fecha TODAS as janelas (contexto principal + cada ator extra), mesmo
+     * que uma delas falhe ao fechar - sem isso, uma unica excecao no meio de
+     * um forEach.close() interrompia o laco e deixava as demais janelas
+     * abertas na tela (o problema relatado: "algumas paginas ficaram
+     * abertas, ela tem que fechar sozinha"). Roda sempre, inclusive quando
+     * o teste falhou no meio do fluxo.
+     */
     @AfterEach
     void closeContext(org.junit.jupiter.api.TestInfo testInfo) {
-        // fechar 2x o mesmo BrowserContext (ex.: teste ja fechou uma janela de
-        // ator explicitamente) e uma operacao idempotente no Playwright - nao lanca.
-        contextosExtras.forEach(BrowserContext::close);
+        for (BrowserContext ctx : contextosExtras) {
+            fecharSilenciosamente(ctx);
+        }
         contextosExtras.clear();
-        if (context != null) {
-            context.close();
+        fecharSilenciosamente(context);
+    }
+
+    private static void fecharSilenciosamente(AutoCloseable recurso) {
+        if (recurso == null) return;
+        try {
+            recurso.close();
+        } catch (Exception e) {
+            System.err.println("Falha ao fechar " + recurso.getClass().getSimpleName()
+                + " (ignorado, prosseguindo para os demais): " + e.getMessage());
         }
     }
 
