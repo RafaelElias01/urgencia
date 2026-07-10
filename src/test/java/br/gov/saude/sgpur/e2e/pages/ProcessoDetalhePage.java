@@ -140,6 +140,25 @@ public class ProcessoDetalhePage {
             : page.locator("h1").innerText();
     }
 
+    /**
+     * Confirma que o Relatorio Final (PDF) esta disponivel e e um PDF valido,
+     * buscando o mesmo href do botao "Relatorio Final (PDF)" visivel na tela
+     * via requisicao HTTP autenticada (reaproveita os cookies de sessao da
+     * Page) - equivalente ao que o clique no link faria, mas sem depender de
+     * o Chromium renderizar/baixar PDF de forma diferente em modo headless
+     * vs. headed (o clique real chegou a disparar "Download is starting" em
+     * headless, por o PDF vir com Content-Disposition: inline).
+     */
+    public byte[] abrirRelatorioFinal() {
+        narrar("Abrindo o Relatorio Final (PDF) gerado pelo sistema...");
+        String href = page.locator("a.btn:has-text('Relatorio Final (PDF)')").getAttribute("href");
+        com.microsoft.playwright.APIResponse resp = page.request().get(href);
+        if (!resp.ok()) {
+            throw new IllegalStateException("Relatorio Final retornou HTTP " + resp.status() + " para " + href);
+        }
+        return resp.body();
+    }
+
     public Page raw() {
         return page;
     }
