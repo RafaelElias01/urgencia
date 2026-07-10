@@ -90,6 +90,9 @@ public class SecurityConfig {
                     // ANTES da regra geral /processos/** (ADMIN,OPERADOR), senao o
                     // OPERADOR herdaria o acesso.
                     .requestMatchers(HttpMethod.POST, "/processos/*/reabrir").hasRole("ADMIN")
+                    // Excluir processo tambem e exclusivo do ADMIN (OPERADOR edita,
+                    // mas nao exclui). Mesma logica de ordenacao do reabrir acima.
+                    .requestMatchers(HttpMethod.POST, "/processos/*/excluir").hasRole("ADMIN")
                     .requestMatchers("/arquivo/**").hasAnyRole("ADMIN", "OPERADOR")
                     .requestMatchers("/", "/processos/**").hasAnyRole("ADMIN", "OPERADOR")
                     .requestMatchers("/avaliador/**").hasRole("AVALIADOR")

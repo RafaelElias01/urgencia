@@ -131,4 +131,23 @@ class SecurityIntegrationTest {
         mvc.perform(post("/processos/1/reabrir").with(csrf()))
             .andExpect(status().is3xxRedirection());
     }
+
+    // --- Exclusao de processo (exclusiva do ADMIN) ---
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void operadorNaoExcluiProcesso() throws Exception {
+        // Excluir e exclusivo do ADMIN: bloqueado por role antes de chegar no controller.
+        mvc.perform(post("/processos/1/excluir").with(csrf()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminPodeChamarExcluir() throws Exception {
+        // Sem processo id=1 cadastrado no banco de teste (create-drop): a
+        // seguranca libera (nao e 403) e a regra de negocio redireciona com erro.
+        mvc.perform(post("/processos/1/excluir").with(csrf()))
+            .andExpect(status().is3xxRedirection());
+    }
 }

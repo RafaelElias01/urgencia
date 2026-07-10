@@ -113,6 +113,7 @@
                             <i class="bi bi-pencil me-2"></i> Editar processo
                         </a>
                         <form th:unless="${processo.status.finalizado}"
+                              sec:authorize="hasRole('ADMIN')"
                               th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
                               onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
                             <button type="submit" class="btn btn-outline-danger btn-sm w-100 text-start">

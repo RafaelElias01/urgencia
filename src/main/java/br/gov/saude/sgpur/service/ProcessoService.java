@@ -3,6 +3,9 @@ package br.gov.saude.sgpur.service;
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -241,6 +244,10 @@ public class ProcessoService {
 
     @Transactional
     public void excluir(Long id) {
+        // Defesa em profundidade: apenas ADMIN pode excluir (OPERADOR edita,
+        // mas nao exclui). O SecurityConfig ja barra a rota; aqui garante que
+        // nenhum caminho de codigo escape mesmo se a rota for reconfigurada.
+        exigirAdminParaExcluir();
         Processo p = buscar(id);
         // Defesa em profundidade: processo encerrado nao pode ser excluido
         // (o controller ja bloqueia; aqui garante que nenhum caminho escape).
@@ -248,6 +255,16 @@ public class ProcessoService {
             throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
         }
         processoRepository.delete(p);
+    }
+
+    /** Lanca AccessDeniedException se o usuario autenticado nao for ADMIN. */
+    private void exigirAdminParaExcluir() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean admin = auth != null && auth.getAuthorities().stream()
+            .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        if (!admin) {
+            throw new AccessDeniedException("Apenas administradores podem excluir processos.");
+        }
     }
 
     // As consultas de contagem/sugestao/anexos foram centralizadas em
