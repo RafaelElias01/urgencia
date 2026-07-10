@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -45,6 +46,7 @@ import java.util.Map;
  */
 @Controller
 @RequestMapping("/avaliador")
+@Transactional(readOnly = true)
 public class AvaliadorController {
 
     private static final Logger log = LoggerFactory.getLogger(AvaliadorController.class);
@@ -181,6 +183,7 @@ public class AvaliadorController {
      * de estados do processo correta (inclusive SOLICITA_INFORMACAO).
      */
     @PostMapping("/{processoId}/votar")
+    @Transactional
     public String registrarVoto(@PathVariable Long processoId,
                                 @RequestParam ResultadoParecer resultado,
                                 @RequestParam(required = false) String justificativa,

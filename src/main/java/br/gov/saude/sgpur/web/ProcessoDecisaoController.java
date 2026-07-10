@@ -13,6 +13,7 @@ import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.SolicitacaoAvaliadorService;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -29,6 +30,7 @@ import java.util.List;
  */
 @Controller
 @RequestMapping("/processos")
+@Transactional
 public class ProcessoDecisaoController {
 
     private final ProcessoService processoService;
@@ -469,6 +471,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/sugestao-motivo")
     @ResponseBody
+    @Transactional(readOnly = true)
     public IaTextoResponse sugestaoMotivo(@PathVariable Long id) {
         if (!geminiService.isDisponivel()) {
             return IaTextoResponse.erro("Assistencia por IA nao configurada.");
@@ -592,6 +595,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-avaliador")
     @ResponseBody
+    @Transactional(readOnly = true)
     public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
         Processo p = processoService.buscar(id);
         if (validator.edicaoBloqueada(p)) {
@@ -628,6 +632,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-pendentes")
     @ResponseBody
+    @Transactional(readOnly = true)
     public AcaoResponse lembretePendentes(@PathVariable Long id) {
         Processo p = processoService.buscar(id);
         if (validator.edicaoBloqueada(p)) {
@@ -666,6 +671,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/email/revisar-ia")
     @ResponseBody
+    @Transactional(readOnly = true)
     public IaTextoResponse revisarEmailIa(@PathVariable Long id,
                                           @RequestParam String assunto,
                                           @RequestParam String corpo) {
@@ -693,6 +699,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/email/enviar")
     @ResponseBody
+    @Transactional(readOnly = true)
     public AcaoResponse enviarEmailPronto(@PathVariable Long id,
                                           @RequestParam String chave,
                                           @RequestParam String assunto,
@@ -722,6 +729,7 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/email/preview")
     @ResponseBody
+    @Transactional(readOnly = true)
     public EmailPreviewResponse preverEmail(@PathVariable Long id,
                                             @RequestParam String tipo,
                                             @RequestParam(required = false) String chave,

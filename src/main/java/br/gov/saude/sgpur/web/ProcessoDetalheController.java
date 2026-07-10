@@ -12,6 +12,7 @@ import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
+import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -143,6 +144,7 @@ public class ProcessoDetalheController {
     }
 
     @GetMapping("/{id}")
+    @Transactional(readOnly = true)
     public String detalhe(@PathVariable Long id, Model model) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);

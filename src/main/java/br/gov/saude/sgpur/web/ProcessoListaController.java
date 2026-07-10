@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -31,6 +32,7 @@ public class ProcessoListaController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public String listar(@RequestParam(required = false) String q,
                          @RequestParam(required = false) StatusProcesso status,
                          @RequestParam(defaultValue = "0") int page,

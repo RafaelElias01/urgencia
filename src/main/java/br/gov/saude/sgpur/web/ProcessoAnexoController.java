@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -31,6 +32,7 @@ import java.time.LocalDate;
  */
 @Controller
 @RequestMapping("/processos")
+@Transactional
 public class ProcessoAnexoController {
 
     private final ProcessoService processoService;
@@ -222,6 +224,7 @@ public class ProcessoAnexoController {
     }
 
     @GetMapping("/{id}/relatorio")
+    @Transactional(readOnly = true)
     public ResponseEntity<byte[]> relatorio(@PathVariable Long id) {
         Processo p = processoService.buscar(id);
         byte[] pdf = relatorioService.gerar(p);
@@ -233,6 +236,7 @@ public class ProcessoAnexoController {
     }
 
     @GetMapping("/{id}/oficio")
+    @Transactional(readOnly = true)
     public ResponseEntity<byte[]> oficio(@PathVariable Long id) {
         Processo p = processoService.buscar(id);
         byte[] pdf = oficioService.gerar(p);
@@ -244,6 +248,7 @@ public class ProcessoAnexoController {
     }
 
     @GetMapping("/anexos/{anexoId}/download")
+    @Transactional(readOnly = true)
     public ResponseEntity<Resource> baixarAnexo(@PathVariable Long anexoId) throws MalformedURLException {
         Anexo anexo = anexoStorage.buscar(anexoId);
         Path arquivo = anexoStorage.resolverArquivo(anexo);
@@ -267,6 +272,7 @@ public class ProcessoAnexoController {
      */
     @GetMapping("/anexos/{anexoId}/resumo-ia")
     @ResponseBody
+    @Transactional(readOnly = true)
     public IaTextoResponse resumoAnexoIa(@PathVariable Long anexoId) {
         if (!geminiService.isDisponivel()) {
             return IaTextoResponse.erro("Assistencia por IA nao configurada.");

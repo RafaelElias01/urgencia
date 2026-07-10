@@ -7,6 +7,7 @@ import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
 import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -38,6 +39,7 @@ public class HomeController {
     }
 
     @GetMapping("/")
+    @Transactional(readOnly = true)
     public String dashboard(Model model) {
         // Painel focado no ANO CORRENTE: contadores e planilha refletem apenas os
         // processos deste ano. Carrega uma vez (com pareceres/medicos, fetch join)

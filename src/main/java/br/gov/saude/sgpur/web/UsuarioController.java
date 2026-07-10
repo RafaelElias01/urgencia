@@ -7,6 +7,7 @@ import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +34,7 @@ public class UsuarioController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public String listar(Model model) {
         model.addAttribute("usuarios", service.listar());
         return "usuarios/lista";
@@ -47,6 +49,7 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}/editar")
+    @Transactional(readOnly = true)
     public String editar(@PathVariable Long id, Model model) {
         model.addAttribute("usuario", service.buscar(id));
         model.addAttribute("edicao", true);
