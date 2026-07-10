@@ -288,6 +288,20 @@ autenticado do próprio médico no sistema.
   `slate/amber/emerald/rose/indigo` já usadas nos cards existentes estão
   compiladas) em vez de regenerar o CSS. Ver `docs/PLANO-FLUXO.md` para o
   procedimento de regeneração, caso seja mesmo necessário.
+- **`ddl-auto: update` não faz backfill em coluna nova.** Adicionar um campo
+  que o Hibernate trata como obrigatório para gravar (ex.: `@Version`) numa
+  entidade que já tem linhas no banco cria a coluna com valor `NULL` nessas
+  linhas antigas — o próximo UPDATE nelas quebra (NPE dentro do Hibernate ao
+  tentar incrementar/validar o campo, sem stacktrace óbvio até
+  `journalctl`). Aconteceu em 2026-07-10: `Processo.versao` (`@Version`,
+  commit `8f98d60`) deixou processos antigos com `versao = NULL` em prod;
+  qualquer salvamento neles (editar, decidir, reabrir, anexar) dava 500.
+  Corrigido com backfill manual via Neon SQL Console:
+  `UPDATE processo SET versao = 0 WHERE versao IS NULL;`. **Sempre que
+  adicionar `@Version` ou qualquer coluna que passa a ser tratada como
+  não-nula numa entidade já populada, rodar esse tipo de backfill em prod
+  logo após o deploy** (não há Flyway/Liquibase neste projeto — é
+  responsabilidade manual).
 
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
