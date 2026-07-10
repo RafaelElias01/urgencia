@@ -7,6 +7,7 @@ import br.gov.saude.sgpur.repository.UsuarioRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
@@ -32,7 +33,13 @@ public class GlobalModelAdvice {
         this.parecerRepo = parecerRepo;
     }
 
+    // @Transactional necessario: par.getProcesso() em pendentesDoMembro() e LAZY
+    // (Parecer.processo), e este @ModelAttribute de @ControllerAdvice roda fora
+    // do @Transactional do controller de destino. Sem isso, LazyInitializationException
+    // ("no session") em QUALQUER tela para um usuario AVALIADOR com pareceres
+    // pendentes - com open-in-view=false nao ha sessao Hibernate aberta aqui.
     @ModelAttribute("pendentesAvaliador")
+    @Transactional(readOnly = true)
     public int pendentesAvaliador() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || !temPapelAvaliador(auth)) {
