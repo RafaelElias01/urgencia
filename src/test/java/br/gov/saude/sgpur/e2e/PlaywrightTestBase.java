@@ -81,6 +81,8 @@ public abstract class PlaywrightTestBase {
 
     @AfterEach
     void closeContext(org.junit.jupiter.api.TestInfo testInfo) {
+        // fechar 2x o mesmo BrowserContext (ex.: teste ja fechou uma janela de
+        // ator explicitamente) e uma operacao idempotente no Playwright - nao lanca.
         contextosExtras.forEach(BrowserContext::close);
         contextosExtras.clear();
         if (context != null) {
@@ -88,11 +90,21 @@ public abstract class PlaywrightTestBase {
         }
     }
 
-    /** Tira um screenshot em target/e2e-screenshots, nomeado pelo teste. Chame no catch/falha. */
+    /**
+     * Tira um screenshot em target/e2e-screenshots, nomeado pelo teste.
+     * Chame no catch/falha. Silencioso se a page/context/browser ja tiver
+     * fechado (ex.: falha tardia apos o teste ja ter deixado o Chromium
+     * instavel com varias janelas simultaneas) - a excecao original do
+     * teste e o que importa, nao um erro secundario ao tentar capturar.
+     */
     protected void screenshot(String nome) {
-        page.screenshot(new Page.ScreenshotOptions()
-            .setPath(SCREENSHOT_DIR.resolve(nome + ".png"))
-            .setFullPage(true));
+        try {
+            page.screenshot(new Page.ScreenshotOptions()
+                .setPath(SCREENSHOT_DIR.resolve(nome + ".png"))
+                .setFullPage(true));
+        } catch (RuntimeException e) {
+            System.err.println("screenshot('" + nome + "') falhou (ignorado): " + e.getMessage());
+        }
     }
 
     protected void login(String username, String senha) {
