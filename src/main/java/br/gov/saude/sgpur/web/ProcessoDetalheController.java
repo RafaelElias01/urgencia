@@ -261,6 +261,17 @@ public class ProcessoDetalheController {
         model.addAttribute("liberadoDecisao", liberadoDecisao);
         model.addAttribute("liberadoFinalizacao", liberadoFinalizacao);
 
+        // Wizard horizontal: mesma fonte de verdade da timeline vertical
+        // (FluxoProcessoService), para as duas linhas nunca divergirem.
+        var passosWizard = fluxoService.montarPassosWizard(p);
+        model.addAttribute("passosWizard", passosWizard);
+        String abaAtivaPaneId = passosWizard.stream()
+            .filter(passo -> passo.estado() != br.gov.saude.sgpur.service.PassoWizard.Estado.CONCLUIDA)
+            .findFirst()
+            .map(br.gov.saude.sgpur.service.PassoWizard::paneId)
+            .orElse(passosWizard.get(passosWizard.size() - 1).paneId());
+        model.addAttribute("abaAtivaPaneId", abaAtivaPaneId);
+
         // Sub-rotulo dinamico ao lado do status. Por MAIORIA SIMPLES (2 de 3),
         // assim que ha 2 votos do mesmo tipo o resultado ja esta definido: nao
         // mostra mais "Aguardando parecer", e sim "pronto para decidir". So

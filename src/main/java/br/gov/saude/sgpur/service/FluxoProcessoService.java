@@ -190,6 +190,79 @@ public class FluxoProcessoService {
         return etapas;
     }
 
+    /**
+     * Agrupa as etapas de {@link #montarEtapas} nos 5 passos fixos do wizard
+     * horizontal da tela de detalhe, aplicando a MESMA cascata sequencial da
+     * timeline vertical (um passo so fica CONCLUIDA se os anteriores tambem
+     * estiverem). Garante que as duas linhas do tempo nunca divirjam.
+     */
+    public java.util.List<PassoWizard> montarPassosWizard(Processo p) {
+        List<EtapaFluxo> etapas = montarEtapas(p);
+
+        java.util.List<PassoWizard> passos = new ArrayList<>();
+        boolean anteriorConcluido = true;
+
+        anteriorConcluido = adicionarPasso(passos, 1, "1. Recebimento", "pane-recebimento",
+            etapaConcluida(etapas, "Recebimento da solicitacao"), anteriorConcluido,
+            "Conclua o Recebimento (passo 1) primeiro.", "Recebimento");
+
+        anteriorConcluido = adicionarPasso(passos, 2, "2. Envio", "pane-envio",
+            etapaConcluida(etapas, "Envio aos 3 medicos"), anteriorConcluido,
+            "Conclua o Recebimento (passo 1) primeiro.", "Envio aos avaliadores");
+
+        anteriorConcluido = adicionarPasso(passos, 3, "3. Respostas", "pane-respostas",
+            etapaConcluida(etapas, "Respostas dos medicos"), anteriorConcluido,
+            "Registre o Envio aos avaliadores (passo 2) primeiro.", "Pareceres dos avaliadores");
+
+        anteriorConcluido = adicionarPasso(passos, 4, "4. Decisao", "pane-decisao",
+            etapaConcluida(etapas, "Decisao final"), anteriorConcluido,
+            "Receba todos os pareceres (passo 3) antes de decidir.", "Decisao final");
+
+        // Passo 5 (Finalizacao) agrupa o bloco pos-decisao: Oficio (se
+        // indeferido) ou Comprovante SNT (se deferido), mais a Resposta ao
+        // solicitante. So concluido se TODAS as etapas desse bloco que
+        // existirem para o status atual estiverem CONCLUIDA.
+        boolean finalizacaoOk = etapaConcluidaSeExistir(etapas, "Oficio de indeferimento")
+            && etapaConcluidaSeExistir(etapas, "Comprovante SNT")
+            && etapaConcluida(etapas, "Resposta ao solicitante");
+        adicionarPasso(passos, 5, "5. Finalizacao", "pane-finalizacao",
+            finalizacaoOk, anteriorConcluido,
+            "Registre a decisao (passo 4) primeiro.", "Finalizacao");
+
+        return passos;
+    }
+
+    private boolean adicionarPasso(java.util.List<PassoWizard> passos, int numero, String titulo,
+                                    String paneId, boolean concluido, boolean anteriorConcluido,
+                                    String tooltipBloqueado, String tooltipLivre) {
+        PassoWizard.Estado estado;
+        String tooltip;
+        if (concluido && anteriorConcluido) {
+            estado = PassoWizard.Estado.CONCLUIDA;
+            tooltip = tooltipLivre;
+        } else if (anteriorConcluido) {
+            estado = PassoWizard.Estado.ATUAL;
+            tooltip = tooltipLivre;
+        } else {
+            estado = PassoWizard.Estado.BLOQUEADA;
+            tooltip = tooltipBloqueado;
+        }
+        passos.add(new PassoWizard(numero, titulo, paneId, estado, tooltip));
+        return anteriorConcluido && concluido;
+    }
+
+    /** true se a etapa com esse titulo existe e esta CONCLUIDA. */
+    private boolean etapaConcluida(List<EtapaFluxo> etapas, String titulo) {
+        return etapas.stream().anyMatch(e -> e.titulo().equals(titulo) && e.isConcluida());
+    }
+
+    /** true se a etapa nao existir para o status atual (nao se aplica) OU estiver CONCLUIDA. */
+    private boolean etapaConcluidaSeExistir(List<EtapaFluxo> etapas, String titulo) {
+        return etapas.stream().filter(e -> e.titulo().equals(titulo)).findFirst()
+            .map(EtapaFluxo::isConcluida)
+            .orElse(true);
+    }
+
     /** Mensagem curta de "o que falta" para o processo (etapa atual pendente). */
     public String resumoPendencia(Processo p) {
         for (EtapaFluxo e : montarEtapas(p)) {

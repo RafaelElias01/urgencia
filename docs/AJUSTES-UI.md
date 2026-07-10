@@ -183,10 +183,17 @@ página inteira.
 Reduz a largura mínima da coluna "Ação" em mobile, evitando scroll horizontal
 excessivo.
 
-#### G2 — Sidebar antes do conteúdo principal
-**`detalhe.html`**: Adicionado `order-lg-2` na sidebar (`col-lg-3`) e `order-lg-1`
-no conteúdo principal (`col-lg-9`). Em mobile, o operador vê primeiro o wizard
-com as abas de trabalho; a timeline + atalhos + e-mails ficam depois.
+#### G2 — Sidebar antes do conteúdo principal (corrigido em 2026-07-09)
+**`detalhe.html`**: Havia sido adicionado `order-lg-2` na sidebar (`col-lg-3`) e
+`order-lg-1` no conteúdo principal (`col-lg-9`) para que, em mobile, o operador
+visse primeiro o wizard com as abas de trabalho. Efeito colateral não previsto:
+`order-lg-*` também vale em desktop (≥992px), o que jogou o card "Progresso"
+para o lado **direito** da tela em telas grandes — regressão percebida pelo
+usuário. Corrigido trocando para `order-2 order-md-1` na sidebar (`col-lg-3`) e
+`order-1 order-md-2` no conteúdo (`col-lg-9`): abaixo de 768px o wizard
+continua aparecendo primeiro (mobile-first preservado), e a partir de 768px
+(tablet/desktop) o Progresso volta para a esquerda, antes do conteúdo — sem
+depender do breakpoint `lg`, que é o que causava o vazamento para desktop.
 
 #### G3 — Botão "Enviar" em `col-md-1`
 **`detalhe.html`**: Alterado para `col-md-2`. O botão agora tem espaço adequado

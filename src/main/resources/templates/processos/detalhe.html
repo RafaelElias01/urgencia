@@ -60,8 +60,10 @@
     </div>
 
     <div class="row g-4">
-        <!-- Coluna esquerda: timeline do processo -->
-        <div class="col-lg-3 order-lg-2">
+        <!-- Coluna esquerda: timeline do processo (order-2/order-md-1: no celular
+             aparece depois do wizard; a partir de md volta pra esquerda, antes
+             do conteúdo — ver docs/AJUSTES-UI.md G2) -->
+        <div class="col-lg-3 order-2 order-md-1">
             <div class="card animate-fade-in">
                 <div class="card-header d-flex justify-content-between align-items-center bg-white border-bottom-0">
                     <span><i class="bi bi-list-check text-primary"></i> Progresso</span>
@@ -188,7 +190,7 @@
         </div>
 
         <!-- Coluna direita -->
-        <div class="col-lg-9 order-lg-1">
+        <div class="col-lg-9 order-1 order-md-2">
             <!-- Dados -->
             <div class="card mb-4">
                 <div class="card-header"><i class="bi bi-person-vcard"></i> Dados</div>
@@ -211,57 +213,29 @@
             </div>
 
             <!-- Wizard passo a passo -->
-            <div th:with="st=${processo.status.name()},
-                          recebimentoFeito=${solicitacaoOriginal != null},
-                          abaReceb=${st == 'SOLICITADO' and solicitacaoOriginal == null},
-                          abaEnvio=${st == 'SOLICITADO' and solicitacaoOriginal != null},
-                          abaResp=${st == 'ENVIADO' or st == 'EM_ANALISE' or st == 'SOLICITA_INFORMACAO'},
-                          abaFinal=${processo.status.finalizado},
-                          envioFeito=${!processo.pareceres.isEmpty() and processo.pareceres[0].dataEnvio != null}">
+            <div th:with="envioFeito=${!processo.pareceres.isEmpty() and processo.pareceres[0].dataEnvio != null}">
                 <div class="wizard-wrapper animate-fade-in" id="wizardWrapper">
                 <div class="wizard" id="fasesTab" role="tablist">
-                    <!-- Passo 1: Recebimento -->
-                    <a class="wizard-step" th:classappend="${recebimentoFeito} ? 'concluida' : (${abaReceb} ? 'atual' : '')"
-                       data-bs-toggle="tab" href="#pane-recebimento" role="tab" title="Recebimento">
-                        <div class="wizard-circle"><i class="bi bi-inbox"></i></div>
-                        <span class="wizard-label">1. Recebimento</span>
-                    </a>
-                    <!-- Passo 2: Envio -->
-                    <a class="wizard-step" th:classappend="${envioFeito} ? 'concluida' : (${abaEnvio} ? 'atual' : (${!liberadoEnvio} ? 'bloqueada' : ''))"
-                       data-bs-toggle="tab" href="#pane-envio" role="tab"
-                       th:title="${!liberadoEnvio} ? 'Conclua o Recebimento (passo 1) primeiro.' : 'Envio aos avaliadores'">
-                        <div class="wizard-circle"><i class="bi bi-send"></i></div>
-                        <span class="wizard-label">2. Envio</span>
-                    </a>
-                    <!-- Passo 3: Respostas -->
-                    <a class="wizard-step" th:classappend="${liberadoDecisao} ? 'concluida' : (${abaResp} ? 'atual' : (${!liberadoRespostas} ? 'bloqueada' : ''))"
-                       data-bs-toggle="tab" href="#pane-respostas" role="tab"
-                       th:title="${!liberadoRespostas} ? 'Registre o Envio aos avaliadores (passo 2) primeiro.' : 'Pareceres dos avaliadores'">
-                        <div class="wizard-circle"><i class="bi bi-chat-square-text"></i></div>
-                        <span class="wizard-label">3. Respostas</span>
-                        <span class="badge bg-success ms-1" th:if="${envioFeito and favoraveis > 0}"
+                    <!-- Passos derivados de FluxoProcessoService.montarPassosWizard: mesma
+                         fonte de verdade da timeline vertical (card "Progresso"), garantindo
+                         que as duas linhas do tempo nunca fiquem fora de sincronia. -->
+                    <a class="wizard-step" th:each="passo : ${passosWizard}"
+                       th:classappend="${passo.estado.name() == 'CONCLUIDA'} ? 'concluida' : (${passo.estado.name() == 'ATUAL'} ? 'atual' : 'bloqueada')"
+                       data-bs-toggle="tab" th:href="'#' + ${passo.paneId}" role="tab"
+                       th:title="${passo.tooltip}">
+                        <div class="wizard-circle">
+                            <i class="bi" th:classappend="${passo.numero == 1} ? 'bi-inbox' : (${passo.numero == 2} ? 'bi-send' : (${passo.numero == 3} ? 'bi-chat-square-text' : (${passo.numero == 4} ? 'bi-scale' : 'bi-flag')))"></i>
+                        </div>
+                        <span class="wizard-label" th:text="${passo.titulo}">Passo</span>
+                        <span class="badge bg-success ms-1" th:if="${passo.numero == 3 and envioFeito and favoraveis > 0}"
                               th:text="${favoraveis}" style="font-size:.55rem;">0</span>
-                    </a>
-                    <!-- Passo 4: Decisao -->
-                    <a class="wizard-step" th:classappend="${liberadoFinalizacao} ? 'concluida' : (${!liberadoDecisao} ? 'bloqueada' : '')"
-                       data-bs-toggle="tab" href="#pane-decisao" role="tab"
-                       th:title="${!liberadoDecisao} ? (${aguardandoInfo} ? 'Aguardando informacao complementar do solicitante' : 'Receba todos os pareceres (passo 3) antes de decidir.') : 'Decisao final'">
-                        <div class="wizard-circle"><i class="bi bi-scale"></i></div>
-                        <span class="wizard-label">4. Decisao</span>
-                    </a>
-                    <!-- Passo 5: Finalizacao -->
-                    <a class="wizard-step" th:classappend="${abaFinal} ? 'concluida' : (${!liberadoFinalizacao} ? 'bloqueada' : '')"
-                       data-bs-toggle="tab" href="#pane-finalizacao" role="tab"
-                       th:title="${!liberadoFinalizacao} ? 'Registre a decisao (passo 4) primeiro.' : 'Finalizacao'">
-                        <div class="wizard-circle"><i class="bi bi-flag"></i></div>
-                        <span class="wizard-label">5. Finalizacao</span>
                     </a>
                 </div><!-- /wizard -->
                 </div><!-- /wizard-wrapper -->
 
                 <div class="tab-content wizard-content" id="fasesTabContent">
                 <!-- ABA 1: Recebimento e ajuste do texto -->
-                <div class="tab-pane fade" th:classappend="${abaReceb} ? 'show active' : ''"
+                <div class="tab-pane fade" th:classappend="${abaAtivaPaneId == 'pane-recebimento'} ? 'show active' : ''"
                      id="pane-recebimento" role="tabpanel" aria-labelledby="tab-recebimento">
                     <div class="card mb-4" id="recebimento">
                         <div class="card-header"><i class="bi bi-inbox"></i> Recebimento e ajuste do texto</div>
@@ -310,8 +284,9 @@
                             </form>
                         </div>
 
-                        <!-- Finalizacao explicita da etapa -->
-                        <div th:if="${recebimentoFeito}" class="alert alert-success d-flex align-items-center justify-content-between py-3 mb-0">
+                        <!-- Finalizacao explicita da etapa (exige solicitacao original + capa,
+                             mesma regra de liberadoEnvio no controller) -->
+                        <div th:if="${liberadoEnvio}" class="alert alert-success d-flex align-items-center justify-content-between py-3 mb-0">
                             <div>
                                 <i class="bi bi-check-circle-fill fs-5 me-2"></i>
                                 <strong>Recebimento concluido!</strong>
@@ -326,7 +301,7 @@
                 </div><!-- /ABA 1 Recebimento -->
 
                 <!-- ABA 2: Envio -->
-                <div class="tab-pane fade" th:classappend="${abaEnvio} ? 'show active' : ''"
+                <div class="tab-pane fade" th:classappend="${abaAtivaPaneId == 'pane-envio'} ? 'show active' : ''"
                      id="pane-envio" role="tabpanel" aria-labelledby="tab-envio">
             <!-- Secao: Envio aos Avaliadores -->
             <div class="card mb-4" id="envio">
@@ -498,7 +473,7 @@
                 </div><!-- /ABA 2 Envio -->
 
                 <!-- ABA 3: Respostas -->
-                <div class="tab-pane fade" th:classappend="${abaResp} ? 'show active' : ''"
+                <div class="tab-pane fade" th:classappend="${abaAtivaPaneId == 'pane-respostas'} ? 'show active' : ''"
                      id="pane-respostas" role="tabpanel" aria-labelledby="tab-respostas">
             <!-- Aviso quando o envio ainda nao foi registrado -->
             <div th:unless="${envioFeito}" class="alert alert-warning">
@@ -749,7 +724,8 @@
                 </div><!-- /ABA 3 Respostas -->
 
                 <!-- ABA 4: Decisao -->
-                <div class="tab-pane fade" id="pane-decisao" role="tabpanel" aria-labelledby="tab-decisao">
+                <div class="tab-pane fade" th:classappend="${abaAtivaPaneId == 'pane-decisao'} ? 'show active' : ''"
+                     id="pane-decisao" role="tabpanel" aria-labelledby="tab-decisao">
             <!-- Decisao -->
             <div class="card mb-4" id="decisao">
                 <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
@@ -819,7 +795,7 @@
                 </div><!-- /ABA 4 Decisao -->
 
                 <!-- ABA 5: Finalizacao -->
-                <div class="tab-pane fade" th:classappend="${abaFinal} ? 'show active' : ''"
+                <div class="tab-pane fade" th:classappend="${abaAtivaPaneId == 'pane-finalizacao'} ? 'show active' : ''"
                      id="pane-finalizacao" role="tabpanel" aria-labelledby="tab-finalizacao">
             <!-- Finalizacao / oficio / comprovante / resposta -->
             <div class="card mb-4" id="finalizacao">
