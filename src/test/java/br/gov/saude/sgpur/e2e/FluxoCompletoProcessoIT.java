@@ -122,15 +122,16 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
 
             // ===== Atores 2 e 3: os proprios medicos votando no Portal do Avaliador =====
             // Cada um numa janela/sessao propria - o operador continua logado na dele.
-            // Cada janela e fechada logo apos o voto (nao precisa ficar aberta ate o
-            // fim do teste - reduz o numero de contextos/paginas simultaneos abertos,
-            // que em modo headed com varias janelas pode deixar o Chromium instavel).
+            // As janelas ficam abertas ate o fim do teste (fechadas em bloco no
+            // @AfterEach) - fecha-las manualmente aqui, no meio do fluxo, chegou a
+            // causar TargetClosedError em outra parte do teste (race condition:
+            // close() e assincrono no driver do Playwright e pode disparar antes
+            // de operacoes daquele context terminarem de fato).
             Page janelaMedico1 = novoAtor();
             login(janelaMedico1, "avaliador.e2e.1", "senha123");
             new AvaliadorPage(janelaMedico1)
                 .abrirVotacao(processoId)
                 .votar("NAO_FAVORAVEL", "Achados clinicos nao sustentam a urgencia alegada.");
-            janelaMedico1.context().close();
 
             Page janelaMedico2 = novoAtor();
             login(janelaMedico2, "avaliador.e2e.2", "senha123");

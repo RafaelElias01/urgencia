@@ -59,7 +59,11 @@ public abstract class PlaywrightTestBase {
             System.getenv().getOrDefault("SAUR_E2E_HEADED", "true")));
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
             .setHeadless(!headed)
-            .setSlowMo(headed ? 900 : 0));
+            .setSlowMo(headed ? 400 : 0)
+            // Flags de estabilidade para Chromium automatizado no Windows: evita
+            // problemas de GPU/compositor que podem derrubar o processo quando
+            // varias janelas (BrowserContext) ficam abertas ao mesmo tempo.
+            .setArgs(java.util.List.of("--disable-gpu", "--disable-dev-shm-usage")));
     }
 
     @AfterAll
@@ -73,6 +77,10 @@ public abstract class PlaywrightTestBase {
         context = browser.newContext(new Browser.NewContextOptions()
             .setBaseURL("http://localhost:" + port)
             .setViewportSize(1440, 1080));
+        // Timeout mais generoso que o default (30s): com varias janelas abertas
+        // ao mesmo tempo em modo headed, o Chromium pode ficar sob pressao de
+        // recursos e demorar mais para responder a uma acao pontual.
+        context.setDefaultTimeout(60000);
         // Aceita automaticamente os confirm() nativos usados no wizard
         // (ex.: "Confirmar o registro do seu voto?"), como um humano clicando OK.
         context.onDialog(dialog -> dialog.accept());
@@ -139,6 +147,7 @@ public abstract class PlaywrightTestBase {
         BrowserContext novo = browser.newContext(new Browser.NewContextOptions()
             .setBaseURL("http://localhost:" + port)
             .setViewportSize(1440, 1080));
+        novo.setDefaultTimeout(60000);
         novo.onDialog(dialog -> dialog.accept());
         contextosExtras.add(novo);
         return novo.newPage();
