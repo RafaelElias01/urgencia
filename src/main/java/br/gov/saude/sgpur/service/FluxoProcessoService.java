@@ -25,6 +25,14 @@ public class FluxoProcessoService {
     public List<EtapaFluxo> montarEtapas(Processo p) {
         List<EtapaFluxo> etapas = new ArrayList<>();
         boolean anterioresConcluidas = true;
+        // Processo ja finalizado (Deferido/Indeferido/Cancelado) nao deve
+        // ficar "preso" numa etapa anterior por causa de uma exigencia de
+        // anexo criada DEPOIS que o processo foi decidido (ex.: capa
+        // automatica so passou a existir em processos recebidos a partir de
+        // 2026-07-09; processos antigos ja encerrados nao tem esse anexo e
+        // nao devem exibir progresso 0% por isso). Para processos ja
+        // encerrados, a cascata de "anteriores concluidas" e ignorada.
+        boolean finalizado = p.getStatus() != null && p.getStatus().isFinalizado();
 
         // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL
         //    (manual) E a capa do processo (CAPA_PROCESSO, gerada pelo sistema
@@ -46,7 +54,7 @@ public class FluxoProcessoService {
         }
         etapas.add(montar("Recebimento da solicitacao", "inbox-fill",
             recebimentoOk, anterioresConcluidas, detReceb));
-        anterioresConcluidas = anterioresConcluidas && recebimentoOk;
+        anterioresConcluidas = finalizado || (anterioresConcluidas && recebimentoOk);
 
         // 2. Envio aos 3 medicos (data de envio registrada em todos os pareceres).
         //    Exige ao menos um documento clinico (PDF) anexado: o PDF dos
@@ -73,7 +81,7 @@ public class FluxoProcessoService {
             detEnvio = "Enviado aos " + totalMedicos + " medicos.";
         }
         etapas.add(montar("Envio aos 3 medicos", "send-fill", enviado, anterioresConcluidas, detEnvio));
-        anterioresConcluidas = anterioresConcluidas && enviado;
+        anterioresConcluidas = finalizado || (anterioresConcluidas && enviado);
 
         // 3. Respostas dos medicos (cada resposta recebida precisa do anexo).
         //    Por MAIORIA SIMPLES (2 de 3), assim que ha 2 votos do mesmo tipo a
@@ -104,7 +112,7 @@ public class FluxoProcessoService {
         }
         etapas.add(montar("Respostas dos medicos", "chat-square-text-fill",
             respostasOk, anterioresConcluidas, detResp));
-        anterioresConcluidas = anterioresConcluidas && respostasOk;
+        anterioresConcluidas = finalizado || (anterioresConcluidas && respostasOk);
 
         // 3b. Informacao complementar (apenas enquanto um medico pediu mais dados).
         //     Funciona como uma PAUSA: bloqueia a decisao ate o solicitante
@@ -132,7 +140,7 @@ public class FluxoProcessoService {
                 .orElse("Aguardando pareceres suficientes para decidir.");
         }
         etapas.add(montar("Decisao final", "scale", decidido, anterioresConcluidas, detDecisao));
-        anterioresConcluidas = anterioresConcluidas && decidido;
+        anterioresConcluidas = finalizado || (anterioresConcluidas && decidido);
 
         // 5. Oficio de indeferimento (apenas quando indeferido)
         if (p.getStatus() == StatusProcesso.INDEFERIDO) {

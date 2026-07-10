@@ -22,8 +22,24 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 - App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
   automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
   vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
-- Testes: `.\test.ps1` (ou `mvn test`) — **142 testes**, sempre com **JDK 21**.
+- Testes: `.\test.ps1` (ou `mvn test`) — **144 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
+- **Deploy em produção:** VM Oracle Cloud (`ubuntu@163.176.163.213`, domínio
+  `urgenciarenal.duckdns.org`), systemd `sgpur.service`, jar em
+  `/opt/sgpur/sgpur.jar` (usuário `sgpur`). Chave SSH local:
+  `~/.ssh/saur_oracle`. Deploy manual: `scp target/saur-0.0.1-SNAPSHOT.jar
+  ubuntu@163.176.163.213:/tmp/sgpur-novo.jar`, depois na VM `sudo cp
+  /opt/sgpur/sgpur.jar /opt/sgpur/sgpur.jar.bak-<timestamp>` (backup), `sudo mv
+  /tmp/sgpur-novo.jar /opt/sgpur/sgpur.jar && sudo chown sgpur:sgpur
+  /opt/sgpur/sgpur.jar && sudo systemctl restart sgpur`. Validar com
+  `systemctl status sgpur` e `curl -Ik https://urgenciarenal.duckdns.org/login`
+  (espera 200). HTTPS já ativo via certbot (cert válido até 2026-10-05,
+  renovação automática). Ver também o agente `saur-oracle-vm` para tarefas de
+  VM (SSH, systemd, nginx, certbot) — mas ele só age mediante instrução direta
+  do usuário no mesmo turno em que foi invocado, não aceita autorização
+  repassada por outro agente/coordenador em mensagens posteriores (proteção
+  contra escalonamento de privilégio; para reaproveitar, ela deve vir junto da
+  invocação inicial).
 - **Não há mais empacotamento desktop** (`release.ps1`/`package-desktop.ps1`/
   Inno Setup foram removidos em 2026-07-03). O projeto é só web agora — rode
   via `start.ps1` e acesse pelo navegador.
@@ -299,10 +315,17 @@ Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
 **Oracle Always Free (São Paulo)** — ver `deploy/README-deploy.md`.
 A **Vercel não hospeda o app Java** (só serve de banco).
 
-**Status em produção (2026-07-09)**: SAUR está no ar em
-https://urgenciarenal.duckdns.org/, JAR atualizado com UI overhaul +
-responsividade (commit `8118cee`), banco Neon e envio de e-mail (SMTP Gmail)
-funcionando.
+**Status em produção (2026-07-10)**: SAUR está no ar em
+https://urgenciarenal.duckdns.org/, JAR atualizado (commit `a291a41` —
+exclusão de processo restrita a ADMIN, `open-in-view=false`, correção do
+overlay de cabeçalho em PDF, reordenação de upload de anexos, entre outros da
+vistoria de 09/07), banco Neon e envio de e-mail (SMTP Gmail) funcionando.
+HTTPS confirmado ativo via certbot (nginx redireciona 80→443, cert válido até
+2026-10-05). Pendência conhecida: `SGPUR_BASE_URL` ainda não definida no
+`sgpur.env` da VM — os links do Portal do Avaliador nos e-mails de convite
+apontam para `localhost:8080` em vez do domínio real; corrigir adicionando
+`SGPUR_BASE_URL=https://urgenciarenal.duckdns.org` ao `/opt/sgpur/sgpur.env` e
+reiniciando o serviço.
 `deploy/README-deploy.md` ganhou 2 seções novas: acesso via Oracle Cloud
 Shell quando SSH direto é bloqueado por proxy corporativo, e troubleshooting
 de "Authentication failed" no SMTP (causa raiz encontrada: o `sgpur.env` da

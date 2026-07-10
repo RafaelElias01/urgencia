@@ -29,6 +29,7 @@ import java.util.Optional;
 /** Criacao, detalhe, edicao/exclusao e recebimento (passo 1) do processo. */
 @Controller
 @RequestMapping("/processos")
+@Transactional
 public class ProcessoDetalheController {
 
     private final ProcessoService processoService;
@@ -145,6 +146,8 @@ public class ProcessoDetalheController {
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
+    // Sobrescreve o @Transactional (read-write) da classe so nesta rota:
+    // e a unica leitura pura do controller, as demais escrevem anexo/estado.
     public String detalhe(@PathVariable Long id, Model model) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);

@@ -595,7 +595,8 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-avaliador")
     @ResponseBody
-    @Transactional(readOnly = true)
+    // Sem readOnly: grava auditoria (INSERT) apos o envio - herda o
+    // @Transactional (leitura-escrita) da classe.
     public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
         Processo p = processoService.buscar(id);
         if (validator.edicaoBloqueada(p)) {
@@ -632,7 +633,8 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-pendentes")
     @ResponseBody
-    @Transactional(readOnly = true)
+    // Sem readOnly: grava auditoria (INSERT) por avaliador - herda o
+    // @Transactional (leitura-escrita) da classe.
     public AcaoResponse lembretePendentes(@PathVariable Long id) {
         Processo p = processoService.buscar(id);
         if (validator.edicaoBloqueada(p)) {
@@ -699,7 +701,8 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/email/enviar")
     @ResponseBody
-    @Transactional(readOnly = true)
+    // Sem readOnly: grava auditoria (INSERT) apos o envio - herda o
+    // @Transactional (leitura-escrita) da classe.
     public AcaoResponse enviarEmailPronto(@PathVariable Long id,
                                           @RequestParam String chave,
                                           @RequestParam String assunto,
