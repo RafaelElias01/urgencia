@@ -139,11 +139,16 @@ public class ProcessoValidator {
      * Excecao: o voto Favoravel do coordenador CET-RS defere sozinho e na hora,
      * mesmo com o processo pausado por causa do parecer de outro avaliador —
      * a pausa nao se aplica a essa regra (decisao de produto confirmada).
+     * A excecao vale SO para Deferir: o coordenador nao tem peso especial para
+     * indeferir (CLAUDE.md), entao Indeferido continua bloqueado pela pausa
+     * mesmo com o coordenador favoravel registrado.
      */
     public Optional<String> validarPausaDecisao(Processo processo, StatusProcesso decisao) {
+        boolean bloqueiaDeferido = decisao == StatusProcesso.DEFERIDO
+            && !temVotoCoordenadorFavoravel(processo);
+        boolean bloqueiaIndeferido = decisao == StatusProcesso.INDEFERIDO;
         if (processo.getStatus() == StatusProcesso.SOLICITA_INFORMACAO
-                && (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO)
-                && !temVotoCoordenadorFavoravel(processo)) {
+                && (bloqueiaDeferido || bloqueiaIndeferido)) {
             return Optional.of(
                 "Processo aguardando informacao complementar do solicitante. "
                 + "Registre o recebimento da informacao (retomar analise) antes de decidir.");

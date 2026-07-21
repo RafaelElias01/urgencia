@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -515,6 +516,30 @@ class ProcessoServiceTest {
     }
 
     /**
+     * Bug real: cadastrar() nao limpava o id vindo do bind da entidade inteira.
+     * Um request malicioso com id de um processo EXISTENTE fazia o save()
+     * cair em merge() em vez de persist(), sobrescrevendo o processo alvo e
+     * apagando (orphanRemoval) seus pareceres/anexos reais.
+     */
+    @Test
+    void cadastrarIgnoraIdDeProcessoExistenteVindoDoRequest() {
+        Processo p = new Processo();
+        p.setId(999L); // simula id de um processo existente injetado no form
+        p.setDataSituacaoEspecial(java.time.LocalDate.of(2026, 1, 10));
+
+        MembroUrgenciaRenal medico = new MembroUrgenciaRenal("HCPA", "Medico", null);
+        medico.setId(1L);
+        when(membroRepository.findById(1L)).thenReturn(java.util.Optional.of(medico));
+        when(membroRepository.findById(2L)).thenReturn(java.util.Optional.of(medico));
+        when(membroRepository.findById(3L)).thenReturn(java.util.Optional.of(medico));
+        when(processoRepository.save(any(Processo.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Processo salvo = service.cadastrar(p, java.util.List.of(1L, 2L, 3L));
+
+        assertThat(salvo.getId()).isNull();
+    }
+
+    /**
      * O coordenador CET-RS defere sozinho e imediatamente ao votar Favoravel,
      * mesmo que o processo esteja pausado (SOLICITA_INFORMACAO) por causa do
      * parecer de outro avaliador comum. A pausa nao se aplica a essa regra.
@@ -572,6 +597,40 @@ class ProcessoServiceTest {
         service.decidir(41L, StatusProcesso.DEFERIDO, null);
 
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+    }
+
+    /**
+     * O coordenador NAO tem peso especial para indeferir (CLAUDE.md): mesmo com
+     * voto Favoravel do coordenador registrado, Indeferido continua bloqueado
+     * enquanto o processo estiver pausado por SOLICITA_INFORMACAO. Bug real:
+     * validarPausaDecisao aplicava o bypass do coordenador tambem a Indeferido.
+     */
+    @Test
+    void decidirNaoPermiteIndeferirPausadoMesmoComCoordenadorFavoravel() {
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
+
+        Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
+        parInfo.setId(1L);
+        p.addParecer(parInfo);
+        anexarResposta(p, parInfo);
+
+        Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
+        parCoord.setId(2L);
+        p.addParecer(parCoord);
+        anexarResposta(p, parCoord);
+
+        Parecer parDesfav = parecer(ResultadoParecer.NAO_FAVORAVEL);
+        parDesfav.setId(3L);
+        p.addParecer(parDesfav);
+        anexarResposta(p, parDesfav);
+
+        when(processoRepository.findById(42L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.decidir(42L, StatusProcesso.INDEFERIDO, "motivo"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("informacao complementar");
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.SOLICITA_INFORMACAO);
     }
 
     @Test
