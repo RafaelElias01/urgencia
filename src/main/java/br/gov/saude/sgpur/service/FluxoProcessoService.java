@@ -214,9 +214,23 @@ public class FluxoProcessoService {
             etapaConcluida(etapas, "Respostas dos medicos"), anteriorConcluido,
             "Registre o Envio aos avaliadores (passo 2) primeiro.", "Pareceres dos avaliadores");
 
+        // "Informacao complementar" pausa o fluxo (ver montarEtapas) mesmo com
+        // "Respostas dos medicos" ja CONCLUIDA (maioria formada antes do pedido
+        // de informacao). Sem essa checagem, o wizard destrava o passo 4 nesse
+        // caso enquanto a timeline vertical mantem "Decisao final" PENDENTE -
+        // as duas linhas do tempo dessincronizam.
+        boolean aguardandoInfo = etapas.stream()
+            .anyMatch(e -> e.titulo().equals("Informacao complementar") && !e.isConcluida());
+        if (aguardandoInfo) {
+            anteriorConcluido = false;
+        }
+
         anteriorConcluido = adicionarPasso(passos, 4, "4. Decisao", "pane-decisao",
             etapaConcluida(etapas, "Decisao final"), anteriorConcluido,
-            "Receba todos os pareceres (passo 3) antes de decidir.", "Decisao final");
+            aguardandoInfo
+                ? "Aguardando informacao complementar do solicitante antes de decidir."
+                : "Receba todos os pareceres (passo 3) antes de decidir.",
+            "Decisao final");
 
         // Passo 5 (Finalizacao) agrupa o bloco pos-decisao: Oficio (se
         // indeferido) ou Comprovante SNT (se deferido), mais a Resposta ao
