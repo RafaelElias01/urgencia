@@ -87,7 +87,12 @@ public class ProcessoService {
         // inteira (@ModelAttribute), entao um request malicioso poderia incluir
         // status=DEFERIDO/INDEFERIDO/CANCELADO e outros campos que so fazem
         // sentido apos a decisao. Um processo novo SEMPRE nasce SOLICITADO, sem
-        // decisao registrada.
+        // decisao registrada. Tambem forca id=null: sem isso, um request com um
+        // id de processo EXISTENTE faria o save() abaixo cair em merge() em vez
+        // de persist(), sobrescrevendo o processo alvo e apagando seus pareceres
+        // e anexos reais (cascade=ALL + orphanRemoval=true), ate mesmo se ja
+        // ENCERRADO - sem passar pelo ProcessoValidator.edicaoBloqueada.
+        processo.setId(null);
         processo.setStatus(StatusProcesso.SOLICITADO);
         processo.setDataDecisao(null);
         processo.setMotivoIndeferimento(null);
