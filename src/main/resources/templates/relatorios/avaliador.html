@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Relatorio por avaliador')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Relatorio por avaliador</h1>
+        <a th:href="@{/relatorios/anual}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Relatorio anual
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-person-lines-fill"></i> Relatorio Individual do Avaliador por ano
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                Gera um PDF com os processos que o medico avaliou no ano, o tempo
+                de resposta de cada processo e a media geral dele.
+            </p>
+
+            <div th:if="${anos == null or anos.isEmpty() or membros == null or membros.isEmpty()}"
+                 class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i>
+                E preciso ter ao menos um processo cadastrado e um avaliador ativo
+                para gerar este relatorio.
+            </div>
+
+            <form th:if="${anos != null and !anos.isEmpty() and membros != null and !membros.isEmpty()}"
+                  onsubmit="return false;" id="formAvaliador" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="anoSelect" class="form-label">Ano</label>
+                    <select id="anoSelect" class="form-select">
+                        <option th:each="a : ${anos}" th:value="${a}" th:text="${a}">2026</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label for="membroSelect" class="form-label">Avaliador</label>
+                    <select id="membroSelect" class="form-select">
+                        <option th:each="m : ${membros}" th:value="${m.id}" th:text="${m.rotulo}">Medico</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="button" id="btnGerar" class="btn btn-primary">
+                        <i class="bi bi-filetype-pdf"></i> Gerar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+<script th:inline="javascript"
+        th:if="${anos != null and !anos.isEmpty() and membros != null and !membros.isEmpty()}">
+    (function () {
+        var base = /*[[@{/relatorios/avaliador}]]*/ '/relatorios/avaliador';
+        var btn = document.getElementById('btnGerar');
+        var ano = document.getElementById('anoSelect');
+        var membro = document.getElementById('membroSelect');
+        if (btn && ano && membro) {
+            btn.addEventListener('click', function () {
+                if (ano.value && membro.value) {
+                    window.open(base + '/' + ano.value + '/' + membro.value + '/pdf', '_blank');
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>

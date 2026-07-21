@@ -1,0 +1,108 @@
+spring:
+  application:
+    name: saur
+  # Carrega overrides locais (ex.: credenciais do Postgres) se o arquivo existir.
+  # application-local.yml esta no .gitignore e NUNCA deve ser commitado.
+  config:
+    import: optional:classpath:application-local.yml
+  profiles:
+    active: dev
+
+  # E-mail (SMTP) - configurado via application-local.yml ou env vars
+  mail:
+    host: ${SGPUR_MAIL_HOST:smtp.gmail.com}
+    port: ${SGPUR_MAIL_PORT:587}
+    username: ${SGPUR_MAIL_USER:}
+    password: ${SGPUR_MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        from: ${SGPUR_MAIL_FROM:${SGPUR_MAIL_USER:}}
+
+  thymeleaf:
+    cache: false
+
+  # Desliga o Open Session In View: o padrao do Spring Boot (true) mantem a
+  # sessao Hibernate aberta ate a renderizacao da view, escondendo N+1 queries
+  # e prendendo a conexao JDBC por mais tempo do que o necessario. Com false,
+  # qualquer colecao lazy acessada so na view (Thymeleaf) estoura
+  # LazyInitializationException - forcando os servicos a buscar os dados
+  # explicitamente (fetch join / Hibernate.initialize), o que e o correto.
+  jpa:
+    open-in-view: false
+  web:
+    resources:
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: "/**"
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true   # permite <input _method=PUT/DELETE> em formularios
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
+server:
+  port: ${SERVER_PORT:3000}
+  forward-headers-strategy: framework
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+app:
+  # Diretorio de armazenamento dos anexos
+  anexos:
+    dir: ./data/anexos
+  # Usuario administrador inicial: AdminBootstrap so cria esse usuario se a
+  # tabela usuario estiver vazia. Default (admin/admin123) vale para dev;
+  # o perfil prod (application-prod.yml) exige SGPUR_ADMIN_PASSWORD via env
+  # var e falha o boot se ela nao existir.
+  admin:
+    username: ${SGPUR_ADMIN_USER:admin}
+    password: ${SGPUR_ADMIN_PASSWORD:admin123}
+  # URL base da aplicacao, usada nos links do Portal do Avaliador nos e-mails.
+  # Sobrescreva em producao com a URL publica real (ex.: https://saur.saude.rs.gov.br).
+  base-url: ${SGPUR_BASE_URL:http://localhost:8080}
+
+  # SEGURANCA DE TESTES: em dev, TODO e-mail enviado (independente do
+  # destinatario real calculado pelo sistema) vai para este endereco -
+  # nunca para avaliadores/solicitantes reais. So aparece aqui (nao em
+  # application-prod.yml); em producao a variavel fica vazia e o envio usa
+  # o destinatario real normalmente. Ver EmailSenderService.overrideRecipient.
+  mail:
+    override-recipient: ${SGPUR_MAIL_OVERRIDE:rafaelioppi@gmail.com}
+
+  # Indicadores dos avaliadores: prazo-meta (SLA) em DIAS CORRIDOS para responder
+  # um parecer. Tempos acima desse valor sao destacados como "fora do prazo" nos
+  # KPIs de /membros e no Painel.
+  avaliador:
+    prazo-dias: ${SGPUR_PRAZO_AVALIADOR:7}
+
+  # Google Gemini API (IA generativa). PROTECAO DE DADOS: "enabled" e o
+  # kill-switch - quando false, GeminiService.perguntar() nem monta a chamada
+  # (nenhum dado sai do servidor). Aqui (base/dev) fica ligado por padrao;
+  # application-prod.yml troca o default para DESLIGADO, exigindo habilitacao
+  # explicita (SGPUR_GEMINI_ENABLED=true) apos decisao formal de tratamento
+  # de dados, ja que os recursos de IA enviam conteudo (documentos clinicos,
+  # e-mail com nome do paciente) a um provedor externo.
+  gemini:
+    enabled: ${SGPUR_GEMINI_ENABLED:true}
+    api-key: ${SGPUR_GEMINI_KEY:}
+    model: ${SGPUR_GEMINI_MODEL:gemini-2.5-flash}
+
+sgpur:
+  # Textos literais e estaveis usados na geracao dos e-mails prontos
+  # (EmailTemplateService): assinatura padrao e prefixo dos assuntos.
+  email:
+    assinatura: ${SGPUR_EMAIL_ASSINATURA:Equipe de Urgencia Renal - Secretaria de Saude}
+    prefixo-assunto: ${SGPUR_EMAIL_PREFIXO_ASSUNTO:Urgencia Renal}

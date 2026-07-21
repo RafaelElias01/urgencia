@@ -1,0 +1,43 @@
+# Perfil de producao - PostgreSQL (Neon / Vercel Postgres).
+#
+# O datasource (url/username/password) NAO fica aqui. Ele vem de:
+#  - application-local.yml (gitignored) para rodar localmente contra o Neon, OU
+#  - variaveis de ambiente no servidor de hospedagem:
+#       SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+
+# Roda atras do nginx com TLS (ver deploy/) - exige HTTPS para o cookie de
+# sessao trafegar, evitando roubo de sessao em rede insegura.
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: lax
+
+app:
+  admin:
+    # Sem default aqui de proposito: se SGPUR_ADMIN_PASSWORD nao estiver
+    # setada no ambiente, a resolucao deste placeholder falha e o boot
+    # para - em vez de subir com a senha fraca "admin123" (default usado
+    # so em dev, em application.yml).
+    password: ${SGPUR_ADMIN_PASSWORD}
+  mail:
+    # Em producao o e-mail SEMPRE vai para o destinatario real - o override
+    # de teste (application.yml, dev) fica explicitamente desligado aqui.
+    override-recipient: ""
+  # PROTECAO DE DADOS: em producao a IA fica DESLIGADA por padrao (default
+  # diferente do application.yml/dev). So liga com SGPUR_GEMINI_ENABLED=true
+  # apos decisao formal de tratamento de dados (ver GeminiService).
+  gemini:
+    enabled: ${SGPUR_GEMINI_ENABLED:false}

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Painel')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<main class="container-fluid px-3 px-lg-4 py-4">
+    <!-- Cabecalho -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold" style="color: var(--rs-gray-800);">Painel da Urgencia Renal</h1>
+            <p class="text-muted small mb-0">Dados do ano corrente
+                (<span th:text="${anoCorrente}">2026</span>): acompanhe para quais medicos cada
+                solicitacao foi enviada e a situacao de cada parecer.</p>
+        </div>
+        <a th:href="@{/processos/novo}"
+           class="btn btn-primary rounded-pill shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Novo processo
+        </a>
+    </div>
+
+    <!-- Cards de contadores -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-6 g-3 mb-4">
+        <div class="col">
+            <a th:href="@{/processos}"
+               class="stat-card text-decoration-none d-block stat-card-total"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${totalProcessos}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-collection"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Total</div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/processos}"
+               class="stat-card text-decoration-none d-block stat-card-andamento"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${emAndamento}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-hourglass-split"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Em andamento</div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/processos(status='DEFERIDO')}"
+               class="stat-card text-decoration-none d-block stat-card-deferido"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${deferidos}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-check2-circle"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Deferidos</div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/processos(status='INDEFERIDO')}"
+               class="stat-card text-decoration-none d-block stat-card-indeferido"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${indeferidos}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-x-octagon"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Indeferidos</div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/processos(status='CANCELADO')}"
+               class="stat-card text-decoration-none d-block stat-card-cancelado"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${cancelados}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-slash-circle"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Cancelados</div>
+            </a>
+        </div>
+        <div class="col">
+            <a th:href="@{/membros}"
+               class="stat-card text-decoration-none d-block stat-card-membros"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${membrosAtivos}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-people-fill"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Membros ativos</div>
+            </a>
+        </div>
+        <!-- Tempo de resposta medio total dos avaliadores -->
+        <div class="col">
+            <a th:href="@{/membros}"
+               class="stat-card text-decoration-none d-block"
+               th:classappend="${tempoDentroPrazo} ? 'stat-card-deferido' : 'stat-card-indeferido'"
+               style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);"
+                          th:text="${mediaGeralTempoTexto}">—</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-stopwatch"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);"
+                     th:title="'Meta: ' + ${prazoDiasTempo} + ' dias corridos'">Tempo de resposta</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Planilha de processos -->
+    <section class="card shadow-sm">
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <h2 class="h6 mb-0 d-flex align-items-center gap-2" style="color:var(--rs-gray-700);">
+                <i class="bi bi-table" style="color:var(--rs-blue);"></i>
+                Solicitacoes e situacao dos pareceres
+            </h2>
+            <div class="d-flex align-items-center gap-3 small text-muted">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:var(--rs-green);"></span>Favoravel</span>
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:var(--rs-red);"></span>Desfavoravel</span>
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:var(--rs-gold);"></span>Aguardando</span>
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:var(--rs-gray-300);"></span>Sem medico</span>
+            </div>
+        </div>
+
+        <div class="table-responsive dashboard-tabela-scroll">
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="sticky-top">
+                    <tr>
+                        <th class="fw-semibold text-nowrap">Nº / Ano</th>
+                        <th class="fw-semibold text-nowrap">Paciente / Solicitante</th>
+                        <th class="fw-semibold text-nowrap">Status</th>
+                        <th class="fw-semibold text-nowrap">Medico 1</th>
+                        <th class="fw-semibold text-nowrap">Medico 2</th>
+                        <th class="fw-semibold text-nowrap">Medico 3</th>
+                        <th class="fw-semibold text-center text-nowrap">Acao</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top">
+                    <tr th:each="l : ${linhas}"
+                        style="transition:var(--rs-transition);">
+                        <td class="text-nowrap align-top">
+                            <a th:href="@{/processos/{id}(id=${l.processo.id})}"
+                               class="fw-semibold link-primary text-decoration-none"
+                               th:text="${l.processo.numero}">00/0000</a>
+                            <div class="text-muted" style="font-size:.75rem;"
+                                 th:text="${#temporals.format(l.processo.dataCadastro, 'dd/MM/yyyy')}">data</div>
+                        </td>
+                        <td class="align-top" style="max-width:16rem;">
+                            <div class="fw-medium text-truncate"
+                                 th:text="${l.processo.pacienteNome}"
+                                 th:title="${l.processo.pacienteNome}">Paciente</div>
+                            <div class="text-muted text-truncate" style="font-size:.75rem;"
+                                 th:text="${l.processo.solicitanteEquipe}"
+                                 th:title="${l.processo.solicitanteEquipe}">Solicitante</div>
+                        </td>
+                        <td class="align-top text-nowrap">
+                            <span class="badge rounded-pill"
+                                  th:classappend="${l.processo.status.bootstrapBadge}">
+                                <i class="bi" th:classappend="'bi-' + ${l.processo.status.badgeIcone}"></i>
+                                <span th:text="${l.processo.status.descricao}">status</span>
+                            </span>
+                            <div th:if="${l.processo.status.isFinalizado()}">
+                                <span class="badge rounded-pill text-bg-dark" style="font-size:.65rem;">
+                                    <i class="bi bi-lock-fill"></i> Encerrado
+                                </span>
+                            </div>
+                            <div th:if="${pendencias.containsKey(l.processo.id)}"
+                                 class="mt-1 text-muted fst-italic" style="font-size:.7rem;max-width:12rem;"
+                                 th:text="${pendencias.get(l.processo.id)}"
+                                 th:title="${pendencias.get(l.processo.id)}">o que falta</div>
+                        </td>
+                        <td class="align-top" th:each="c : ${l.medicos}">
+                            <th:block th:if="${c.definido}">
+                                <div class="fw-medium text-truncate" style="font-size:.8rem;max-width:12rem;"
+                                     th:text="${c.medico}" th:title="${c.medico}">Medico</div>
+                                <span class="badge rounded-1 mt-1"
+                                      th:classappend="${c.cor == 'success'} ? 'text-bg-success' : (${c.cor == 'danger'} ? 'text-bg-danger' : (${c.cor == 'warning'} ? 'text-bg-warning text-dark' : (${c.cor == 'info'} ? 'text-bg-info' : 'text-bg-light text-muted')))">
+                                    <i class="bi" th:classappend="'bi-' + ${c.icone}"></i>
+                                    <span th:text="${c.texto}">situacao</span>
+                                </span>
+                            </th:block>
+                            <th:block th:unless="${c.definido}">
+                                <span class="fst-italic text-muted" style="font-size:.75rem;">— nao definido —</span>
+                            </th:block>
+                        </td>
+                        <td class="align-top text-center text-nowrap">
+                            <a th:href="@{/processos/{id}(id=${l.processo.id})}"
+                               class="btn btn-outline-primary btn-sm rounded-1">
+                                <i class="bi bi-eye"></i> Abrir
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${linhas.isEmpty()}">
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox d-block mb-1" style="font-size:2rem;"></i>
+                            Nenhum processo cadastrado ainda.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<div th:replace="~{layout :: footer}"></div>
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

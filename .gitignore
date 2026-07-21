@@ -1,0 +1,54 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### Mac/Windows ###
+.DS_Store
+Thumbs.db
+
+### Logs / env ###
+*.log
+.env
+application-local.properties
+application-local.yml
+
+### Dados locais (banco H2 e anexos) ###
+/data/
+
+### Deploy (segredos do servidor) ###
+deploy/sgpur.env
+
+### Pacote distribuivel (gerado) ###
+/dist/
+
+### Node / Bun (nao versionar dependencias) ###
+node_modules/
+package-lock.json
+
+### Documentos Office (modelos e referencias) ###
+*.doc
+*.docx
+*.xls
+*.xlsx
+
+### Claude Code (settings pessoais, fora do git) ###
+.claude/settings.local.json
+

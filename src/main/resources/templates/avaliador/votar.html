@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Emitir Parecer')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 720px;">
+
+    <div class="d-flex align-items-center mb-3 gap-2">
+        <a th:href="@{/avaliador}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+        <h1 class="h3 mb-0">Emitir parecer</h1>
+    </div>
+
+    <!-- Identificacao do processo — SOMENTE iniciais, sem dados do solicitante -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Processo</dt>
+                <dd class="col-sm-8 fw-semibold" th:text="${numero}">00/0000</dd>
+
+                <dt class="col-sm-4">Paciente</dt>
+                <dd class="col-sm-8">
+                    <!-- SOMENTE INICIAIS — imparcialidade do julgamento -->
+                    <span class="font-monospace fw-semibold" th:text="${iniciais}">X.X.X.</span>
+                    <span class="text-muted small ms-2">(identificado apenas pelas iniciais)</span>
+                </dd>
+
+                <dt class="col-sm-4">Enviado em</dt>
+                <dd class="col-sm-8 text-muted small"
+                    th:text="${parecer.dataEnvio != null} ? ${#temporals.format(parecer.dataEnvio, 'dd/MM/yyyy')} : '-'">-</dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Material clinico para analise -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-file-earmark-pdf text-danger"></i> Material para analise
+        </div>
+        <div class="card-body">
+            <p class="small text-muted mb-2">
+                Baixe o processo anonimizado (nome do paciente suprimido) para realizar
+                sua avaliacao clinica antes de registrar o parecer.
+            </p>
+            <div th:if="${!pdfsAvaliador.isEmpty()}">
+                <a th:each="pdf : ${pdfsAvaliador}"
+                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
+                   class="btn btn-danger mb-1" target="_blank">
+                    <i class="bi bi-download"></i>
+                    <span th:text="${pdf.nomeArquivo}">processo.pdf</span>
+                </a>
+            </div>
+            <div th:if="${pdfsAvaliador.isEmpty()}" class="alert alert-warning py-2 mb-0">
+                <i class="bi bi-exclamation-triangle"></i>
+                Nenhum PDF de avaliacao disponivel. Contate o operador da Secretaria.
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de voto -->
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-check2-square"></i> Registrar meu voto
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning py-2 mb-3">
+                <i class="bi bi-lock-fill"></i>
+                Seu voto sera registrado com sua identidade, data/hora e IP de acesso.
+                Esta acao nao pode ser desfeita.
+            </div>
+
+            <form th:action="@{/avaliador/{id}/votar(id=${processo.id})}" method="post">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Parecer *</label>
+                    <div class="d-flex flex-column gap-2">
+                        <div th:each="r : ${resultados}" class="form-check">
+                            <input class="form-check-input" type="radio" name="resultado"
+                                   th:id="${'resultado_' + r.name()}"
+                                   th:value="${r.name()}" required>
+                            <label class="form-check-label" th:for="${'resultado_' + r.name()}">
+                                <i class="bi"
+                                   th:classappend="${r.name() == 'FAVORAVEL'} ? 'bi-check-circle text-success' : (${r.name() == 'NAO_FAVORAVEL'} ? 'bi-x-circle text-danger' : 'bi-question-circle text-warning')"></i>
+                                <span th:text="${r.descricao}">Resultado</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Justificativa / observacoes (opcional)</label>
+                    <textarea name="justificativa" class="form-control" rows="4"
+                              placeholder="Descreva sua analise clinica, pontos relevantes ou fundamento do parecer..."></textarea>
+                    <div class="form-text">
+                        Opcional. Sera registrado internamente para subsidiar a decisao do processo.
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    <a th:href="@{/avaliador}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary"
+                            onclick="return confirm('Confirmar o registro do seu voto? Esta acao nao pode ser desfeita.');">
+                        <i class="bi bi-send-check"></i> Registrar meu voto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

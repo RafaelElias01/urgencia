@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Controle de Urgencias')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-clock-history me-2"></i>Urgencias para Transplante Renal
+        </h1>
+        <a th:href="@{/controle-urgencias/novo}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Novo registro
+        </a>
+    </div>
+
+    <!-- Cards de resumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body text-center py-3">
+                    <span class="badge bg-primary fs-5 mb-1" th:text="${ativas}">0</span>
+                    <div class="small text-muted">Ativas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body text-center py-3">
+                    <span class="badge bg-success fs-5 mb-1" th:text="${renovadas}">0</span>
+                    <div class="small text-muted">Renovadas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-warning h-100">
+                <div class="card-body text-center py-3">
+                    <span class="badge bg-warning text-dark fs-5 mb-1" th:text="${expiradas}">0</span>
+                    <div class="small text-muted">Expiradas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body text-center py-3">
+                    <span class="badge bg-secondary fs-5 mb-1" th:text="${canceladas}">0</span>
+                    <div class="small text-muted">Canceladas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Nome</th>
+                        <th class="d-none d-md-table-cell">RGCT</th>
+                        <th>Equipe</th>
+                        <th class="d-none d-md-table-cell">ABO</th>
+                        <th>Vencimento</th>
+                        <th class="d-none d-md-table-cell">Ultima renovacao</th>
+                        <th>Situacao</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="r : ${registros}">
+                        <td th:text="${r.nomePaciente}">Paciente</td>
+                        <td class="small text-muted d-none d-md-table-cell" th:text="${r.rgct} ?: '-'">RGCT</td>
+                        <td class="small" th:text="${r.equipe} ?: '-'">Equipe</td>
+                        <td class="d-none d-md-table-cell">
+                            <span th:if="${r.abo}" class="badge bg-light text-dark border"
+                                  th:text="${r.abo}">AB</span>
+                            <span th:unless="${r.abo}">-</span>
+                        </td>
+                        <td th:text="${#temporals.format(r.dataVencimento, 'dd/MM/yyyy')}">01/01/2026</td>
+                        <td class="small text-muted d-none d-md-table-cell" th:text="${r.dataUltimaRenovacao != null} ? ${#temporals.format(r.dataUltimaRenovacao, 'dd/MM/yyyy')} : '-'">-</td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${r.situacao.name() == 'ATIVA'} ? 'bg-primary' : (${r.situacao.name() == 'RENOVADA'} ? 'bg-success' : (${r.situacao.name() == 'EXPIRADA'} ? 'bg-warning text-dark' : 'bg-secondary'))"
+                                  th:text="${r.situacao.descricao}">Ativa</span>
+                            <span th:if="${r.situacao.name() == 'ATIVA' and r.dataVencimento lt hoje}"
+                                  class="badge bg-danger ms-1">Vencida</span>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a th:href="@{/controle-urgencias/{id}/editar(id=${r.id})}"
+                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
+                                  th:action="@{/controle-urgencias/{id}/renovar(id=${r.id})}"
+                                  method="post" class="d-inline">
+                                <button class="btn btn-sm btn-outline-success" title="Renovar por mais 30 dias">
+                                    <i class="bi bi-arrow-clockwise"></i> Renovar
+                                </button>
+                            </form>
+                            <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
+                                  th:action="@{/controle-urgencias/{id}/cancelar(id=${r.id})}"
+                                  method="post" class="d-inline"
+                                  onsubmit="return confirm('Cancelar esta urgencia?')">
+                                <button class="btn btn-sm btn-outline-danger" title="Cancelar">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${registros.isEmpty()}">
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Nenhum registro de urgencia cadastrado.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

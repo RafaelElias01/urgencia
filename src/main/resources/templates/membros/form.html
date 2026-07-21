@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Membro')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 640px;">
+    <h1 class="h3 mb-3" th:text="${membro.id} ? 'Editar membro' : 'Novo membro'">Membro</h1>
+
+    <form th:action="@{/membros}" th:object="${membro}" method="post" class="card">
+        <div class="card-body">
+            <input type="hidden" th:field="*{id}">
+            <div class="mb-3">
+                <label class="form-label">Instituicao (sigla) *</label>
+                <input type="text" th:field="*{instituicao}" class="form-control" placeholder="HCPA">
+                <div class="text-danger small" th:errors="*{instituicao}"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nome do medico *</label>
+                <input type="text" th:field="*{nome}" class="form-control">
+                <div class="text-danger small" th:errors="*{nome}"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">E-mail</label>
+                <input type="email" th:field="*{email}" class="form-control">
+                <div class="text-danger small" th:errors="*{email}"></div>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" th:field="*{ativo}" class="form-check-input" id="ativo">
+                <label class="form-check-label" for="ativo">Ativo</label>
+            </div>
+            <div class="form-check mt-2">
+                <input type="checkbox" th:field="*{coordenador}" class="form-check-input" id="coordenador">
+                <label class="form-check-label" for="coordenador">
+                    Coordenador CET-RS (voto favoravel defere o processo independentemente dos demais pareceres)
+                </label>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a th:href="@{/membros}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+    </form>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

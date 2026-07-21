@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Esqueci minha senha')}"></head>
+<body style="background: linear-gradient(135deg, #1a4d8f 0%, #0f3163 50%, #061a33 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+<div class="container" style="max-width: 420px; padding: 2rem;">
+    <div class="text-center mb-4 animate-fade-in">
+        <div class="d-inline-flex align-items-center justify-content-center"
+             style="width:72px;height:72px;border-radius:20px;background:rgba(255,255,255,.12);backdrop-filter:blur(4px);">
+            <i class="bi bi-droplet-fill text-warning" style="font-size:2.25rem;"></i>
+        </div>
+        <h1 class="h3 text-white mt-3 fw-bold" style="letter-spacing:-.02em;">SAUR</h1>
+        <p class="text-white-50 small" style="letter-spacing:.02em;">Redefinir senha</p>
+    </div>
+    <div class="card shadow-lg animate-fade-in-d1" style="border:none;border-radius:16px;backdrop-filter:blur(8px);background:rgba(255,255,255,.95);">
+        <div class="card-body p-4">
+            <div th:if="${sucesso}" class="alert alert-success py-2" th:text="${msgRedefinicao}"></div>
+            <div th:if="${erroRedefinicao}" class="alert alert-danger py-2" th:text="${erroRedefinicao}"></div>
+            <p class="text-muted small mb-3" th:unless="${sucesso}">
+                Informe seu login para receber uma senha temporaria.
+                Apos o login, troque a senha na edicao do seu perfil.
+            </p>
+            <form th:action="@{/usuarios/esqueci-senha}" method="post" th:unless="${sucesso}">
+                <div class="mb-3">
+                    <label class="form-label">Login</label>
+                    <input type="text" name="username" class="form-control" autofocus required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Redefinir senha</button>
+            </form>
+            <div class="text-center mt-3">
+                <a th:href="@{/login}" class="text-muted small">Voltar ao login</a>
+            </div>
+        </div>
+    </div>
+    <p class="text-center text-white-50 mt-4" style="font-size:.7rem;opacity:.7;">Produzido por Rafael Elias Ioppi</p>
+</div>
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

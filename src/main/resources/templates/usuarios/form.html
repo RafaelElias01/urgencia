@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Usuario')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 640px;">
+    <h1 class="h3 mb-3" th:text="${edicao} ? 'Editar usuario' : 'Novo usuario'">Usuario</h1>
+
+    <div th:if="${erro}" class="alert alert-danger" th:text="${erro}"></div>
+
+    <form th:object="${usuario}" method="post"
+          th:action="${edicao} ? @{/usuarios/{id}/editar(id=${usuario.id})} : @{/usuarios}"
+          class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Login *</label>
+                <input type="text" th:field="*{username}" class="form-control">
+                <div class="text-danger small" th:errors="*{username}"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nome *</label>
+                <input type="text" th:field="*{nome}" class="form-control">
+                <div class="text-danger small" th:errors="*{nome}"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">E-mail *</label>
+                <input type="email" th:field="*{email}" class="form-control" required>
+                <div class="text-danger small" th:errors="*{email}"></div>
+                <div class="form-text text-muted">
+                    Usado para enviar a nova senha em "Esqueci minha senha".
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Perfil *</label>
+                <select th:field="*{perfil}" class="form-select" id="perfilSelect">
+                    <option th:each="pf : ${perfis}" th:value="${pf.name()}" th:text="${pf.descricao}"></option>
+                </select>
+            </div>
+
+            <!-- Membro vinculado: visivel e obrigatorio apenas para perfil AVALIADOR -->
+            <div class="mb-3" id="membroBox">
+                <label class="form-label">Membro da Urgencia Renal vinculado *</label>
+                <select name="membroId" class="form-select" id="membroSelect">
+                    <option value="">-- selecione o medico avaliador --</option>
+                    <option th:each="m : ${membros}"
+                            th:value="${m.id}"
+                            th:text="${m.rotulo}"
+                            th:selected="${usuario.membro != null and usuario.membro.id == m.id}"></option>
+                </select>
+                <div class="form-text text-muted">
+                    Identifica qual medico este login representa no Portal do Avaliador (/avaliador).
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" th:text="${edicao} ? 'Nova senha (deixe vazio para manter)' : 'Senha *'">Senha</label>
+                <div class="input-group">
+                    <input type="password" name="senha" class="form-control" id="senhaForm" autocomplete="new-password">
+                    <button class="btn btn-outline-secondary" type="button" id="olhoSenhaForm">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="text-danger small" th:errors="*{senha}"></div>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" th:field="*{ativo}" class="form-check-input" id="ativo">
+                <label class="form-check-label" for="ativo">Ativo</label>
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a th:href="@{/usuarios}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+    </form>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+<script>
+(function () {
+    var perfilSelect = document.getElementById('perfilSelect');
+    var membroBox = document.getElementById('membroBox');
+    var membroSelect = document.getElementById('membroSelect');
+
+    function atualizarMembro() {
+        var ehAvaliador = perfilSelect.value === 'AVALIADOR';
+        membroBox.style.display = ehAvaliador ? '' : 'none';
+        membroSelect.required = ehAvaliador;
+    }
+
+    perfilSelect.addEventListener('change', atualizarMembro);
+    atualizarMembro();
+
+    document.getElementById('olhoSenhaForm')?.addEventListener('click', function () {
+        var input = document.getElementById('senhaForm');
+        var icon = this.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'bi bi-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'bi bi-eye';
+        }
+    });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Ops')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<main class="container py-5" style="min-height:60vh;">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card text-center shadow-sm animate-fade-in">
+                <div class="card-body py-5">
+                    <div style="font-size:3rem;color:var(--rs-gold);">&#9888;&#65039;</div>
+                    <h1 class="h4 mt-3" style="color:var(--rs-gray-800);">Algo deu errado</h1>
+                    <p class="text-muted">
+                        <span th:text="${status}">500</span>
+                        <span th:if="${error}" th:text="' - ' + ${error}"></span>
+                    </p>
+                    <p class="text-muted small" th:if="${message != null and message != 'No message available'}"
+                       th:text="${message}"></p>
+                    <a th:href="@{/}" class="btn btn-primary mt-3 rounded-pill">
+                        <i class="bi bi-arrow-left me-1"></i> Voltar ao painel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="~{layout :: footer}"></div>
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

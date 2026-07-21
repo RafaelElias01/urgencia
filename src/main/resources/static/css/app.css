@@ -1,0 +1,820 @@
+/* === SAUR - Tema Urgencia Renal === */
+/* Paleta SAUR: azul #1a4d8f (primaria), ouro #f5a623, verde #2d8546 */
+/* A fonte Inter e carregada via <link rel="preconnect"/"stylesheet"> no
+   layout.html (nao por @import, que e render-blocking). Fallback: system-ui. */
+
+:root {
+    --rs-blue: #1a4d8f;
+    --rs-blue-rgb: 26,77,143;       /* componentes do --rs-blue, para uso em rgba() */
+    --rs-blue-light: #e3edf7;
+    --rs-blue-dark: #0f3163;
+    --rs-gold: #f5a623;
+    --rs-gold-light: #fef3e2;
+    --rs-gold-dark: #755a12;        /* texto de badge/alert ouro com contraste AA */
+    --rs-green: #2d8546;
+    --rs-green-light: #e8f5ed;
+    --rs-green-dark: #1f6b36;       /* texto de badge/alert verde com contraste AA */
+    --rs-green-bright: #38a169;     /* acento da barra de progresso concluida */
+    --rs-red: #c62828;
+    --rs-red-light: #fce8e8;
+    --rs-red-dark: #8b1a1a;         /* texto de alert vermelho */
+    --rs-info-light: #e8f0fe;
+    --rs-info-dark: #003366;
+    --rs-gray-50: #f8fafc;
+    --rs-gray-100: #f1f5f9;
+    --rs-gray-200: #e2e8f0;
+    --rs-gray-300: #cbd5e1;
+    --rs-gray-400: #94a3b8;
+    --rs-gray-500: #64748b;
+    --rs-gray-600: #475569;
+    --rs-gray-700: #334155;
+    --rs-gray-800: #1e293b;
+    --rs-shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+    --rs-shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+    --rs-shadow-md: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+    --rs-shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
+    /* Lista explicita (nao 'all') para nao animar propriedades de layout */
+    --rs-transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, var(--rs-gray-50) 0%, var(--rs-gray-100) 100%);
+    min-height: 100vh;
+    color: var(--rs-gray-800);
+}
+
+/* === Navbar === */
+.navbar-sgpur {
+    background: linear-gradient(135deg, var(--rs-blue) 0%, var(--rs-blue-dark) 100%) !important;
+    box-shadow: 0 2px 8px rgba(26,77,143,.35);
+    border-bottom: 2px solid var(--rs-gold);
+}
+
+.navbar-sgpur .navbar-brand {
+    letter-spacing: -0.02em;
+    color: #fff;
+}
+
+/* Fontes claras sobre o fundo azul forte do menu (o Bootstrap padrao usaria
+   links escuros, quase ilegiveis). navbar-dark ja ajuda; reforcamos o contraste. */
+.navbar-sgpur .nav-link {
+    position: relative;
+    transition: var(--rs-transition);
+    color: rgba(255,255,255,.85);
+}
+
+.navbar-sgpur .nav-link:hover,
+.navbar-sgpur .nav-link.active {
+    color: #fff;
+}
+
+.navbar-sgpur .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: var(--rs-gold);
+    transition: width .2s ease;  /* animacao intencional de largura do sublinhado */
+    transform: translateX(-50%);
+}
+
+.navbar-sgpur .nav-link:hover::after,
+.navbar-sgpur .nav-link.active::after { width: 80%; }
+
+.navbar-sgpur .nav-link:hover { opacity: .9; }
+
+/* Marcador de status padrao do sistema (fragments layout :: status / statusNa).
+   Alinhamento e tamanho consistentes do icone em qualquer contexto. */
+.status-mark { display: inline-flex; align-items: center; gap: .3rem; }
+.status-mark i {
+    font-size: 1.05rem;
+    vertical-align: -0.1em;
+    line-height: 1;
+}
+/* O "x" (pendente) do bootstrap-icons e visualmente mais fino que o "check":
+   engrossa o traco com text-shadow (icone de fonte nao tem variante bold). */
+.status-mark .bi-x-lg {
+    font-size: 1.2rem;
+    text-shadow: 0 0 .4px currentColor, 0 0 .4px currentColor;
+}
+
+/* Linha de membro/usuario inativo: fundo cinza visivel + faixa lateral e texto
+   atenuado, para distinguir claramente na listagem sem ser gritante.
+   !important vence a cor de fundo que o Bootstrap aplica na tabela (--bs-table-bg). */
+tr.linha-inativa > td {
+    background-color: var(--rs-gray-200) !important;
+    color: var(--rs-gray-600);
+}
+
+tr.linha-inativa > td:first-child {
+    box-shadow: inset 3px 0 0 0 var(--rs-gray-400);
+}
+
+/* === Cards aprimorados === */
+.card {
+    /* raio via variaveis do Bootstrap: o proprio .card-header herda o
+       inner-radius e nao precisa mais de border-radius com !important */
+    --bs-card-border-radius: 12px;
+    --bs-card-inner-border-radius: 11px;
+    border: none;
+    box-shadow: var(--rs-shadow);
+    transition: var(--rs-transition);
+}
+
+.card:hover { box-shadow: var(--rs-shadow-md); }
+
+.card-header {
+    background: linear-gradient(135deg, var(--rs-gray-50), var(--rs-gray-100));
+    border-bottom: 1px solid var(--rs-gray-200);
+    font-weight: 600;
+    font-size: .875rem;
+    padding: .75rem 1rem;
+}
+
+/* === Tabela de pareceres (respostas dos avaliadores) === */
+.tabela-pareceres {
+    width: 100%;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .8125rem;
+}
+.tabela-pareceres thead th {
+    padding: .45rem .6rem;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--rs-gray-500);
+    background: var(--rs-gray-100);
+    border-bottom: 2px solid var(--rs-gray-200);
+    white-space: nowrap;
+}
+.tabela-pareceres tbody td {
+    padding: .5rem .6rem;
+    vertical-align: middle;
+    line-height: 1.35;
+    border-bottom: 1px solid var(--rs-gray-200);
+}
+.tabela-pareceres tbody tr:hover td {
+    background: var(--rs-gray-100);
+}
+.tabela-pareceres th:first-child,
+.tabela-pareceres td:first-child {
+    padding-left: .75rem;
+}
+.tabela-pareceres th:last-child,
+.tabela-pareceres td:last-child {
+    padding-right: .75rem;
+}
+/* Coluna Medico: nome inteiro sem quebra agressiva, com peso visual */
+.tabela-pareceres td:first-child {
+    font-weight: 600;
+    min-width: 160px;
+}
+.tabela-pareceres th:nth-child(2),
+.tabela-pareceres td:nth-child(2) {
+    white-space: normal;
+    min-width: 110px;
+}
+/* Colunas Data / Origem / Resposta: nao deixar espremer */
+.tabela-pareceres th:nth-child(3),
+.tabela-pareceres td:nth-child(3),
+.tabela-pareceres th:nth-child(4),
+.tabela-pareceres td:nth-child(4),
+.tabela-pareceres th:nth-child(5),
+.tabela-pareceres td:nth-child(5) {
+    white-space: nowrap;
+}
+.tabela-pareceres th:nth-child(6),
+.tabela-pareceres td:nth-child(6) {
+    min-width: 360px;
+    width: 40%;
+}
+.tabela-pareceres .badge {
+    font-size: .7rem;
+    font-weight: 600;
+    padding: .3em .55em;
+}
+/* Tipografia/espacamento compactos dos controles: ver bloco ".acao-form"
+   (layout flex) mais abaixo, na secao "Acao column na tabela de pareceres". */
+.tabela-pareceres .btn-sm {
+    font-size: .75rem;
+    padding: .25rem .5rem;
+}
+
+/* === Wizard horizontal (passo a passo) === */
+.wizard {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 1.5rem 0 .5rem;
+    margin-bottom: 1.5rem;
+}
+
+.wizard::before {
+    content: '';
+    position: absolute;
+    top: 2.25rem;
+    left: 3rem;
+    right: 3rem;
+    height: 3px;
+    background: var(--rs-gray-200);
+    z-index: 0;
+}
+
+.wizard-step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.wizard-step .wizard-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .875rem;
+    font-weight: 700;
+    transition: var(--rs-transition);
+    border: 3px solid var(--rs-gray-200);
+    background: #fff;
+    color: var(--rs-gray-400);
+    margin-bottom: .4rem;
+}
+
+.wizard-step .wizard-label {
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    text-align: center;
+    color: var(--rs-gray-400);
+    transition: var(--rs-transition);
+    line-height: 1.2;
+}
+
+/* Concluida */
+.wizard-step.concluida .wizard-circle {
+    background: var(--rs-green);
+    border-color: var(--rs-green);
+    color: #fff;
+}
+
+.wizard-step.concluida .wizard-label { color: var(--rs-green); }
+
+/* Atual */
+.wizard-step.atual .wizard-circle {
+    background: var(--rs-blue);
+    border-color: var(--rs-blue);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(var(--rs-blue-rgb),.2);
+    animation: pulse-ring 2s infinite;
+}
+
+.wizard-step.atual .wizard-label { color: var(--rs-blue); font-weight: 700; }
+
+/* Foco por teclado visivel na navegacao do wizard */
+.wizard-step:focus-visible { outline: none; }
+.wizard-step:focus-visible .wizard-circle {
+    box-shadow: 0 0 0 3px rgba(var(--rs-blue-rgb),.35);
+}
+
+/* Bloqueada */
+.wizard-step.bloqueada { opacity: .5; cursor: not-allowed; }
+
+.wizard-step.bloqueada .wizard-circle { background: var(--rs-gray-100); }
+
+@keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(var(--rs-blue-rgb),.4); }
+    70% { box-shadow: 0 0 0 10px rgba(var(--rs-blue-rgb),0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--rs-blue-rgb),0); }
+}
+
+/* === Timeline vertical === */
+.timeline {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--rs-gray-200);
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 1.25rem;
+    padding-left: .5rem;
+}
+
+.timeline-item:last-child { padding-bottom: 0; }
+
+.timeline-dot {
+    position: absolute;
+    left: -1.65rem;
+    top: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    border: 2px solid var(--rs-gray-200);
+    background: #fff;
+    color: var(--rs-gray-400);
+    transition: var(--rs-transition);
+    z-index: 1;
+}
+
+.timeline-item.concluida .timeline-dot {
+    background: var(--rs-green);
+    border-color: var(--rs-green);
+    color: #fff;
+}
+
+.timeline-item.atual .timeline-dot {
+    background: var(--rs-blue);
+    border-color: var(--rs-blue);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(var(--rs-blue-rgb),.2);
+    animation: pulse-ring 2s infinite;
+}
+
+.timeline-item.pendente .timeline-dot { background: var(--rs-gray-100); }
+
+.timeline-item .timeline-title {
+    font-weight: 600;
+    font-size: .85rem;
+    margin-bottom: .15rem;
+}
+
+.timeline-item.concluida .timeline-title { color: var(--rs-green); }
+
+.timeline-item.atual .timeline-title { color: var(--rs-blue); }
+
+.timeline-item.pendente .timeline-title { color: var(--rs-gray-400); }
+
+.timeline-item .timeline-desc {
+    font-size: .78rem;
+    color: var(--rs-gray-500);
+}
+
+/* === Badges com cor === */
+.badge-rs-blue { background: var(--rs-blue-light); color: var(--rs-blue); }
+.badge-rs-gold { background: var(--rs-gold-light); color: var(--rs-gold-dark); }
+.badge-rs-green { background: var(--rs-green-light); color: var(--rs-green-dark); }
+.badge-rs-red { background: var(--rs-red-light); color: var(--rs-red); }
+
+/* === Animacoes === */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fadeInUp .4s ease both; }
+
+.animate-fade-in-d1 { animation: fadeInUp .4s ease .1s both; }
+.animate-fade-in-d2 { animation: fadeInUp .4s ease .2s both; }
+.animate-fade-in-d3 { animation: fadeInUp .4s ease .3s both; }
+.animate-fade-in-d4 { animation: fadeInUp .4s ease .4s both; }
+.animate-fade-in-d5 { animation: fadeInUp .4s ease .5s both; }
+
+@keyframes countUp {
+    from { opacity: 0; transform: scale(.5); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.count-animate { animation: countUp .5s ease both; }
+
+/* === Link com hover na cor institucional (ex.: "Esqueci minha senha") === */
+.link-hover-primary:hover { color: var(--rs-blue) !important; }
+
+/* === Botoes com gradiente ===
+   Redefine as variaveis --bs-btn-* para que TODOS os estados (hover, active,
+   disabled, focus) usem a paleta SAUR, e nao o azul padrao do Bootstrap. */
+.btn-primary {
+    --bs-btn-bg: var(--rs-blue);
+    --bs-btn-border-color: var(--rs-blue);
+    --bs-btn-hover-bg: var(--rs-blue-dark);
+    --bs-btn-hover-border-color: var(--rs-blue-dark);
+    --bs-btn-active-bg: var(--rs-blue-dark);
+    --bs-btn-active-border-color: var(--rs-blue-dark);
+    --bs-btn-disabled-bg: var(--rs-blue);
+    --bs-btn-disabled-border-color: var(--rs-blue);
+    --bs-btn-focus-shadow-rgb: var(--rs-blue-rgb);
+    /* usa background-image (nao o shorthand) para o --bs-btn-*-bg continuar
+       existindo por baixo do gradiente */
+    background-image: linear-gradient(135deg, var(--rs-blue), var(--rs-blue-dark));
+    border: none;
+    box-shadow: 0 2px 4px rgba(var(--rs-blue-rgb),.25);
+    transition: var(--rs-transition);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(var(--rs-blue-rgb),.35);
+}
+
+/* No clique/desabilitado remove o gradiente para o --bs-btn-*-bg aparecer
+   (feedback visivel de :active e estado disabled) */
+.btn-primary:active,
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-image: none;
+    transform: none;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--rs-blue);
+    --bs-btn-border-color: var(--rs-blue);
+    --bs-btn-hover-bg: var(--rs-blue);
+    --bs-btn-hover-border-color: var(--rs-blue);
+    --bs-btn-active-bg: var(--rs-blue-dark);
+    --bs-btn-active-border-color: var(--rs-blue-dark);
+    --bs-btn-disabled-color: var(--rs-blue);
+    --bs-btn-disabled-border-color: var(--rs-blue);
+    --bs-btn-focus-shadow-rgb: var(--rs-blue-rgb);
+    transition: var(--rs-transition);
+}
+
+.btn-outline-primary:hover { transform: translateY(-1px); }
+.btn-outline-primary:active { transform: none; }
+
+/* === Tabelas === */
+.table thead th {
+    background: var(--rs-gray-100);
+    font-weight: 600;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--rs-gray-600);
+    border-bottom: 2px solid var(--rs-gray-200);
+}
+
+.table tbody tr {
+    transition: var(--rs-transition);
+}
+
+/* Hover so em tabelas que optaram por .table-hover, via variavel do Bootstrap
+   (nao afeta .table-striped nem as variantes .table-* e sem !important) */
+.table-hover { --bs-table-hover-bg: var(--rs-blue-light); }
+
+/* Forms dentro de tabela (aba Respostas): controles nao vazam da celula */
+.table td form { min-width: 0; }
+.table td form .form-select,
+.table td form .form-control { width: 100%; }
+
+/* Evita estouro de conteúdo em células da tabela: quebra palavras longas e permite wrap */
+.table td { overflow-wrap: break-word; white-space: normal; }
+
+/* Botões de anexar respostas: manter texto em uma linha, evitar deslocamento de layout */
+.btn-anexar-resposta { white-space: nowrap; }
+
+/* === Form controls === */
+.form-control, .form-select {
+    border-radius: 8px;
+    border-color: var(--rs-gray-200);
+    transition: var(--rs-transition);
+    font-size: .875rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--rs-blue);
+    box-shadow: 0 0 0 3px rgba(var(--rs-blue-rgb),.25);
+}
+
+/* === Progress bar === */
+.progress {
+    background: var(--rs-gray-100);
+    border-radius: 100px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, var(--rs-blue), var(--rs-green));
+    transition: width .6s ease;
+}
+
+.progress-bar.complete { background: linear-gradient(90deg, var(--rs-green), var(--rs-green-bright)); }
+
+/* === Alertas === */
+.alert {
+    border: none;
+    border-radius: 10px;
+    box-shadow: var(--rs-shadow-sm);
+}
+
+.alert-success { background: var(--rs-green-light); color: var(--rs-green-dark); }
+.alert-danger { background: var(--rs-red-light); color: var(--rs-red-dark); }
+.alert-warning { background: var(--rs-gold-light); color: var(--rs-gold-dark); }
+.alert-info { background: var(--rs-info-light); color: var(--rs-info-dark); }
+
+/* === Paginacao === */
+.page-link {
+    border-radius: 8px !important;
+    margin: 0 2px;
+    border: 1px solid var(--rs-gray-200);
+    color: var(--rs-gray-600);
+    transition: var(--rs-transition);
+}
+
+.page-link:hover {
+    background: var(--rs-blue-light);
+    border-color: var(--rs-blue);
+    color: var(--rs-blue);
+}
+
+.page-item.active .page-link {
+    background: var(--rs-blue);
+    border-color: var(--rs-blue);
+}
+
+/* === Footer === */
+.footer-sgpur {
+    background: var(--rs-gray-800);
+    color: var(--rs-gray-400);
+    font-size: .8rem;
+    padding: 1rem;
+    text-align: center;
+    border-top: 2px solid var(--rs-gold);
+}
+
+/* === Card estatisticas === */
+.stat-card {
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: var(--rs-transition);
+    cursor: pointer;
+    border: none;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--rs-shadow-lg);
+}
+
+.stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.stat-card .stat-number {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.stat-card .stat-label {
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-top: .25rem;
+}
+
+/* === Secao de wizard content com fade === */
+.wizard-content {
+    animation: fadeInUp .3s ease both;
+}
+
+/* === Aba Envio: evita quebra visual por nomes longos de anexos === */
+#pane-envio .list-group-item {
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+#pane-envio .list-group-item > span {
+    min-width: 0;
+    flex: 1 1 320px;
+    overflow-wrap: anywhere;
+}
+
+#pane-envio .list-group-item form {
+    flex: 0 0 auto;
+}
+
+/* === Acao column na tabela de pareceres - quebra em vez de cortar/espremer ===
+   (tipografia + layout dos controles ficam juntos aqui) */
+.tabela-pareceres .acao-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .375rem;
+}
+.tabela-pareceres .acao-form .form-select-sm,
+.tabela-pareceres .acao-form .form-control-sm {
+    font-size: .78rem;
+    padding: .2rem .4rem;
+    width: auto;
+}
+.tabela-pareceres .acao-form .form-select-sm {
+    min-width: 110px;
+    flex: 1 1 110px;
+}
+.tabela-pareceres .acao-form .form-control-sm {
+    min-width: 120px;
+    flex: 1 1 120px;
+}
+.tabela-pareceres .acao-form .btn-sm {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.tabela-pareceres .btn-lembrete-avaliador {
+    white-space: nowrap;
+}
+
+/* === Variantes de stat-card para o Painel ===
+   Usam as --rs-* colors em vez de classes Tailwind. Cada variante define as
+   cores de fundo, borda, texto e icone via CSS properties herdadas. */
+.stat-card {
+    --stat-bg: #fff;
+    --stat-border: var(--rs-gray-200);
+    --stat-text: var(--rs-gray-800);
+    --stat-icon-bg: var(--rs-gray-100);
+    --stat-icon-color: var(--rs-gray-500);
+}
+.stat-card-total     { --stat-bg: #fff; --stat-border: var(--rs-gray-200); --stat-text: var(--rs-gray-800); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
+.stat-card-andamento { --stat-bg: #fef3e2; --stat-border: var(--rs-gold); --stat-text: var(--rs-gold-dark); --stat-icon-bg: #fef3e2; --stat-icon-color: var(--rs-gold); }
+.stat-card-deferido  { --stat-bg: #e8f5ed; --stat-border: var(--rs-green); --stat-text: var(--rs-green-dark); --stat-icon-bg: #e8f5ed; --stat-icon-color: var(--rs-green); }
+.stat-card-indeferido{ --stat-bg: #fce8e8; --stat-border: var(--rs-red); --stat-text: var(--rs-red-dark); --stat-icon-bg: #fce8e8; --stat-icon-color: var(--rs-red); }
+.stat-card-cancelado { --stat-bg: #fff; --stat-border: var(--rs-gray-300); --stat-text: var(--rs-gray-500); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
+.stat-card-membros   { --stat-bg: #e3edf7; --stat-border: var(--rs-blue); --stat-text: var(--rs-blue); --stat-icon-bg: #e3edf7; --stat-icon-color: var(--rs-blue); }
+.stat-card-tempo     { --stat-bg: #fff; --stat-border: var(--rs-gray-200); --stat-text: var(--rs-gray-800); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
+
+/* Tabela do dashboard: scroll vertical so em desktop (evita cortar conteudo em mobile) */
+@media (min-width: 768px) {
+    .dashboard-tabela-scroll { max-height: 70vh; overflow-y: auto; }
+}
+
+/* === Toast de notificacao (feedback nao-intrusivo) === */
+.toast-container-sgpur {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    pointer-events: none;
+}
+.toast-sgpur {
+    pointer-events: auto;
+    min-width: 280px;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: var(--rs-shadow-lg);
+    border-left: 4px solid var(--rs-gray-400);
+    padding: .875rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    animation: toastIn .3s ease both;
+    font-size: .875rem;
+}
+.toast-sgpur.toast-success { border-left-color: var(--rs-green); }
+.toast-sgpur.toast-error   { border-left-color: var(--rs-red); }
+.toast-sgpur.toast-info    { border-left-color: var(--rs-blue); }
+.toast-sgpur .toast-icon   { font-size: 1.2rem; line-height: 1; flex-shrink: 0; }
+.toast-sgpur .toast-body   { flex: 1; min-width: 0; }
+.toast-sgpur .toast-close  {
+    background: none; border: none; font-size: 1rem; line-height: 1;
+    cursor: pointer; color: var(--rs-gray-400); padding: 0; flex-shrink: 0;
+}
+.toast-sgpur .toast-close:hover { color: var(--rs-gray-700); }
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(100%); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* === Scrollbar personalizada (apenas desktop) === */
+@media (min-width: 768px) {
+    /* Firefox */
+    * { scrollbar-width: thin; scrollbar-color: var(--rs-gray-300) var(--rs-gray-100); }
+    /* WebKit/Blink */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--rs-gray-100); }
+    ::-webkit-scrollbar-thumb { background: var(--rs-gray-300); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--rs-gray-400); }
+}
+
+/* === Responsivo: wizard vira scroll horizontal em mobile === */
+@media (max-width: 768px) {
+    .wizard {
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 1rem;
+        padding-top: 1rem;
+        gap: 0;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    .wizard-step {
+        min-width: 85px;
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+        padding: 0 .25rem;
+    }
+    .wizard::before { display: none; }
+    .wizard-step .wizard-circle { width: 40px; height: 40px; font-size: .75rem; }
+    .wizard-step .wizard-label { font-size: .6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85px; }
+    /* Sombra sutil indicando que ha mais passos para scroll */
+    .wizard-wrapper { position: relative; }
+    .wizard-wrapper::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 24px;
+        background: linear-gradient(to left, rgba(255,255,255,.8), transparent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity .3s;
+    }
+    .wizard-wrapper.can-scroll::after { opacity: 1; }
+
+    /* Em telas estreitas, deixa as colunas Data/Origem/Resposta quebrarem
+       para reduzir a largura minima da tabela de pareceres */
+    .tabela-pareceres th:nth-child(3),
+    .tabela-pareceres td:nth-child(3),
+    .tabela-pareceres th:nth-child(4),
+    .tabela-pareceres td:nth-child(4),
+    .tabela-pareceres th:nth-child(5),
+    .tabela-pareceres td:nth-child(5) {
+        white-space: normal;
+    }
+
+    /* G1: reduz a largura minima da coluna Acao em mobile para evitar
+       scroll horizontal excessivo */
+    .tabela-pareceres th:nth-child(6),
+    .tabela-pareceres td:nth-child(6) {
+        min-width: 220px;
+        width: auto;
+    }
+
+    #pane-envio .list-group-item {
+        align-items: flex-start !important;
+    }
+}
+
+/* === Responsivo: celulares pequenos (< 576px) === */
+@media (max-width: 576px) {
+    /* Reduz tamanho dos stat-cards no dashboard */
+    .stat-card .stat-number { font-size: 1.25rem; }
+    .stat-card .stat-icon { width: 36px; height: 36px; font-size: 1rem; }
+    .stat-card { padding: .75rem; }
+
+    /* Toast ocupa largura total com margem */
+    .toast-container-sgpur { left: .5rem; right: .5rem; }
+    .toast-sgpur { max-width: 100%; min-width: 0; }
+
+    /* Reduz padding de cards */
+    .card-body { padding: .75rem; }
+
+    /* Cards de resumo no controle-urgencias: texto dos badges menor */
+    .badge.fs-5 { font-size: 1rem !important; }
+}
+
+/* === Acessibilidade: respeita 'reduzir movimento' do sistema ===
+   Desliga a animacao infinita (pulse-ring) e neutraliza as entradas com fade. */
+@media (prefers-reduced-motion: reduce) {
+    .wizard-step.atual .wizard-circle,
+    .timeline-item.atual .timeline-dot {
+        animation: none;
+    }
+    .animate-fade-in,
+    .animate-fade-in-d1,
+    .animate-fade-in-d2,
+    .animate-fade-in-d3,
+    .animate-fade-in-d4,
+    .animate-fade-in-d5,
+    .count-animate,
+    .wizard-content {
+        animation-duration: .01ms;
+        animation-iteration-count: 1;
+    }
+    * { transition-duration: .01ms !important; }
+}

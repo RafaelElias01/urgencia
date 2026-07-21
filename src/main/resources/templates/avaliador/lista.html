@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Meu Painel do Avaliador')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 980px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-clipboard2-pulse"></i> Meu painel do avaliador
+            </h1>
+            <p class="text-muted small mb-0" th:text="'Avaliador: ' + ${membro.rotulo}">Avaliador</p>
+        </div>
+    </div>
+
+    <!-- Painel de contadores consolidados das MINHAS avaliacoes -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100 border-warning">
+                <div class="card-body py-3">
+                    <i class="bi bi-hourglass-split fs-3 text-warning"></i>
+                    <div class="fs-3 fw-bold" th:text="${totalPendentes}">0</div>
+                    <div class="small text-muted">Pendentes (a votar)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body py-3">
+                    <i class="bi bi-check2-circle fs-3 text-success"></i>
+                    <div class="fs-3 fw-bold" th:text="${totalAvaliados}">0</div>
+                    <div class="small text-muted">Avaliados por mim</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body py-3">
+                    <i class="bi bi-people fs-3 text-secondary"></i>
+                    <div class="fs-3 fw-bold" th:text="${totalAtribuidos}">0</div>
+                    <div class="small text-muted">Atribuidos a mim</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-around small">
+                        <span title="Favoravel">
+                            <i class="bi bi-hand-thumbs-up text-success"></i>
+                            <span class="fw-bold" th:text="${favoraveis}">0</span>
+                        </span>
+                        <span title="Nao favoravel">
+                            <i class="bi bi-hand-thumbs-down text-danger"></i>
+                            <span class="fw-bold" th:text="${naoFavoraveis}">0</span>
+                        </span>
+                        <span title="Solicita informacao">
+                            <i class="bi bi-question-circle text-primary"></i>
+                            <span class="fw-bold" th:text="${solicitaInfo}">0</span>
+                        </span>
+                    </div>
+                    <div class="small text-muted mt-2">Meus votos por resultado</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo destacado das pendencias do avaliador -->
+    <div th:if="${!pareceres.isEmpty()}" class="alert alert-warning d-flex align-items-center">
+        <i class="bi bi-bell-fill fs-4 me-2"></i>
+        <span>
+            Voce tem
+            <strong th:text="${pareceres.size()}">0</strong>
+            <span th:text="${pareceres.size() == 1} ? 'processo aguardando' : 'processos aguardando'">processos aguardando</span>
+            o seu voto.
+        </span>
+    </div>
+    <div th:if="${pareceres.isEmpty()}" class="alert alert-success d-flex align-items-center">
+        <i class="bi bi-check2-circle fs-4 me-2"></i>
+        <span>Nenhuma avaliacao pendente no momento.</span>
+    </div>
+
+    <div class="alert alert-info py-2">
+        <i class="bi bi-info-circle"></i>
+        Exibindo apenas os processos atribuidos a voce que aguardam seu parecer.
+        Por preservacao da imparcialidade do julgamento, os dados do paciente
+        sao identificados <strong>apenas pelas iniciais</strong>.
+    </div>
+
+    <h2 class="h5 mb-2"><i class="bi bi-clipboard2-pulse"></i> Pendentes de voto</h2>
+    <div class="card mb-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Processo</th>
+                        <th>Paciente</th>
+                        <th>Enviado em</th>
+                        <th>Aguardando</th>
+                        <th>Material para analise</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="par : ${pareceres}">
+                        <td>
+                            <span class="fw-semibold" th:text="${par.processo.numero}">00/0000</span>
+                        </td>
+                        <td>
+                            <!-- SOMENTE INICIAIS — nunca nome completo, equipe ou co-avaliadores -->
+                            <span class="font-monospace"
+                                  th:text="${iniciaisPorProcesso[par.processo.id]}">X.X.X.</span>
+                        </td>
+                        <td class="small text-muted"
+                            th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</td>
+                        <td class="small">
+                            <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio) -->
+                            <th:block th:with="dias=${diasDesdeEnvio[par.processo.id]}">
+                                <span th:if="${dias != null}"
+                                      class="text-muted"
+                                      th:text="${dias == 0} ? 'hoje' : (${dias} + (${dias == 1} ? ' dia' : ' dias'))">0 dias</span>
+                                <span th:if="${dias == null}" class="text-muted">-</span>
+                            </th:block>
+                        </td>
+                        <td>
+                            <!-- PDF anonimizado passado pelo controller via pdfPorProcesso -->
+                            <th:block th:with="pdf=${pdfPorProcesso[par.processo.id]}">
+                                <a th:if="${pdf != null}"
+                                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processo.id},pdfId=${pdf.id})}"
+                                   class="btn btn-sm btn-outline-danger" target="_blank"
+                                   title="Baixar o processo anonimizado para avaliacao">
+                                    <i class="bi bi-file-earmark-pdf"></i> Baixar processo
+                                </a>
+                                <span th:if="${pdf == null}" class="badge bg-secondary">PDF indisponivel</span>
+                            </th:block>
+                        </td>
+                        <td class="text-end">
+                            <a th:href="@{/avaliador/{id}(id=${par.processo.id})}"
+                               class="btn btn-primary btn-sm">
+                                <i class="bi bi-pencil-square"></i> Ver e votar
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${pareceres.isEmpty()}">
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
+                            Nenhum processo pendente de avaliacao no momento.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Historico das MINHAS avaliacoes (somente pareceres ja votados por mim) -->
+    <h2 class="h5 mb-2"><i class="bi bi-clock-history"></i> Historico das minhas avaliacoes</h2>
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Processo</th>
+                        <th>Paciente</th>
+                        <th>Meu voto</th>
+                        <th>Data do voto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="par : ${historico}">
+                        <td>
+                            <span class="fw-semibold" th:text="${par.processo.numero}">00/0000</span>
+                        </td>
+                        <td>
+                            <!-- SOMENTE INICIAIS — nunca nome completo, equipe ou co-avaliadores -->
+                            <span class="font-monospace"
+                                  th:text="${iniciaisHistorico[par.id]}">X.X.X.</span>
+                        </td>
+                        <td>
+                            <span th:switch="${par.resultado.name()}">
+                                <span th:case="'FAVORAVEL'" class="badge bg-success">
+                                    <i class="bi bi-hand-thumbs-up"></i> Favoravel</span>
+                                <span th:case="'NAO_FAVORAVEL'" class="badge bg-danger">
+                                    <i class="bi bi-hand-thumbs-down"></i> Nao favoravel</span>
+                                <span th:case="'SOLICITA_INFORMACAO'" class="badge bg-primary">
+                                    <i class="bi bi-question-circle"></i> Solicita informacao</span>
+                                <span th:case="*" class="badge bg-secondary"
+                                      th:text="${par.resultado.descricao}">-</span>
+                            </span>
+                        </td>
+                        <td class="small text-muted">
+                            <!-- dataHoraVoto se houver (voto pelo portal), senao dataResposta -->
+                            <span th:if="${par.dataHoraVoto != null}"
+                                  th:text="${#temporals.format(par.dataHoraVoto, 'dd/MM/yyyy HH:mm')}">-</span>
+                            <span th:if="${par.dataHoraVoto == null}"
+                                  th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${historico.isEmpty()}">
+                        <td colspan="4" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            Voce ainda nao registrou nenhuma avaliacao.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

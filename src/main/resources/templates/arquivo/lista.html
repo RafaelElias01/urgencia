@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{layout :: head('Arquivo')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 animate-fade-in">
+        <div>
+            <h1 class="h4 fw-bold mb-1"><i class="bi bi-archive me-2"></i>Arquivo</h1>
+            <p class="text-muted small mb-0">Processos encerrados (Deferido, Indeferido, Cancelado)</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm animate-fade-in-d1">
+        <div class="card-body p-3">
+            <form method="get" th:action="@{/arquivo}" class="row g-2 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label small fw-semibold text-muted mb-1">Busca</label>
+                    <input type="text" name="q" class="form-control form-control-sm" th:value="${q}"
+                           placeholder="Numero, paciente ou solicitante...">
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button class="btn btn-primary btn-sm flex-grow-1">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                    <a th:href="@{/arquivo}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3 animate-fade-in-d2">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Processo</th>
+                    <th>Solicitante</th>
+                    <th>Situacao</th>
+                    <th>Decisao</th>
+                    <th class="pe-3 text-end">Acoes</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}" class="animate-fade-in">
+                    <td class="ps-3">
+                        <a th:href="@{/processos/{id}(id=${p.id})}"
+                           class="text-decoration-none fw-semibold text-primary"
+                           th:text="${p.identificacao()}">00/0000 - Paciente - RGCT</a>
+                    </td>
+                    <td class="small">
+                        <span class="badge badge-rs-blue fw-normal" th:text="${p.solicitanteEquipe}">Equipe</span>
+                    </td>
+                    <td>
+                        <span class="badge rounded-pill" th:classappend="${p.status.bootstrapBadge}"
+                              th:text="${p.status.descricao}">status</span>
+                    </td>
+                    <td class="small text-muted"
+                        th:text="${p.dataDecisao != null} ? ${#temporals.format(p.dataDecisao, 'dd/MM/yyyy')} : '-'">-</td>
+                    <td class="text-end pe-3">
+                        <a th:href="@{/processos/{id}(id=${p.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i> Abrir
+                        </a>
+                        <form th:action="@{/processos/{id}/reabrir(id=${p.id})}" method="post" class="d-inline"
+                              sec:authorize="hasRole('ADMIN')"
+                              onsubmit="return confirm('Reabrir este processo encerrado? Ele voltara para o status Enviado e podera ser decidido novamente.');">
+                            <button class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reabrir
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}">
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i class="bi bi-archive" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
+                        Nenhum processo encerrado encontrado
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{layout :: footer}"></div>
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

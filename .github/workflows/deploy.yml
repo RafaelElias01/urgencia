@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build jar (testes ja validados pelo workflow CI)
+        run: mvn -B -ntp -DskipTests package
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SAUR_ORACLE_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 163.176.163.213 >> ~/.ssh/known_hosts
+
+      - name: Enviar jar para a VM
+        run: |
+          scp -i ~/.ssh/deploy_key target/saur-0.0.1-SNAPSHOT.jar \
+            ubuntu@163.176.163.213:/tmp/sgpur-novo.jar
+
+      - name: Trocar jar e reiniciar o servico
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@163.176.163.213 '
+            set -e
+            sudo cp /opt/sgpur/sgpur.jar /opt/sgpur/sgpur.jar.bak-$(date +%Y%m%d%H%M%S)
+            sudo mv /tmp/sgpur-novo.jar /opt/sgpur/sgpur.jar
+            sudo chown sgpur:sgpur /opt/sgpur/sgpur.jar
+            sudo systemctl restart sgpur
+            sleep 8
+            sudo systemctl is-active sgpur
+          '
+
+      - name: Health check (HTTPS)
+        run: |
+          sleep 5
+          curl -Ikf --retry 5 --retry-delay 5 https://urgenciarenal.duckdns.org/login
