@@ -12,6 +12,7 @@ import br.gov.saude.sgpur.service.ProcessoService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -58,6 +59,7 @@ public class AvaliadorController {
     private final ProcessoService processoService;
     private final AuditoriaService auditoria;
     private final DecisaoFinalService decisaoFinalService;
+    private final int prazoDias;
 
     public AvaliadorController(UsuarioRepository usuarioRepo,
                                ParecerRepository parecerRepo,
@@ -65,7 +67,8 @@ public class AvaliadorController {
                                AnexoStorageService anexoStorage,
                                ProcessoService processoService,
                                AuditoriaService auditoria,
-                               DecisaoFinalService decisaoFinalService) {
+                               DecisaoFinalService decisaoFinalService,
+                               @Value("${app.avaliador.prazo-dias:7}") int prazoDias) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
         this.anexoRepo = anexoRepo;
@@ -73,6 +76,7 @@ public class AvaliadorController {
         this.processoService = processoService;
         this.auditoria = auditoria;
         this.decisaoFinalService = decisaoFinalService;
+        this.prazoDias = prazoDias;
     }
 
     /**
@@ -98,6 +102,11 @@ public class AvaliadorController {
         // exibimos apenas "dias desde o envio" (hoje - dataEnvio) como informacao
         // auxiliar, sem inventar campo novo nem migracao.
         Map<Long, Long> diasDesdeEnvio = new HashMap<>();
+        // Fora do prazo-meta (app.avaliador.prazo-dias): sinal visual pre-atentivo
+        // (cor + icone, nao so cor - ver docs/ESTUDO-UI-COMPORTAMENTAL.md #2) de
+        // que aquele voto esta atrasado, calculado com o mesmo prazo-meta usado
+        // pelo indicador de tempo de resposta (TempoRespostaService).
+        Map<Long, Boolean> foraDoPrazoPorProcesso = new HashMap<>();
         LocalDate hoje = LocalDate.now();
         for (Parecer par : parecersFiltrados) {
             Long pid = par.getProcesso().getId();
@@ -108,7 +117,9 @@ public class AvaliadorController {
             }
             iniciaisPorProcesso.put(pid, Iniciais.de(par.getProcesso().getPacienteNome()));
             if (par.getDataEnvio() != null) {
-                diasDesdeEnvio.put(pid, ChronoUnit.DAYS.between(par.getDataEnvio(), hoje));
+                long dias = ChronoUnit.DAYS.between(par.getDataEnvio(), hoje);
+                diasDesdeEnvio.put(pid, dias);
+                foraDoPrazoPorProcesso.put(pid, dias > prazoDias);
             }
         }
 
@@ -135,6 +146,8 @@ public class AvaliadorController {
         model.addAttribute("pdfPorProcesso", pdfPorProcesso);
         model.addAttribute("iniciaisPorProcesso", iniciaisPorProcesso);
         model.addAttribute("diasDesdeEnvio", diasDesdeEnvio);
+        model.addAttribute("foraDoPrazoPorProcesso", foraDoPrazoPorProcesso);
+        model.addAttribute("prazoDias", prazoDias);
         model.addAttribute("historico", historico);
         model.addAttribute("iniciaisHistorico", iniciaisHistorico);
         model.addAttribute("membro", membro);

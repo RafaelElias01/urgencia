@@ -41,17 +41,28 @@
             <i class="bi bi-file-earmark-pdf text-danger"></i> Material para analise
         </div>
         <div class="card-body">
-            <p class="small text-muted mb-2">
-                Baixe o processo anonimizado (nome do paciente suprimido) para realizar
-                sua avaliacao clinica antes de registrar o parecer.
+            <p class="small text-muted mb-3">
+                Processo anonimizado (nome do paciente suprimido). Visualize abaixo antes
+                de registrar seu parecer — nao e necessario baixar o arquivo.
             </p>
             <div th:if="${!pdfsAvaliador.isEmpty()}">
-                <a th:each="pdf : ${pdfsAvaliador}"
-                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
-                   class="btn btn-danger mb-1" target="_blank">
-                    <i class="bi bi-download"></i>
-                    <span th:text="${pdf.nomeArquivo}">processo.pdf</span>
-                </a>
+                <div th:each="pdf, iterStat : ${pdfsAvaliador}" th:class="${!iterStat.last} ? 'mb-4' : ''">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-semibold text-truncate" th:text="${pdf.nomeArquivo}">processo.pdf</span>
+                        <a th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
+                           class="btn btn-outline-secondary btn-sm flex-shrink-0 ms-2" target="_blank">
+                            <i class="bi bi-box-arrow-up-right"></i> Abrir em nova aba
+                        </a>
+                    </div>
+                    <iframe th:src="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
+                            class="w-100 rounded border" style="height: 70vh;"
+                            title="Visualizacao do processo anonimizado">
+                        <p class="small text-muted">
+                            Seu navegador nao suporta visualizacao embutida de PDF.
+                            <a th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}" target="_blank">Abra o arquivo em nova aba</a>.
+                        </p>
+                    </iframe>
+                </div>
             </div>
             <div th:if="${pdfsAvaliador.isEmpty()}" class="alert alert-warning py-2 mb-0">
                 <i class="bi bi-exclamation-triangle"></i>

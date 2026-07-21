@@ -55,7 +55,11 @@ public class SecurityConfig {
         "script-src 'self' 'unsafe-inline'",
         "base-uri 'self'",
         "form-action 'self'",
-        "frame-ancestors 'none'");
+        // 'self', nao 'none': o Portal do Avaliador embute o PDF anonimizado
+        // num <iframe> na propria pagina de votacao (visualizacao sem
+        // download). Framing por outra origem (o ataque real de clickjacking)
+        // continua bloqueado; framing pelo proprio app nao e uma ameaca nova.
+        "frame-ancestors 'self'");
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, Environment env) throws Exception {
@@ -119,10 +123,12 @@ public class SecurityConfig {
                     // Console H2 precisa renderizar em frame do mesmo host
                     headers.frameOptions(frame -> frame.sameOrigin());
                 } else {
-                    // Producao: bloqueia enquadramento (clickjacking), forca HTTPS
-                    // (HSTS) e aplica a CSP. Dev fica de fora para nao quebrar o
-                    // console H2 nem o live-reload do devtools.
-                    headers.frameOptions(frame -> frame.deny());
+                    // Producao: bloqueia enquadramento por outra origem (clickjacking),
+                    // forca HTTPS (HSTS) e aplica a CSP. sameOrigin (nao deny) porque o
+                    // Portal do Avaliador embute o PDF anonimizado num <iframe> na propria
+                    // pagina de votacao. Dev fica de fora para nao quebrar o console H2
+                    // nem o live-reload do devtools.
+                    headers.frameOptions(frame -> frame.sameOrigin());
                     headers.httpStrictTransportSecurity(hsts -> hsts
                         .includeSubDomains(true)
                         .maxAgeInSeconds(31_536_000));

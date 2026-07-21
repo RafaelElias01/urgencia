@@ -1,6 +1,7 @@
 package br.gov.saude.sgpur.e2e.pages;
 
 import br.gov.saude.sgpur.e2e.Legenda;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 
@@ -26,6 +27,15 @@ public class AvaliadorPage {
         page.navigate("/avaliador/" + processoId);
         narrar("Avaliador autenticado revisando o processo para emitir o parecer...");
         return this;
+    }
+
+    /**
+     * Locator do &lt;iframe&gt; que embute o PDF anonimizado diretamente na tela
+     * de votacao (visualizacao sem download, ver votar.html). Usado pelo teste
+     * para confirmar que o material carrega inline em vez de exigir um download.
+     */
+    public Locator materialInline() {
+        return page.locator("iframe[title='Visualizacao do processo anonimizado']");
     }
 
     /**

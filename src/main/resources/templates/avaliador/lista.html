@@ -116,9 +116,17 @@
                         <td class="small text-muted"
                             th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</td>
                         <td class="small">
-                            <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio) -->
-                            <th:block th:with="dias=${diasDesdeEnvio[par.processo.id]}">
-                                <span th:if="${dias != null}"
+                            <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio).
+                                 Fora do prazo-meta: cor + icone (nao so cor), para nao depender
+                                 so de matiz em caso de daltonismo. -->
+                            <th:block th:with="dias=${diasDesdeEnvio[par.processo.id]}, foraPrazo=${foraDoPrazoPorProcesso[par.processo.id]}">
+                                <span th:if="${dias != null and foraPrazo == true}"
+                                      class="text-danger fw-semibold"
+                                      th:title="'Acima do prazo-meta de ' + ${prazoDias} + ' dias'">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <span th:text="${dias} + (${dias == 1} ? ' dia' : ' dias')">0 dias</span>
+                                </span>
+                                <span th:if="${dias != null and foraPrazo != true}"
                                       class="text-muted"
                                       th:text="${dias == 0} ? 'hoje' : (${dias} + (${dias == 1} ? ' dia' : ' dias'))">0 dias</span>
                                 <span th:if="${dias == null}" class="text-muted">-</span>
@@ -130,8 +138,8 @@
                                 <a th:if="${pdf != null}"
                                    th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processo.id},pdfId=${pdf.id})}"
                                    class="btn btn-sm btn-outline-danger" target="_blank"
-                                   title="Baixar o processo anonimizado para avaliacao">
-                                    <i class="bi bi-file-earmark-pdf"></i> Baixar processo
+                                   title="Visualizar o processo anonimizado para avaliacao">
+                                    <i class="bi bi-file-earmark-pdf"></i> Ver processo
                                 </a>
                                 <span th:if="${pdf == null}" class="badge bg-secondary">PDF indisponivel</span>
                             </th:block>

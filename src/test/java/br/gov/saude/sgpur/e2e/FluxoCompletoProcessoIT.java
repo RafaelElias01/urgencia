@@ -129,9 +129,19 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             // de operacoes daquele context terminarem de fato).
             Page janelaMedico1 = novoAtor();
             login(janelaMedico1, "avaliador.e2e.1", "senha123");
-            new AvaliadorPage(janelaMedico1)
-                .abrirVotacao(processoId)
-                .votar("NAO_FAVORAVEL", "Achados clinicos nao sustentam a urgencia alegada.");
+            List<String> errosConsole = new java.util.ArrayList<>();
+            janelaMedico1.onConsoleMessage(msg -> {
+                if ("error".equals(msg.type())) errosConsole.add(msg.text());
+            });
+            AvaliadorPage portalMedico1 = new AvaliadorPage(janelaMedico1).abrirVotacao(processoId);
+            // Confirma que o PDF anonimizado carrega embutido na propria tela
+            // (sem precisar baixar) e que o CSP/X-Frame-Options relaxado para
+            // 'self' nao bloqueou o proprio app de se auto-enquadrar.
+            assertThat(portalMedico1.materialInline().isVisible()).isTrue();
+            screenshot(janelaMedico1, "avaliador-pdf-inline");
+            assertThat(errosConsole).noneMatch(e ->
+                e.contains("Refused to display") || e.contains("X-Frame-Options"));
+            portalMedico1.votar("NAO_FAVORAVEL", "Achados clinicos nao sustentam a urgencia alegada.");
 
             Page janelaMedico2 = novoAtor();
             login(janelaMedico2, "avaliador.e2e.2", "senha123");
