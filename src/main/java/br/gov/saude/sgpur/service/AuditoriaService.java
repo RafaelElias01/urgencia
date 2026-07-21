@@ -44,6 +44,9 @@ public class AuditoriaService {
 
     private String usuarioAtual() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        return (auth != null && auth.getName() != null) ? auth.getName() : "sistema";
+        // getName() de um token com principal nulo retorna "" (nao null) - checar
+        // so != null deixava o campo "usuario" do log em branco nesse caso.
+        return (auth != null && auth.getName() != null && !auth.getName().isBlank())
+            ? auth.getName() : "sistema";
     }
 }
