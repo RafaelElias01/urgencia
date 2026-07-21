@@ -141,7 +141,15 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             screenshot(janelaMedico1, "avaliador-pdf-inline");
             assertThat(errosConsole).noneMatch(e ->
                 e.contains("Refused to display") || e.contains("X-Frame-Options"));
-            portalMedico1.votar("NAO_FAVORAVEL", "Achados clinicos nao sustentam a urgencia alegada.");
+
+            // O voto e definitivo (sem edicao posterior) - confirma que o modal de
+            // ciencia bloqueia o envio ate o avaliador marcar o checkbox de leitura.
+            portalMedico1.preencherEAbrirConfirmacao(
+                "NAO_FAVORAVEL", "Achados clinicos nao sustentam a urgencia alegada.");
+            assertThat(portalMedico1.botaoConfirmarModal().isDisabled()).isTrue();
+            screenshot(janelaMedico1, "avaliador-modal-confirmacao-voto");
+            assertThat(portalMedico1.checkboxConfirmaModal().isChecked()).isFalse();
+            portalMedico1.confirmarNoModal();
 
             Page janelaMedico2 = novoAtor();
             login(janelaMedico2, "avaliador.e2e.2", "senha123");

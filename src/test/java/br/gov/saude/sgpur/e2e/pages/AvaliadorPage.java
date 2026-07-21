@@ -38,19 +38,50 @@ public class AvaliadorPage {
         return page.locator("iframe[title='Visualizacao do processo anonimizado']");
     }
 
+    /** Locator do botao de confirmacao final dentro do modal de ciencia do voto. */
+    public Locator botaoConfirmarModal() {
+        return page.locator("#btnConfirmarVotoFinal");
+    }
+
+    /** Locator do checkbox "li e confirmo" dentro do modal de ciencia do voto. */
+    public Locator checkboxConfirmaModal() {
+        return page.locator("#checkConfirmaVoto");
+    }
+
     /**
-     * Preenche o resultado (FAVORAVEL / NAO_FAVORAVEL / SOLICITA_INFORMACAO),
-     * a justificativa opcional, e confirma o voto. O confirm() nativo do
-     * browser e aceito automaticamente pelo listener de dialog da base.
+     * Preenche o resultado (FAVORAVEL / NAO_FAVORAVEL / SOLICITA_INFORMACAO) e a
+     * justificativa opcional, e clica em "Registrar meu voto" - o que abre o
+     * modal de confirmacao (nao envia o formulario ainda, ver
+     * {@link #confirmarNoModal()} e avaliador-votar.js).
      */
-    public AvaliadorPage votar(String resultado, String justificativa) {
-        narrar("Registrando o voto: " + resultado + "...");
+    public AvaliadorPage preencherEAbrirConfirmacao(String resultado, String justificativa) {
+        narrar("Preenchendo o parecer: " + resultado + "...");
         page.locator("#resultado_" + resultado).check();
         if (justificativa != null && !justificativa.isBlank()) {
             page.locator("textarea[name=justificativa]").fill(justificativa);
         }
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Registrar meu voto")).click();
+        page.locator("#modalConfirmarVoto.show").waitFor();
+        return this;
+    }
+
+    /**
+     * Marca o checkbox de ciencia e clica na confirmacao final do modal - so
+     * entao o voto e de fato enviado (definitivo, sem edicao posterior).
+     */
+    public AvaliadorPage confirmarNoModal() {
+        narrar("Confirmando o voto definitivo no modal de ciencia...");
+        checkboxConfirmaModal().check();
+        botaoConfirmarModal().click();
         page.waitForLoadState();
         return this;
+    }
+
+    /**
+     * Fluxo completo: preenche, abre o modal e confirma. Usado quando o teste
+     * nao precisa inspecionar o estado intermediario do modal.
+     */
+    public AvaliadorPage votar(String resultado, String justificativa) {
+        return preencherEAbrirConfirmacao(resultado, justificativa).confirmarNoModal();
     }
 }

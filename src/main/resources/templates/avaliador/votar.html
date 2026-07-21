@@ -83,7 +83,7 @@
                 Esta acao nao pode ser desfeita.
             </div>
 
-            <form th:action="@{/avaliador/{id}/votar(id=${processo.id})}" method="post">
+            <form id="formVotoAvaliador" th:action="@{/avaliador/{id}/votar(id=${processo.id})}" method="post">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Parecer *</label>
                     <div class="d-flex flex-column gap-2">
@@ -111,8 +111,7 @@
 
                 <div class="d-flex gap-2 justify-content-end">
                     <a th:href="@{/avaliador}" class="btn btn-outline-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary"
-                            onclick="return confirm('Confirmar o registro do seu voto? Esta acao nao pode ser desfeita.');">
+                    <button type="submit" class="btn btn-primary">
                         <i class="bi bi-send-check"></i> Registrar meu voto
                     </button>
                 </div>
@@ -121,6 +120,52 @@
     </div>
 </div>
 
+<!-- Confirmacao explicita do voto: o parecer e definitivo (sem edicao posterior),
+     entao em vez do confirm() nativo (facil de dispensar sem ler), este modal
+     repete a escolha feita e exige um checkbox de ciencia antes de habilitar o
+     envio de verdade (ver static/js/avaliador-votar.js). -->
+<div class="modal fade" id="modalConfirmarVoto" tabindex="-1" aria-labelledby="modalConfirmarVotoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="modalConfirmarVotoLabel">
+                    <i class="bi bi-shield-exclamation text-danger"></i> Confirmar parecer
+                </h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2 small text-muted">Voce esta prestes a registrar o seguinte parecer:</p>
+                <div class="border rounded p-3 mb-3 fs-5 fw-semibold" id="resumoResultadoConfirmacao">
+                    Resultado
+                </div>
+                <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-exclamation-octagon-fill fs-5"></i>
+                    <div>
+                        <strong>Depois de confirmado, este voto nao pode ser alterado ou desfeito.</strong>
+                        Sera registrado com sua identidade, data/hora e IP de acesso. Revise a
+                        escolha acima antes de continuar.
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="checkConfirmaVoto">
+                    <label class="form-check-label" for="checkConfirmaVoto">
+                        Li o aviso acima e confirmo que este e o meu parecer definitivo para este processo.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left"></i> Voltar e revisar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarVotoFinal" disabled>
+                    <i class="bi bi-send-check"></i> Confirmar voto definitivo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script th:replace="~{layout :: scripts}"></script>
+<script th:src="@{/js/avaliador-votar.js}"></script>
 </body>
 </html>
