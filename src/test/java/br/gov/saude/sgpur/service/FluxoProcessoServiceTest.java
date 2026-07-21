@@ -514,6 +514,39 @@ class FluxoProcessoServiceTest {
     }
 
     // ----------------------------------------------------------------
+    // Wizard horizontal x timeline vertical: bug de dessincronia.
+    // ----------------------------------------------------------------
+
+    @Test
+    void wizardBloqueiaDecisaoQuandoSolicitaInformacaoComMaioriaJaFormada() {
+        // Mesmo cenario de solicitaInformacaoComMaioriaJaFormadaPausaDecisaoEDepoisRetoma:
+        // maioria ja formada (Respostas = CONCLUIDA), mas o 3o medico pediu
+        // informacao complementar, pausando o fluxo. A timeline vertical
+        // bloqueia "Decisao final" (PENDENTE) - o wizard horizontal precisa
+        // concordar e manter o passo 4 BLOQUEADA, nao ATUAL.
+        Processo p = processoComTresPareceres();
+        anexarRecebimentoCompleto(p);
+        registrarEnvioCompleto(p);
+        registrarMaioria(p, ResultadoParecer.FAVORAVEL);
+        Parecer par2 = p.getPareceres().get(2);
+        par2.setId(3L);
+        par2.setResultado(ResultadoParecer.SOLICITA_INFORMACAO);
+        Anexo respPar2 = new Anexo();
+        respPar2.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
+        respPar2.setParecer(par2);
+        p.addAnexo(respPar2);
+        p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
+
+        List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
+        assertThat(estado(etapas, "Decisao final")).isEqualTo(EtapaFluxo.Estado.PENDENTE);
+
+        List<PassoWizard> passos = fluxo().montarPassosWizard(p);
+        PassoWizard passoDecisao = passos.stream()
+            .filter(passo -> passo.numero() == 4).findFirst().orElseThrow();
+        assertThat(passoDecisao.estado()).isEqualTo(PassoWizard.Estado.BLOQUEADA);
+    }
+
+    // ----------------------------------------------------------------
     // etapasConcluidas / progresso: mesma logica usada por
     // ProcessoDetalheController.detalhe() (conta estados == CONCLUIDA).
     // ----------------------------------------------------------------
