@@ -13,12 +13,12 @@
             <input type="hidden" th:field="*{id}">
             <div class="mb-3">
                 <label class="form-label">Instituicao (sigla) *</label>
-                <input type="text" th:field="*{instituicao}" class="form-control" placeholder="HCPA">
+                <input type="text" th:field="*{instituicao}" class="form-control" placeholder="HCPA" required>
                 <div class="text-danger small" th:errors="*{instituicao}"></div>
             </div>
             <div class="mb-3">
                 <label class="form-label">Nome do medico *</label>
-                <input type="text" th:field="*{nome}" class="form-control">
+                <input type="text" th:field="*{nome}" class="form-control" required>
                 <div class="text-danger small" th:errors="*{nome}"></div>
             </div>
             <div class="mb-3">

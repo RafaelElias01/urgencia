@@ -36,7 +36,8 @@ class AdminBootstrapTest {
         when(usuarioRepository.count()).thenReturn(0L);
         when(encoder.encode("admin123")).thenReturn("hash");
         when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository, emailSenderService);
+        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository,
+            emailSenderService, new br.gov.saude.sgpur.service.PasswordResetAttemptService());
         AdminBootstrap bootstrap = new AdminBootstrap(usuarioRepository, usuarioService, "admin", "admin123");
 
         bootstrap.run(null);
@@ -51,7 +52,8 @@ class AdminBootstrapTest {
     @Test
     void naoCriaAdminQuandoJaExistemUsuarios() {
         when(usuarioRepository.count()).thenReturn(3L);
-        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository, emailSenderService);
+        UsuarioService usuarioService = new UsuarioService(usuarioRepository, encoder, membroRepository,
+            emailSenderService, new br.gov.saude.sgpur.service.PasswordResetAttemptService());
         AdminBootstrap bootstrap = new AdminBootstrap(usuarioRepository, usuarioService, "admin", "admin123");
 
         bootstrap.run(null);

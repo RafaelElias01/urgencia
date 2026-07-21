@@ -38,8 +38,8 @@
                         <button class="btn btn-sm btn-outline-warning"
                                 th:text="${u.ativo} ? 'Inativar' : 'Ativar'">Inativar</button>
                     </form>
-                    <form th:action="@{/usuarios/{id}/excluir(id=${u.id})}" method="post" class="d-inline"
-                          onsubmit="return confirm('Excluir usuario &quot;' + '${u.username}' + '&quot;? Esta acao nao pode ser desfeita.');">
+                    <form th:action="@{/usuarios/{id}/excluir(id=${u.id})}" method="post" class="d-inline form-excluir-usuario"
+                          th:data-username="${u.username}">
                         <button class="btn btn-sm btn-outline-danger">Excluir</button>
                     </form>
                 </td>
@@ -51,5 +51,15 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
+<script>
+document.querySelectorAll('.form-excluir-usuario').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        var username = this.dataset.username;
+        if (!confirm('Excluir usuario "' + username + '"? Esta acao nao pode ser desfeita.')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
 </body>
 </html>

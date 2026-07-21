@@ -10,4 +10,6 @@ public interface MembroUrgenciaRenalRepository extends JpaRepository<MembroUrgen
     List<MembroUrgenciaRenal> findByAtivoTrueOrderByInstituicaoAsc();
 
     long countByAtivoTrue();
+
+    List<MembroUrgenciaRenal> findByCoordenadorTrue();
 }

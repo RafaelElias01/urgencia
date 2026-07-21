@@ -69,6 +69,10 @@
                     <td>
                         <span class="badge rounded-pill" th:classappend="${p.status.bootstrapBadge}"
                               th:text="${p.status.descricao}">status</span>
+                        <span th:if="${p.status.isFinalizado()}" title="Processo encerrado"
+                              class="badge rounded-pill bg-dark ms-1">
+                            <i class="bi bi-lock-fill"></i> Encerrado
+                        </span>
                     </td>
                     <td class="small text-muted pe-3" th:text="${pendencias.get(p.id)}">pendencia</td>
                 </tr>

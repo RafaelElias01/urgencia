@@ -249,17 +249,14 @@
                             <!-- Status do anexo da solicitacao original -->
                             <ul class="list-group mb-3">
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>
-                                        <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
-                                        Copia da solicitacao original
-                                    </span>
+                                    <span>Copia da solicitacao original</span>
                                     <a th:if="${solicitacaoOriginal != null}"
                                        th:href="@{/processos/anexos/{id}/download(id=${solicitacaoOriginal.id})}"
                                        class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-download"></i>
                                         <span th:text="${solicitacaoOriginal.nomeArquivo}">arquivo</span>
                                     </a>
-                                    <span th:unless="${solicitacaoOriginal != null}" class="badge bg-danger">pendente</span>
+                                    <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
                                 </li>
                             </ul>
 

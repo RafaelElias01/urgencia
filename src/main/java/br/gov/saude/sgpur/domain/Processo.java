@@ -94,6 +94,15 @@ public class Processo {
     @OrderBy("dataUpload ASC")
     private List<Anexo> anexos = new ArrayList<>();
 
+    /**
+     * Controle de concorrencia otimista: o Hibernate incrementa a cada UPDATE e
+     * detecta escritas concorrentes conflitantes (OptimisticLockException) em
+     * vez de deixar "o ultimo que salva ganha" silenciosamente.
+     */
+    @Version
+    @Column(name = "versao")
+    private Long versao;
+
     public Processo() {
     }
 
@@ -275,5 +284,13 @@ public class Processo {
 
     public void setAnexos(List<Anexo> anexos) {
         this.anexos = anexos;
+    }
+
+    public Long getVersao() {
+        return versao;
+    }
+
+    public void setVersao(Long versao) {
+        this.versao = versao;
     }
 }

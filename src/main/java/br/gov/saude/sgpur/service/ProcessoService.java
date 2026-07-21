@@ -83,6 +83,15 @@ public class ProcessoService {
             throw new IllegalArgumentException(
                 "Selecione exatamente " + AVALIADORES_POR_PROCESSO + " medicos avaliadores.");
         }
+        // Defesa contra mass assignment: o form faz bind da entidade Processo
+        // inteira (@ModelAttribute), entao um request malicioso poderia incluir
+        // status=DEFERIDO/INDEFERIDO/CANCELADO e outros campos que so fazem
+        // sentido apos a decisao. Um processo novo SEMPRE nasce SOLICITADO, sem
+        // decisao registrada.
+        processo.setStatus(StatusProcesso.SOLICITADO);
+        processo.setDataDecisao(null);
+        processo.setMotivoIndeferimento(null);
+        processo.setEmailEnviadoSolicitante(false);
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear()
             : Year.now().getValue();
@@ -160,7 +169,12 @@ public class ProcessoService {
         if (p.getStatus().isFinalizado()) {
             return p;
         }
-        if (p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO) {
+        // O coordenador CET-RS defere sozinho e imediatamente quando vota
+        // Favoravel, mesmo que o processo esteja pausado por SOLICITA_INFORMACAO
+        // por causa do parecer de outro avaliador. Essa prioridade so vale para
+        // esse caminho automatico; sem o voto do coordenador, a pausa continua
+        // bloqueando qualquer decisao automatica.
+        if (p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO && !temVotoCoordenadorFavoravel(p)) {
             return p;
         }
         Optional<StatusProcesso> sugestao = sugerirDecisao(p);

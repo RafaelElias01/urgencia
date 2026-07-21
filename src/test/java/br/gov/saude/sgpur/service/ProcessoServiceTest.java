@@ -482,6 +482,98 @@ class ProcessoServiceTest {
         assertThat(p.getMotivoIndeferimento()).isNull();
     }
 
+    /**
+     * Defesa contra mass assignment: o form faz bind da entidade Processo
+     * inteira (@ModelAttribute), entao um request malicioso poderia setar
+     * status=DEFERIDO (ou outro campo pos-decisao) antes de chamar cadastrar().
+     * cadastrar() precisa forcar o estado inicial correto, ignorando o que
+     * veio no objeto de entrada.
+     */
+    @Test
+    void cadastrarForcaStatusSolicitadoIgnorandoValorMalicioso() {
+        Processo p = new Processo();
+        p.setDataSituacaoEspecial(java.time.LocalDate.of(2026, 1, 10));
+        // Simula um request malicioso que tenta pular o fluxo de decisao.
+        p.setStatus(StatusProcesso.DEFERIDO);
+        p.setDataDecisao(java.time.LocalDateTime.of(2026, 1, 1, 0, 0));
+        p.setMotivoIndeferimento("forjado");
+        p.setEmailEnviadoSolicitante(true);
+
+        MembroUrgenciaRenal medico = new MembroUrgenciaRenal("HCPA", "Medico", null);
+        medico.setId(1L);
+        when(membroRepository.findById(1L)).thenReturn(java.util.Optional.of(medico));
+        when(membroRepository.findById(2L)).thenReturn(java.util.Optional.of(medico));
+        when(membroRepository.findById(3L)).thenReturn(java.util.Optional.of(medico));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        Processo salvo = service.cadastrar(p, java.util.List.of(1L, 2L, 3L));
+
+        assertThat(salvo.getStatus()).isEqualTo(StatusProcesso.SOLICITADO);
+        assertThat(salvo.getDataDecisao()).isNull();
+        assertThat(salvo.getMotivoIndeferimento()).isNull();
+        assertThat(salvo.isEmailEnviadoSolicitante()).isFalse();
+    }
+
+    /**
+     * O coordenador CET-RS defere sozinho e imediatamente ao votar Favoravel,
+     * mesmo que o processo esteja pausado (SOLICITA_INFORMACAO) por causa do
+     * parecer de outro avaliador comum. A pausa nao se aplica a essa regra.
+     */
+    @Test
+    void coordenadorFavoravelDefereMesmoComProcessoPausadoPorSolicitaInformacao() {
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
+
+        Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
+        parInfo.setId(1L);
+        p.addParecer(parInfo);
+        anexarResposta(p, parInfo);
+
+        Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
+        parCoord.setId(2L);
+        p.addParecer(parCoord);
+        anexarResposta(p, parCoord);
+
+        Parecer par3 = parecer(null);
+        par3.setId(3L);
+        p.addParecer(par3);
+
+        when(processoRepository.findById(40L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        Processo resultado = service.tentarDecisaoAutomatica(40L);
+
+        assertThat(resultado.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+        assertThat(service.deferidoPeloCoordenador(resultado)).isTrue();
+    }
+
+    /**
+     * Mesma regra pelo caminho manual (decidir): validarPausaDecisao nao pode
+     * bloquear quando o coordenador votou Favoravel.
+     */
+    @Test
+    void decidirManualPermiteDeferirComCoordenadorMesmoPausado() {
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
+
+        Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
+        parInfo.setId(1L);
+        p.addParecer(parInfo);
+        anexarResposta(p, parInfo);
+
+        Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
+        parCoord.setId(2L);
+        p.addParecer(parCoord);
+        anexarResposta(p, parCoord);
+
+        when(processoRepository.findById(41L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        service.decidir(41L, StatusProcesso.DEFERIDO, null);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+    }
+
     @Test
     void reabrirLancaErroSeProcessoNaoEstiverFinalizado() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);

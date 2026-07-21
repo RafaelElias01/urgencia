@@ -35,6 +35,7 @@ application-local.yml
 
 ### Deploy (segredos do servidor) ###
 deploy/sgpur.env
+deploy/ACESSO-VM.local.md
 
 ### Pacote distribuivel (gerado) ###
 /dist/

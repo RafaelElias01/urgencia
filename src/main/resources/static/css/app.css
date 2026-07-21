@@ -87,8 +87,20 @@ body {
 .navbar-sgpur .nav-link:hover { opacity: .9; }
 
 /* Marcador de status padrao do sistema (fragments layout :: status / statusNa).
-   Alinhamento e tamanho consistentes do icone em qualquer contexto. */
-.status-mark { display: inline-flex; align-items: center; gap: .3rem; }
+   Alinhamento e tamanho consistentes do icone em qualquer contexto. Fundo em
+   "quadradinho" (pill) para destacar Pendente/Concluido igual ao badge usado
+   no anexo da solicitacao original - mesmo visual em todo o sistema. */
+.status-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    font-size: .8rem;
+}
+.status-mark.text-danger { background: var(--rs-red-light); }
+.status-mark.text-success { background: var(--rs-green-light); }
+.status-mark.text-secondary { background: var(--rs-gray-100); }
 .status-mark i {
     font-size: 1.05rem;
     vertical-align: -0.1em;

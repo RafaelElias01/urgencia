@@ -22,14 +22,17 @@ public class UsuarioService {
     private final PasswordEncoder encoder;
     private final MembroUrgenciaRenalRepository membroRepo;
     private final EmailSenderService emailSenderService;
+    private final PasswordResetAttemptService passwordResetAttemptService;
 
     public UsuarioService(UsuarioRepository repo, PasswordEncoder encoder,
                           MembroUrgenciaRenalRepository membroRepo,
-                          EmailSenderService emailSenderService) {
+                          EmailSenderService emailSenderService,
+                          PasswordResetAttemptService passwordResetAttemptService) {
         this.repo = repo;
         this.encoder = encoder;
         this.membroRepo = membroRepo;
         this.emailSenderService = emailSenderService;
+        this.passwordResetAttemptService = passwordResetAttemptService;
     }
 
     public List<Usuario> listar() {
@@ -90,17 +93,72 @@ public class UsuarioService {
         return repo.save(u);
     }
 
+    /**
+     * @deprecated use {@link #alternarAtivo(Long, String)} - esta sobrecarga nao
+     * protege contra auto-desativacao nem contra desativar o ultimo ADMIN ativo.
+     */
+    @Deprecated
     @Transactional
     public void alternarAtivo(Long id) {
+        alternarAtivo(id, null);
+    }
+
+    /**
+     * Ativa/desativa o usuario. Bloqueia a operacao (IllegalStateException) quando
+     * ela desativaria a propria conta logada ({@code usernameLogado}) ou quando
+     * desativaria o ultimo ADMIN ativo do sistema - evita auto-lockout do acesso a
+     * /usuarios e /auditoria, ja que o AdminBootstrap so recria o admin inicial
+     * quando a tabela 'usuario' esta totalmente vazia.
+     */
+    @Transactional
+    public void alternarAtivo(Long id, String usernameLogado) {
         Usuario u = buscar(id);
+        boolean vaiDesativar = u.isAtivo();
+        if (vaiDesativar) {
+            validarNaoAutoGerenciamento(u, usernameLogado, "desativar");
+            validarNaoUltimoAdminAtivo(u, "desativar");
+        }
         u.setAtivo(!u.isAtivo());
         repo.save(u);
     }
 
+    /**
+     * @deprecated use {@link #excluir(Long, String)} - esta sobrecarga nao protege
+     * contra auto-exclusao nem contra excluir o ultimo ADMIN ativo.
+     */
+    @Deprecated
     @Transactional
     public void excluir(Long id) {
+        excluir(id, null);
+    }
+
+    /**
+     * Exclui o usuario. Bloqueia a operacao (IllegalStateException) quando o alvo e
+     * a propria conta logada ({@code usernameLogado}) ou o ultimo ADMIN ativo do
+     * sistema - evita auto-lockout do acesso a /usuarios e /auditoria.
+     */
+    @Transactional
+    public void excluir(Long id, String usernameLogado) {
         Usuario u = buscar(id);
+        validarNaoAutoGerenciamento(u, usernameLogado, "excluir");
+        validarNaoUltimoAdminAtivo(u, "excluir");
         repo.delete(u);
+    }
+
+    private void validarNaoAutoGerenciamento(Usuario u, String usernameLogado, String acao) {
+        if (usernameLogado != null && u.getUsername() != null
+                && u.getUsername().equalsIgnoreCase(usernameLogado)) {
+            throw new IllegalStateException(
+                "Voce nao pode " + acao + " a propria conta. Para trocar sua senha, use 'Minha senha'.");
+        }
+    }
+
+    private void validarNaoUltimoAdminAtivo(Usuario u, String acao) {
+        if (u.getPerfil() == Perfil.ADMIN && u.isAtivo()
+                && repo.countByPerfilAndAtivoTrue(Perfil.ADMIN) <= 1) {
+            throw new IllegalStateException(
+                "Nao e possivel " + acao + " o unico administrador ativo do sistema.");
+        }
     }
 
     /**
@@ -108,10 +166,16 @@ public class UsuarioService {
      * envia a nova senha temporaria por e-mail - NUNCA expoe a senha em texto
      * puro na tela. Sempre retorna sem lancar excecao, mesmo quando o usuario
      * nao existe ou nao tem e-mail cadastrado, para o chamador poder exibir
-     * uma mensagem neutra e evitar enumeracao de usuarios validos.
+     * uma mensagem neutra e evitar enumeracao de usuarios validos. Tambem retorna
+     * silenciosamente (sem alterar nada) quando o rate-limit de tentativas de
+     * reset para este username foi excedido ({@link PasswordResetAttemptService}) -
+     * protege contra "bombear" reset de senha/e-mail de um login conhecido.
      */
     @Transactional
     public void resetarSenha(String username) {
+        if (!passwordResetAttemptService.tentarRegistrar(username)) {
+            return;
+        }
         Usuario u = repo.findByUsername(username).orElse(null);
         if (u == null) {
             log.debug("resetarSenha: usuario '{}' nao encontrado.", username);

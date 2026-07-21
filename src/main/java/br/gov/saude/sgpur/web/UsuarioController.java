@@ -112,15 +112,27 @@ public class UsuarioController {
     }
 
     @PostMapping("/{id}/alternar-ativo")
-    public String alternarAtivo(@PathVariable Long id, RedirectAttributes ra) {
-        service.alternarAtivo(id);
+    public String alternarAtivo(@PathVariable Long id, java.security.Principal principal,
+                                RedirectAttributes ra) {
+        try {
+            service.alternarAtivo(id, principal == null ? null : principal.getName());
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/usuarios";
+        }
         ra.addFlashAttribute("msg", "Situacao do usuario atualizada.");
         return "redirect:/usuarios";
     }
 
     @PostMapping("/{id}/excluir")
-    public String excluir(@PathVariable Long id, RedirectAttributes ra) {
-        service.excluir(id);
+    public String excluir(@PathVariable Long id, java.security.Principal principal,
+                          RedirectAttributes ra) {
+        try {
+            service.excluir(id, principal == null ? null : principal.getName());
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/usuarios";
+        }
         auditoria.registrar("USUARIO_EXCLUIDO", "Usuario id " + id);
         ra.addFlashAttribute("msg", "Usuario excluido.");
         return "redirect:/usuarios";

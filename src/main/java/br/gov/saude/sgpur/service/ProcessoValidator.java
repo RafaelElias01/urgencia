@@ -134,10 +134,16 @@ public class ProcessoValidator {
     // de redirecionamento (pausa/anexos -> #respostas; contagem -> topo). O
     // servico encadeia todas em validarDecisao (defesa em profundidade).
 
-    /** Bloqueio por PAUSA: aguardando informacao complementar do solicitante. */
+    /**
+     * Bloqueio por PAUSA: aguardando informacao complementar do solicitante.
+     * Excecao: o voto Favoravel do coordenador CET-RS defere sozinho e na hora,
+     * mesmo com o processo pausado por causa do parecer de outro avaliador —
+     * a pausa nao se aplica a essa regra (decisao de produto confirmada).
+     */
     public Optional<String> validarPausaDecisao(Processo processo, StatusProcesso decisao) {
         if (processo.getStatus() == StatusProcesso.SOLICITA_INFORMACAO
-                && (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO)) {
+                && (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO)
+                && !temVotoCoordenadorFavoravel(processo)) {
             return Optional.of(
                 "Processo aguardando informacao complementar do solicitante. "
                 + "Registre o recebimento da informacao (retomar analise) antes de decidir.");

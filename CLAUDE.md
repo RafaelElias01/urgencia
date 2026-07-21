@@ -331,7 +331,35 @@ autenticado do próprio médico no sistema.
   (commit `3bfba9b`, 2026-07-09): removeu Tailwind em favor das classes
   `stat-card-*` com `--rs-*` CSS variables e grid Bootstrap (`row-cols-*`).
   O arquivo `static/css/tailwind-dashboard.css` não é mais referenciado por
-  nenhum template. Ver `docs/AJUSTES-UI.md` para detalhes.
+  nenhum template. Ver `docs/AJUSTES-UI.md` para detalhes. (Nota de merge
+  2026-07-21: a cópia `rafaelioppi/urgencia` ainda descrevia o dashboard como
+  Tailwind pré-compilado — desatualizado, essa migração já removeu o arquivo
+  `tailwind-dashboard.css`; verificado no código pós-merge que não sobra
+  nenhuma classe Tailwind em `dashboard.html`.)
+- **`ddl-auto: update` não faz backfill em coluna nova.** Adicionar um campo
+  que o Hibernate trata como obrigatório para gravar (ex.: `@Version`) numa
+  entidade que já tem linhas no banco cria a coluna com valor `NULL` nessas
+  linhas antigas — o próximo UPDATE nelas quebra (NPE dentro do Hibernate ao
+  tentar incrementar/validar o campo, sem stacktrace óbvio até
+  `journalctl`). Aconteceu em 2026-07-10: `Processo.versao` (`@Version`,
+  commit `8f98d60`) deixou processos antigos com `versao = NULL` em prod;
+  qualquer salvamento neles (editar, decidir, reabrir, anexar) dava 500.
+  Corrigido com backfill manual via Neon SQL Console:
+  `UPDATE processo SET versao = 0 WHERE versao IS NULL;`. **Sempre que
+  adicionar `@Version` ou qualquer coluna que passa a ser tratada como
+  não-nula numa entidade já populada, rodar esse tipo de backfill em prod
+  logo após o deploy** (não há Flyway/Liquibase neste projeto — é
+  responsabilidade manual).
+
+## Próxima sessão: estudo de UI comportamental pendente
+`docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) reúne princípios de leitura
+visual (padrão F/Z, atributos pré-atentivos, Lei de Hick/Fitts, Gestalt,
+Von Restorff, posição serial) mapeados a pontos concretos do SAUR a
+investigar (ex.: ordem de colunas em `/processos`, se a coluna "O que falta"
+está fora da zona de maior atenção do padrão F; se os badges de
+`StatusProcesso` diferenciam por ícone além de cor, para daltonismo; se
+timeline vertical + wizard horizontal simultâneos sobrecarregam decisão).
+Ler esse arquivo antes de qualquer novo pedido de ajuste visual do usuário.
 
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
@@ -356,3 +384,34 @@ VM tinha uma senha de app diferente da testada/válida — sempre confirmar a
 senha real em uso via `/proc/<PID>/environ`, não só o arquivo, antes de
 trocar de teoria). Utilitário `deploy/testar-smtp.py` testa a credencial
 SMTP isolada (sem depender do Java) com `getpass`.
+
+**Status em produção (2026-07-10)**: `origin/main` no GitHub está com o
+código mais recente (commit `5626fbf`), que inclui os fixes de mass
+assignment/auto-lockout/acessibilidade (`8f98d60`), badge "Encerrado" na
+lista de processos (`95e1005`), documentação do pitfall de `@Version`
+(`bd884eb`) e o ajuste visual de status Pendente/Concluido em pill
+(`5626fbf`). **Confirmado via VM** (`sudo unzip -p /opt/sgpur/sgpur.jar
+BOOT-INF/classes/templates/processos/lista.html | grep -i encerrado`) que o
+JAR rodando na VM às 15:00 UTC já tinha o commit `95e1005` — os commits
+`bd884eb` (só docs, não afeta o jar) e `5626fbf` (CSS/template) foram
+buildados localmente mas o deploy final (scp + `systemctl restart`) na VM
+ainda precisa ser confirmado numa proxima sessão antes de assumir que o
+`.status-mark` em pill já está no ar.
+
+**Incidente resolvido em 2026-07-10 (banco)**: `Processo.versao` (`@Version`,
+commit `8f98d60`) deixou processos antigos com `versao = NULL` em prod —
+qualquer UPDATE neles (ex.: `POST /processos/{id}/reabrir`) dava 500. Ver
+detalhe da causa e do backfill em "Convenções de código" (`ddl-auto: update`
+não faz backfill). **Corrigido**: backfill manual via Neon SQL Console
+(`UPDATE processo SET versao = 0 WHERE versao IS NULL;`), confirmado sem
+linhas restantes.
+
+**Pendência conhecida, não investigada**: erro 413 ao anexar comprovante de
+parecer, reportado em 2026-07-09. `application.yml`/`application-prod.yml`
+(multipart 25MB/30MB) e `deploy/nginx-sgpur.conf` (`client_max_body_size
+30m`) já estão generosos desde `e15ff82` (04/07) — suspeita é que o Nginx
+*realmente ativo na VM* (arquivo em `/etc/nginx/sites-available/` ou
+equivalente) esteja com uma config diferente/mais antiga da que está neste
+repo (mesma classe de drift do JAR desatualizado). Próximo passo: `sudo
+find /etc/nginx -iname "*sgpur*" -o -iname "*saur*"` na VM para achar o
+arquivo real e comparar com `deploy/nginx-sgpur.conf`.

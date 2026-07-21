@@ -1,5 +1,6 @@
 package br.gov.saude.sgpur.service;
 
+import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -32,11 +34,13 @@ class UsuarioServiceTest {
     @Mock private MembroUrgenciaRenalRepository membroRepo;
     @Mock private EmailSenderService emailSenderService;
 
+    private PasswordResetAttemptService passwordResetAttemptService;
     private UsuarioService service;
 
     @BeforeEach
     void setUp() {
-        service = new UsuarioService(repo, encoder, membroRepo, emailSenderService);
+        passwordResetAttemptService = new PasswordResetAttemptService();
+        service = new UsuarioService(repo, encoder, membroRepo, emailSenderService, passwordResetAttemptService);
     }
 
     private Usuario usuarioComEmail() {
@@ -99,5 +103,170 @@ class UsuarioServiceTest {
 
         verify(repo, never()).save(any());
         assertThat(u.getSenha()).isEqualTo(senhaOriginal);
+    }
+
+    @Test
+    void resetarSenhaBloqueiaAposExcederLimiteDeTentativasParaOMesmoUsername() {
+        Usuario u = usuarioComEmail();
+        when(repo.findByUsername("operador1")).thenReturn(Optional.of(u));
+        when(encoder.encode(any())).thenReturn("hash-fake");
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(true);
+
+        // As 3 primeiras tentativas devem passar (limite = MAX_TENTATIVAS de
+        // PasswordResetAttemptService); a partir da 4a, o rate-limit bloqueia
+        // silenciosamente - sem exceção, sem novo e-mail, sem nova senha salva.
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1");
+        verify(repo, times(3)).save(u);
+        verify(emailSenderService, times(3)).enviar(anyString(), anyString(), anyString());
+
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1");
+
+        verify(repo, times(3)).save(u);
+        verify(emailSenderService, times(3)).enviar(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void resetarSenhaRateLimitEIndependentePorUsername() {
+        Usuario u1 = usuarioComEmail();
+        Usuario u2 = new Usuario();
+        u2.setUsername("operador2");
+        u2.setNome("Operador Dois");
+        u2.setEmail("operador2@example.com");
+        when(repo.findByUsername("operador1")).thenReturn(Optional.of(u1));
+        when(repo.findByUsername("operador2")).thenReturn(Optional.of(u2));
+        when(encoder.encode(any())).thenReturn("hash-fake");
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(true);
+
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1");
+        service.resetarSenha("operador1"); // bloqueado
+
+        // operador2 nao foi afetado pelo limite consumido por operador1.
+        service.resetarSenha("operador2");
+
+        verify(repo, times(3)).save(u1);
+        verify(repo, times(1)).save(u2);
+    }
+
+    // ---- Auto-lockout: exclusao/desativacao do ultimo ADMIN ativo ou da propria conta ----
+
+    private Usuario admin(Long id, String username) {
+        Usuario u = new Usuario();
+        u.setId(id);
+        u.setUsername(username);
+        u.setNome("Admin " + username);
+        u.setPerfil(Perfil.ADMIN);
+        u.setAtivo(true);
+        return u;
+    }
+
+    private Usuario operador(Long id, String username) {
+        Usuario u = new Usuario();
+        u.setId(id);
+        u.setUsername(username);
+        u.setNome("Operador " + username);
+        u.setPerfil(Perfil.OPERADOR);
+        u.setAtivo(true);
+        return u;
+    }
+
+    @Test
+    void unicoAdminAtivoNaoConsegueSeAutoExcluir() {
+        Usuario admin = admin(1L, "admin");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> service.excluir(1L, "admin"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("propria conta");
+
+        verify(repo, never()).delete(any());
+    }
+
+    @Test
+    void unicoAdminAtivoNaoConsegueSeAutoDesativar() {
+        Usuario admin = admin(1L, "admin");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> service.alternarAtivo(1L, "admin"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("propria conta");
+
+        verify(repo, never()).save(any());
+        assertThat(admin.isAtivo()).isTrue();
+    }
+
+    @Test
+    void ultimoAdminAtivoNaoPodeSerExcluidoPorOutroUsuario() {
+        Usuario admin = admin(1L, "admin");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin));
+        when(repo.countByPerfilAndAtivoTrue(Perfil.ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.excluir(1L, "outro-operador"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("unico administrador ativo");
+
+        verify(repo, never()).delete(any());
+    }
+
+    @Test
+    void ultimoAdminAtivoNaoPodeSerDesativadoPorOutroUsuario() {
+        Usuario admin = admin(1L, "admin");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin));
+        when(repo.countByPerfilAndAtivoTrue(Perfil.ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.alternarAtivo(1L, "outro-operador"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("unico administrador ativo");
+
+        verify(repo, never()).save(any());
+        assertThat(admin.isAtivo()).isTrue();
+    }
+
+    @Test
+    void comDoisAdminsAtivosExcluirUmDelesFunciona() {
+        Usuario admin1 = admin(1L, "admin1");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin1));
+        when(repo.countByPerfilAndAtivoTrue(Perfil.ADMIN)).thenReturn(2L);
+
+        service.excluir(1L, "outro-usuario");
+
+        verify(repo).delete(admin1);
+    }
+
+    @Test
+    void comDoisAdminsAtivosDesativarUmDelesFunciona() {
+        Usuario admin1 = admin(1L, "admin1");
+        when(repo.findById(1L)).thenReturn(Optional.of(admin1));
+        when(repo.countByPerfilAndAtivoTrue(Perfil.ADMIN)).thenReturn(2L);
+
+        service.alternarAtivo(1L, "outro-usuario");
+
+        verify(repo).save(admin1);
+        assertThat(admin1.isAtivo()).isFalse();
+    }
+
+    @Test
+    void excluirUsuarioNaoAdminSempreFuncionaLivremente() {
+        Usuario op = operador(2L, "operador1");
+        when(repo.findById(2L)).thenReturn(Optional.of(op));
+
+        service.excluir(2L, "admin");
+
+        verify(repo).delete(op);
+    }
+
+    @Test
+    void desativarUsuarioNaoAdminSempreFuncionaLivremente() {
+        Usuario op = operador(2L, "operador1");
+        when(repo.findById(2L)).thenReturn(Optional.of(op));
+
+        service.alternarAtivo(2L, "admin");
+
+        verify(repo).save(op);
+        assertThat(op.isAtivo()).isFalse();
     }
 }

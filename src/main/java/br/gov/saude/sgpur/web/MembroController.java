@@ -85,6 +85,17 @@ public class MembroController {
         if (result.hasErrors()) {
             return "membros/form";
         }
+        // So pode haver um coordenador CET-RS por vez (as regras de decisao por
+        // maioria assumem no maximo um). Ao marcar este membro como coordenador,
+        // desmarca automaticamente qualquer outro que ja estivesse marcado.
+        if (membro.isCoordenador()) {
+            repo.findByCoordenadorTrue().stream()
+                .filter(outro -> !outro.getId().equals(membro.getId()))
+                .forEach(outro -> {
+                    outro.setCoordenador(false);
+                    repo.save(outro);
+                });
+        }
         repo.save(membro);
         ra.addFlashAttribute("msg", "Membro salvo com sucesso.");
         return "redirect:/membros";
