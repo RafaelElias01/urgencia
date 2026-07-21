@@ -37,6 +37,11 @@ application-local.yml
 deploy/sgpur.env
 deploy/ACESSO-VM.local.md
 
+### Chaves SSH (nunca versionar) ###
+*.key
+*.pem
+id_rsa*
+
 ### Pacote distribuivel (gerado) ###
 /dist/
 
