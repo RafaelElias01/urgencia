@@ -389,10 +389,10 @@
                                 </button>
                             </div>
                         </form>
-                        <div th:if="${documentosClinicos.isEmpty()}" class="alert alert-info py-2 mb-0 mt-2">
+                        <p th:if="${documentosClinicos.isEmpty()}" class="small text-muted mb-0 mt-2">
                             <i class="bi bi-info-circle"></i>
                             Anexe ao menos um documento clinico (PDF) para registrar o envio.
-                        </div>
+                        </p>
                     </div>
 
                     <!-- ========== PASSO 2: Comprovante de envio ========== -->
@@ -427,10 +427,10 @@
                                 </button>
                             </div>
                         </form>
-                        <div th:if="${comprovanteEnvioAvaliadores == null}" class="alert alert-info py-2 mb-0 mt-2">
+                        <p th:if="${comprovanteEnvioAvaliadores == null}" class="small text-muted mb-0 mt-2">
                             <i class="bi bi-info-circle"></i>
                             Anexe o comprovante de envio (PDF, EML ou MSG) para registrar o envio.
-                        </div>
+                        </p>
                     </div>
 
                     <!-- ========== PASSO 3: Registrar envio ========== -->
