@@ -351,15 +351,45 @@ autenticado do próprio médico no sistema.
   logo após o deploy** (não há Flyway/Liquibase neste projeto — é
   responsabilidade manual).
 
-## Próxima sessão: estudo de UI comportamental pendente
-`docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) reúne princípios de leitura
-visual (padrão F/Z, atributos pré-atentivos, Lei de Hick/Fitts, Gestalt,
-Von Restorff, posição serial) mapeados a pontos concretos do SAUR a
-investigar (ex.: ordem de colunas em `/processos`, se a coluna "O que falta"
-está fora da zona de maior atenção do padrão F; se os badges de
-`StatusProcesso` diferenciam por ícone além de cor, para daltonismo; se
-timeline vertical + wizard horizontal simultâneos sobrecarregam decisão).
-Ler esse arquivo antes de qualquer novo pedido de ajuste visual do usuário.
+## Próxima sessão: pendências da vistoria de 2026-07-24
+`docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) já foi aplicado nesta sessão
+(commit `5e17f6c`): coluna "O que falta" movida pra 2ª posição em
+`processos/lista.html`, ícone (`StatusProcesso.getBadgeIcone()`) adicionado
+ao badge de status da lista, e os 2 avisos não-bloqueantes da aba Envio em
+`processos/detalhe.html` rebaixados de `alert-info` pra texto simples. Os
+outros 4 pontos do estudo (wizard+timeline, botões pequenos de anexo,
+Gestalt do card de solicitação, ordenação da lista) já estavam OK e não
+precisam de ação.
+
+Pendente pra próxima sessão:
+1. **Rodar `mvn test`/`.\test.ps1`** pra confirmar que os 3 ajustes de UI
+   acima não quebraram nada — não rodei a suíte completa antes de commitar
+   (sessão terminando, só templates Thymeleaf, sem mudança em Java).
+2. **Vistoria de conformidade de regras de negócio** (cada regra da seção
+   "Regras de negócio" deste arquivo vs. o código real, service+controller)
+   foi disparada em 2026-07-24 mas **cancelada pelo usuário antes de
+   terminar** — sem nenhum resultado. Decidir se vale refazer.
+3. **Vistoria operacional/infra** (mesma sessão): a VM Oracle **não tem**
+   backup dos anexos em disco (`/opt/sgpur/data/anexos`), nem `logrotate`
+   próprio do `sgpur` (só um cron de outro projeto, "petrobras", na mesma
+   máquina), nem monitoramento/alertas. É o ponto mais frágil encontrado -
+   nada foi implementado ainda, só diagnosticado.
+4. **Jars de backup acumulando sem rotação** em `/opt/sgpur/sgpur.jar.bak-*`
+   (cada deploy soma ~70MB) - considerar um cron simples de limpeza.
+5. **Upgrades de dependência disponíveis** (checado com
+   `mvn versions:display-dependency-updates` em 2026-07-24): Spring Boot
+   `3.5.16 -> 4.1.0`, Spring Security `6.5.11 -> 7.1.0`, OpenPDF
+   `1.3.30 -> 3.0.5` - todos major version, não fazer sem sessão dedicada
+   (risco de breaking change). Patches menores e seguros:
+   `org.postgresql:postgresql 42.7.11 -> 42.7.13`, `org.webjars:bootstrap
+   5.3.3 -> 5.3.8`, `com.h2database:h2 2.3.232 -> 2.4.240`.
+
+Nota: o **deploy automático via GitHub Actions foi corrigido nesta sessão**
+(o secret `SAUR_ORACLE_SSH_KEY` estava vazio/malformado desde 21/07, todo
+`Deploy` falhava; corrigido + também corrigido um falso-negativo no
+health-check que tinha timeout curto demais pro boot real de ~76s contra o
+Neon). Confirmado funcionando ponta a ponta (CI -> Deploy) - **não é mais
+pendência**, já está no ar.
 
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
