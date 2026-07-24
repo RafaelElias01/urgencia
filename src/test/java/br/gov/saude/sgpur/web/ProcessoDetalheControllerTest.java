@@ -505,6 +505,11 @@ class ProcessoDetalheControllerTest {
     void recebimentoSemArquivoApenasGeraACapa() throws Exception {
         when(processoService.edicaoBloqueada(processo)).thenReturn(false);
         when(relatorioService.gerarCapaProcesso(processo)).thenReturn("capa-fake".getBytes());
+        when(anexoStorage.salvarBytes(any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
+            Anexo a = new Anexo();
+            a.setId(77L);
+            return a;
+        });
 
         mvc.perform(multipart("/processos/1/recebimento").with(csrf()))
             .andExpect(status().is3xxRedirection())
@@ -512,9 +517,9 @@ class ProcessoDetalheControllerTest {
             .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("capa gerada")));
 
         verify(anexoStorage, never()).salvar(any(), any(), any(), any());
-        verify(anexoStorage).removerPorTipo(1L, TipoAnexo.CAPA_PROCESSO);
         verify(anexoStorage).salvarBytes(eq(processo), eq(TipoAnexo.CAPA_PROCESSO), anyString(),
             eq("capa-processo-01-2026.pdf"), eq("application/pdf"), eq("capa-fake".getBytes()));
+        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.CAPA_PROCESSO, 77L);
     }
 
     @Test
@@ -524,13 +529,23 @@ class ProcessoDetalheControllerTest {
         when(relatorioService.gerarCapaProcesso(processo)).thenReturn("capa-fake".getBytes());
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "solicitacao.pdf",
             "application/pdf", "conteudo".getBytes());
+        when(anexoStorage.salvar(any(), any(), any(), any())).thenAnswer(inv -> {
+            Anexo a = new Anexo();
+            a.setId(88L);
+            return a;
+        });
+        when(anexoStorage.salvarBytes(any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
+            Anexo a = new Anexo();
+            a.setId(77L);
+            return a;
+        });
 
         mvc.perform(multipart("/processos/1/recebimento").file(arquivo).with(csrf()))
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("solicitacao original anexada")));
 
-        verify(anexoStorage).removerPorTipo(1L, TipoAnexo.SOLICITACAO_RECEBIDA);
         verify(anexoStorage).salvar(eq(processo), eq(TipoAnexo.SOLICITACAO_RECEBIDA), anyString(), eq(arquivo));
+        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.SOLICITACAO_RECEBIDA, 88L);
         verify(auditoria, times(2)).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 

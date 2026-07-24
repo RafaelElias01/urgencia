@@ -60,15 +60,26 @@ public class ProcessoAnexoController {
     }
 
     /**
-     * Substitui um anexo de um tipo especifico: remove o(s) existente(s) e
-     * salva o novo arquivo. Operacao atomica: se o novo anexo falhar por
-     * validacao de tipo, o antigo ja foi removido (consistencia de que o
-     * estado final e "so o novo" ou "nenhum" - nunca dois do mesmo tipo).
+     * Substitui um anexo de um tipo especifico: salva o novo arquivo PRIMEIRO
+     * e so remove o(s) existente(s) DEPOIS que o novo foi gravado com sucesso
+     * (arquivo em disco + registro no banco). A ordem importa: o delete do
+     * arquivo antigo em disco (removerPorTipo) nao e transacional - se fosse
+     * feito antes e o salvar() do novo falhasse por qualquer motivo nao
+     * coberto pelo catch do chamador (ex.: erro de banco no save(), nao so
+     * IllegalArgumentException/IOException), o processo ficaria SEM NENHUM
+     * anexo daquele tipo (nem o antigo, que ja foi apagado do disco, nem o
+     * novo) - grave quando o tipo e um documento critico como o comprovante
+     * SNT ou o oficio de indeferimento.
      */
     private void substituirAnexo(Processo p, TipoAnexo tipo, MultipartFile arquivo)
             throws IOException {
-        anexoStorage.removerPorTipo(p.getId(), tipo);
-        anexoStorage.salvar(p, tipo, tipo.getDescricao(), arquivo);
+        substituirAnexo(p, tipo, tipo.getDescricao(), arquivo);
+    }
+
+    private void substituirAnexo(Processo p, TipoAnexo tipo, String descricao, MultipartFile arquivo)
+            throws IOException {
+        Anexo novo = anexoStorage.salvar(p, tipo, descricao, arquivo);
+        anexoStorage.removerAntigosDoTipo(p.getId(), tipo, novo.getId());
     }
 
     /** Atualiza as datas do oficio de indeferimento (aba Finalizacao). */
@@ -137,8 +148,7 @@ public class ProcessoAnexoController {
                                                     RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
         try {
-            anexoStorage.removerPorTipo(id, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE);
-            anexoStorage.salvar(p, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE,
+            substituirAnexo(p, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE,
                 "Comprovante de envio da resposta ao solicitante", arquivo);
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - " + TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE.getDescricao());
@@ -160,8 +170,7 @@ public class ProcessoAnexoController {
             return "redirect:/processos/" + id + "#finalizacao";
         }
         try {
-            anexoStorage.removerPorTipo(id, TipoAnexo.COMPROVANTE_SNT);
-            anexoStorage.salvar(p, TipoAnexo.COMPROVANTE_SNT,
+            substituirAnexo(p, TipoAnexo.COMPROVANTE_SNT,
                 "Comprovante de insercao da urgencia renal no SNT", arquivo);
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - " + TipoAnexo.COMPROVANTE_SNT.getDescricao());

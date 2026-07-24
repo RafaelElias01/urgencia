@@ -317,26 +317,28 @@ public class ProcessoDecisaoController {
         }
         partes = validos;
 
-        // PRIMEIRO: gera o PDF consolidado com cabecalho carimbado, em memoria.
-        // SO DEPOIS de a geracao ter sucesso e que o anexo antigo (se houver)
-        // e removido e o novo e salvo - assim, se consolidar/carimbar falhar no
-        // meio, o processo NAO fica sem nenhum PDF de solicitacao aos
-        // avaliadores (evita perder um anexo bom por causa de uma tentativa
-        // de reenvio que falhou).
+        // PRIMEIRO: gera o PDF consolidado com cabecalho carimbado, em memoria,
+        // e SALVA o novo anexo. SO DEPOIS de o novo anexo estar gravado com
+        // sucesso (arquivo em disco + registro no banco) e que o(s) anexo(s)
+        // antigo(s) sao removidos - assim, se consolidar/carimbar/salvar
+        // falhar em qualquer ponto, o processo NAO fica sem nenhum PDF de
+        // solicitacao aos avaliadores (evita perder um anexo bom por causa de
+        // uma tentativa de reenvio que falhou no meio do caminho).
         try {
             byte[] consolidado = solicitacaoAvaliadorService.consolidar(partes);
             byte[] pdfSolicitacao = solicitacaoAvaliadorService.carimbarCabecalho(consolidado, p);
             String nomeSolicitacao = SolicitacaoAvaliadorService.nomeArquivoOficial(p);
 
-            // SO depois de gerar o PDF com sucesso, efetiva o envio.
-            anexoStorage.removerPorTipo(id, TipoAnexo.SOLICITACAO_AVALIADOR);
+            Anexo novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.SOLICITACAO_AVALIADOR,
+                "Copia da solicitacao para envio as equipes (documentos clinicos anonimizados com cabecalho; nome completo suprimido)",
+                nomeSolicitacao, "application/pdf", pdfSolicitacao);
+            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.SOLICITACAO_AVALIADOR, novoAnexo.getId());
+
+            // SO depois de o novo anexo estar seguro, efetiva o envio.
             p.getPareceres().forEach(par -> par.setDataEnvio(hoje));
             processoService.salvar(p);
             processoService.registrarEnvio(id);
 
-            anexoStorage.salvarBytes(p, TipoAnexo.SOLICITACAO_AVALIADOR,
-                "Copia da solicitacao para envio as equipes (documentos clinicos anonimizados com cabecalho; nome completo suprimido)",
-                nomeSolicitacao, "application/pdf", pdfSolicitacao);
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - Solicitacao PDF consolidada (cabecalho carimbado) gerada automaticamente");
 
@@ -377,9 +379,12 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id + "#envio";
         }
         try {
-            anexoStorage.removerPorTipo(id, TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-            anexoStorage.salvar(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES,
+            // Salva o novo primeiro, so remove o antigo depois de confirmado
+            // o sucesso - evita o processo ficar sem nenhum comprovante de
+            // envio se o save() falhar entre o remover e o salvar.
+            Anexo novo = anexoStorage.salvar(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES,
                 "Comprovante de envio aos avaliadores", arquivo);
+            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.EMAIL_ENVIADO_AVALIADORES, novo.getId());
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - " + TipoAnexo.EMAIL_ENVIADO_AVALIADORES.getDescricao());
             ra.addFlashAttribute("msg", "Comprovante de envio anexado.");

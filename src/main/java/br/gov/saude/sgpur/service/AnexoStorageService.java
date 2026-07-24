@@ -210,6 +210,29 @@ public class AnexoStorageService {
     }
 
     /**
+     * Remove os anexos de um tipo de um processo, EXCETO o informado em
+     * {@code manterId}. Usado por "substituir": salva o novo anexo primeiro
+     * e so entao remove os antigos, chamando este metodo com o id do que
+     * acabou de ser criado - assim, se o save() do novo tivesse falhado, os
+     * antigos nunca seriam tocados (evita o processo ficar sem nenhum anexo
+     * daquele tipo em caso de falha no meio do caminho).
+     */
+    @Transactional
+    public void removerAntigosDoTipo(Long processoId, TipoAnexo tipo, Long manterId) {
+        for (Anexo a : anexoRepository.findByProcessoIdAndTipo(processoId, tipo)) {
+            if (a.getId().equals(manterId)) {
+                continue;
+            }
+            try {
+                Files.deleteIfExists(resolverArquivo(a));
+            } catch (IOException ignored) {
+                // best-effort
+            }
+            anexoRepository.delete(a);
+        }
+    }
+
+    /**
      * Resolve o arquivo fisico do anexo. Tenta primeiro o caminho gravado no banco
      * (que pode ser relativo a pasta legivel ou a pasta antiga "processo-{id}").
      * Como o {@code caminhoArmazenado} e sempre relativo a raiz, a resolucao ja

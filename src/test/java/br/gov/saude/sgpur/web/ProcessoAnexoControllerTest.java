@@ -74,6 +74,16 @@ class ProcessoAnexoControllerTest {
         processo.setStatus(StatusProcesso.ENVIADO);
         when(processoService.buscar(1L)).thenReturn(processo);
         when(validator.edicaoBloqueada(processo)).thenReturn(false);
+        // substituirAnexo salva o novo primeiro e usa o id dele para remover
+        // so os antigos (removerAntigosDoTipo) - o mock de salvar() precisa
+        // devolver um Anexo com id, senao NPE ao ler novo.getId().
+        Anexo anexoSalvo = new Anexo();
+        anexoSalvo.setId(99L);
+        try {
+            when(anexoStorage.salvar(any(), any(), any(), any())).thenReturn(anexoSalvo);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static byte[] pdfValido(String texto) {
@@ -182,8 +192,8 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Oficio de indeferimento anexado."));
 
-        verify(anexoStorage).removerPorTipo(1L, TipoAnexo.OFICIO_INDEFERIMENTO);
         verify(anexoStorage).salvar(eq(processo), eq(TipoAnexo.OFICIO_INDEFERIMENTO), anyString(), eq(arquivo));
+        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.OFICIO_INDEFERIMENTO, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 
@@ -212,7 +222,7 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Comprovante de envio ao solicitante anexado."));
 
-        verify(anexoStorage).removerPorTipo(1L, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE);
+        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 
@@ -256,7 +266,7 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Comprovante SNT anexado."));
 
-        verify(anexoStorage).removerPorTipo(1L, TipoAnexo.COMPROVANTE_SNT);
+        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_SNT, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 

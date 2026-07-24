@@ -369,11 +369,14 @@ public class ProcessoDetalheController {
         }
 
         // 1) Copia da solicitacao original (com nome completo) — anexo manual.
+        // Salva o novo primeiro, so remove o antigo depois de confirmado o
+        // sucesso - evita o processo ficar sem nenhuma copia se o save() falhar
+        // entre o remover e o salvar.
         if (arquivo != null && !arquivo.isEmpty()) {
             try {
-                anexoStorage.removerPorTipo(id, TipoAnexo.SOLICITACAO_RECEBIDA);
-                anexoStorage.salvar(p, TipoAnexo.SOLICITACAO_RECEBIDA,
+                Anexo novo = anexoStorage.salvar(p, TipoAnexo.SOLICITACAO_RECEBIDA,
                     "Copia da solicitacao original recebida", arquivo);
+                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.SOLICITACAO_RECEBIDA, novo.getId());
                 auditoria.registrar("ANEXO_ADICIONADO",
                     "Processo " + p.getNumero() + " - " + TipoAnexo.SOLICITACAO_RECEBIDA.getDescricao());
             } catch (IllegalArgumentException | IOException e) {
@@ -385,14 +388,16 @@ public class ProcessoDetalheController {
         // 2) CAPA DO PROCESSO — gerada automaticamente pelo sistema com os
         // dados do solicitante + 3 medicos avaliadores (reaproveita a capa do
         // Relatorio Final). Sempre substitui a capa anterior ao registrar
-        // recebimento, garantindo que esteja atualizada.
+        // recebimento, garantindo que esteja atualizada. Gera e salva a nova
+        // capa ANTES de remover a antiga, para nao ficar sem nenhuma se algo
+        // falhar no meio.
         try {
-            anexoStorage.removerPorTipo(id, TipoAnexo.CAPA_PROCESSO);
             byte[] pdfCapa = relatorioService.gerarCapaProcesso(p);
             String nomeCapa = "capa-processo-" + p.getNumero().replace("/", "-") + ".pdf";
-            anexoStorage.salvarBytes(p, TipoAnexo.CAPA_PROCESSO,
+            Anexo novaCapa = anexoStorage.salvarBytes(p, TipoAnexo.CAPA_PROCESSO,
                 "Capa do processo gerada automaticamente no recebimento",
                 nomeCapa, "application/pdf", pdfCapa);
+            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.CAPA_PROCESSO, novaCapa.getId());
             auditoria.registrar("ANEXO_ADICIONADO",
                 "Processo " + p.getNumero() + " - Capa do processo gerada automaticamente");
         } catch (Exception e) {
