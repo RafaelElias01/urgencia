@@ -750,6 +750,12 @@ public class ProcessoDecisaoController {
                     new EmailPreviewResponse.Mensagem(prep.destinatarios(), prep.assunto(), prep.corpo())));
             }
             case "lembrete-avaliador" -> {
+                // parecerId e opcional no request (form pode submeter sem selecao);
+                // findById(null) lancaria InvalidDataAccessApiUsageException (500
+                // generico) em vez da mensagem amigavel abaixo - checa antes.
+                if (parecerId == null) {
+                    return EmailPreviewResponse.erro("Parecer nao encontrado neste processo.");
+                }
                 Parecer parecer = parecerRepository.findById(parecerId)
                     .filter(par -> par.getProcesso().getId().equals(id))
                     .orElse(null);

@@ -158,7 +158,14 @@ function chamarAcao(btn, url, options, mensagemEspera) {
     fetch(url, Object.assign({}, options, {headers: headers}))
         .then(function (resp) { return resp.json(); })
         .then(function (data) {
-            mostrarToast(data.mensagem, data.mensagem && data.mensagem.includes('erro') ? 'error' : 'success');
+            // Usa o campo "ok" que o backend ja calcula (AcaoResponse) em vez de
+            // adivinhar pela presenca da palavra "erro" no texto - a heuristica
+            // antiga deixava o toast VERDE em mensagens de erro de negocio que nao
+            // continham essa palavra (ex.: "Processo encerrado: nenhuma alteracao
+            // e permitida", "Este avaliador ja registrou o parecer."), fazendo o
+            // operador achar que um lembrete/e-mail foi enviado quando na verdade
+            // a acao foi bloqueada.
+            mostrarToast(data.mensagem, data.ok ? 'success' : 'error');
         })
         .catch(function () {
             mostrarToast('Falha de comunicacao ao enviar o e-mail. Tente novamente.', 'error');

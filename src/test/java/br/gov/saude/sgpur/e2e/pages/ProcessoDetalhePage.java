@@ -148,13 +148,19 @@ public class ProcessoDetalhePage {
      *
      * <p>So funciona de forma visivel em modo HEADED: o Chromium headless
      * nao tem visualizador de PDF embutido e trata a mesma resposta como
-     * DOWNLOAD em vez de abrir uma pagina (ver AVISO abaixo).
+     * DOWNLOAD em vez de navegar para uma pagina - {@code waitForLoadState()}
+     * nunca dispara o evento "load" nesse caso e trava ate o timeout (60s).
+     * Por isso so esperamos o load state quando {@code headed}; em headless
+     * basta confirmar que a aba abriu (a URL ja fica disponivel antes do
+     * load terminar).
      */
-    public Page abrirRelatorioFinal() {
+    public Page abrirRelatorioFinal(boolean headed) {
         narrar("Abrindo o Relatorio Final (PDF) gerado pelo sistema...");
         Page abaRelatorio = page.context().waitForPage(() ->
             page.locator("a.btn:has-text('Relatorio Final (PDF)')").click());
-        abaRelatorio.waitForLoadState();
+        if (headed) {
+            abaRelatorio.waitForLoadState();
+        }
         return abaRelatorio;
     }
 

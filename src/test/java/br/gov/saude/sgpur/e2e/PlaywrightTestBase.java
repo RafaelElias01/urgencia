@@ -44,6 +44,14 @@ public abstract class PlaywrightTestBase {
 
     private static Playwright playwright;
     private static Browser browser;
+    /**
+     * True se o Chromium foi lancado com janela visivel. Exposto para os Page
+     * Objects (ex.: ProcessoDetalhePage.abrirRelatorioFinal) adaptarem
+     * comportamento que so funciona com um visualizador de UI de verdade -
+     * o Chromium headless nao tem visualizador de PDF embutido e trata a
+     * mesma resposta como DOWNLOAD em vez de navegar para uma pagina.
+     */
+    protected static boolean headed;
     protected BrowserContext context;
     protected Page page;
     private final List<BrowserContext> contextosExtras = new ArrayList<>();
@@ -55,7 +63,7 @@ public abstract class PlaywrightTestBase {
         // confiavel via Maven/Failsafe, que forka um processo separado e nem
         // sempre herda env vars do shell pai) quanto a env var SAUR_E2E_HEADED
         // (util fora do Maven, ex. rodando a classe direto na IDE).
-        boolean headed = Boolean.parseBoolean(System.getProperty("saur.e2e.headed",
+        headed = Boolean.parseBoolean(System.getProperty("saur.e2e.headed",
             System.getenv().getOrDefault("SAUR_E2E_HEADED", "true")));
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
             .setHeadless(!headed)

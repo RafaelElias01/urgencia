@@ -187,10 +187,16 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             // ===== Relatorio Final (PDF), gerado pelo sistema com o resultado =====
             // Abre visivelmente numa nova aba - clique real no botao, nao um fetch
             // em segundo plano, para quem esta acompanhando ver o PDF na tela.
-            Page abaRelatorio = detalhe.abrirRelatorioFinal();
-            assertThat(abaRelatorio.url()).contains("/relatorio");
-            abaRelatorio.waitForTimeout(2000); // tempo pro visualizador de PDF renderizar antes do screenshot
-            screenshot(abaRelatorio, "relatorio-final");
+            // Em modo headless o Chromium nao tem visualizador de PDF embutido
+            // (trata a resposta como download, sem navegar/renderizar pagina) -
+            // so validamos a URL e tiramos screenshot quando headed, de fato
+            // visualizavel.
+            Page abaRelatorio = detalhe.abrirRelatorioFinal(headed);
+            if (headed) {
+                assertThat(abaRelatorio.url()).contains("/relatorio");
+                abaRelatorio.waitForTimeout(2000); // tempo pro visualizador de PDF renderizar antes do screenshot
+                screenshot(abaRelatorio, "relatorio-final");
+            }
 
         } catch (AssertionError | RuntimeException e) {
             screenshot("fluxo-completo-falha");
