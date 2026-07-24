@@ -23,8 +23,16 @@ public class Processo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Numero do processo no formato NN/AAAA. Ex.: 01/2026. */
-    @NotBlank
+    /**
+     * Numero do processo no formato NN/AAAA. Ex.: 01/2026. NAO e
+     * {@code @NotBlank} aqui (mesmo padrao de {@code Usuario.email}): a
+     * obrigatoriedade e CONDICIONAL - manual em 2026 (validada no controller,
+     * ProcessoDetalheController.salvar), automatica a partir de 2027
+     * (preenchida por ProcessoService.cadastrar via proximoNumero(), DEPOIS
+     * do @Valid do controller ja ter rodado). Um @NotBlank aqui bloquearia
+     * TODA criacao de processo assim que a numeracao automatica entrar em
+     * vigor, ja que o formulario nem renderiza o campo nesse modo.
+     */
     @Column(nullable = false, unique = true, length = 12)
     private String numero;
 
