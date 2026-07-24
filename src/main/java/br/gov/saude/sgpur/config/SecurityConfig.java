@@ -14,6 +14,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter.XFrameOptionsMode;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.io.IOException;
 
@@ -55,11 +62,22 @@ public class SecurityConfig {
         "script-src 'self' 'unsafe-inline'",
         "base-uri 'self'",
         "form-action 'self'",
-        // 'self', nao 'none': o Portal do Avaliador embute o PDF anonimizado
-        // num <iframe> na propria pagina de votacao (visualizacao sem
-        // download). Framing por outra origem (o ataque real de clickjacking)
-        // continua bloqueado; framing pelo proprio app nao e uma ameaca nova.
-        "frame-ancestors 'self'");
+        "frame-ancestors 'none'");
+
+    /**
+     * Mesma CSP de producao, mas com frame-ancestors 'self': usada SOMENTE na
+     * resposta do PDF anonimizado do Portal do Avaliador (ver AVALIADOR_PDF_MATCHER),
+     * que precisa ser embutida num <iframe> na propria pagina de votacao
+     * (visualizacao sem download). Escopada via addHeaderWriter/
+     * DelegatingRequestMatcherHeaderWriter abaixo - o resto do app mantem
+     * 'none' (framing por qualquer origem, inclusive a propria, bloqueado).
+     */
+    private static final String CSP_PROD_AVALIADOR_PDF =
+        CSP_PROD.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
+
+    /** Rota do PDF anonimizado servido ao avaliador (ver AvaliadorController.baixarPdf). */
+    private static final RequestMatcher AVALIADOR_PDF_MATCHER =
+        PathPatternRequestMatcher.withDefaults().matcher("/avaliador/*/pdf/*");
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, Environment env) throws Exception {
@@ -123,16 +141,40 @@ public class SecurityConfig {
                     // Console H2 precisa renderizar em frame do mesmo host
                     headers.frameOptions(frame -> frame.sameOrigin());
                 } else {
-                    // Producao: bloqueia enquadramento por outra origem (clickjacking),
-                    // forca HTTPS (HSTS) e aplica a CSP. sameOrigin (nao deny) porque o
+                    // Producao: bloqueia enquadramento (clickjacking) do app INTEIRO por
+                    // padrao (deny + frame-ancestors 'none') e forca HTTPS (HSTS). O
                     // Portal do Avaliador embute o PDF anonimizado num <iframe> na propria
-                    // pagina de votacao. Dev fica de fora para nao quebrar o console H2
-                    // nem o live-reload do devtools.
-                    headers.frameOptions(frame -> frame.sameOrigin());
+                    // pagina de votacao - mas em vez de relaxar isso pra toda a aplicacao,
+                    // a excecao fica restrita a AVALIADOR_PDF_MATCHER.
+                    //
+                    // X-Frame-Options: XFrameOptionsHeaderWriter sempre sobrescreve
+                    // (response.setHeader sem guarda), entao basta registrar o writer
+                    // "deny" (via frameOptions.deny() abaixo) e depois, via addHeaderWriter,
+                    // um writer "sameOrigin" escopado ao path do PDF - como os writers
+                    // custom (addHeaderWriter) rodam DEPOIS dos padrao no HeaderWriterFilter,
+                    // o sameOrigin so tem efeito quando o path bate.
+                    //
+                    // Content-Security-Policy: ContentSecurityPolicyHeaderWriter SO escreve
+                    // se o header AINDA NAO existir (response.containsHeader guard) - a
+                    // mesma tecnica do X-Frame-Options nao funciona aqui (o writer "geral"
+                    // rodando primeiro ja grava o header e o writer escopado que roda depois
+                    // vira no-op). Por isso a CSP usa dois addHeaderWriter com matchers
+                    // MUTUAMENTE EXCLUSIVOS (path do PDF vs o resto), em vez do metodo
+                    // .contentSecurityPolicy(...) do configurer - so um dos dois bate por
+                    // requisicao, sem depender de ordem de sobrescrita.
+                    headers.frameOptions(frame -> frame.deny());
                     headers.httpStrictTransportSecurity(hsts -> hsts
                         .includeSubDomains(true)
                         .maxAgeInSeconds(31_536_000));
-                    headers.contentSecurityPolicy(csp -> csp.policyDirectives(CSP_PROD));
+                    headers.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                        AVALIADOR_PDF_MATCHER,
+                        new XFrameOptionsHeaderWriter(XFrameOptionsMode.SAMEORIGIN)));
+                    headers.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                        new NegatedRequestMatcher(AVALIADOR_PDF_MATCHER),
+                        new ContentSecurityPolicyHeaderWriter(CSP_PROD)));
+                    headers.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                        AVALIADOR_PDF_MATCHER,
+                        new ContentSecurityPolicyHeaderWriter(CSP_PROD_AVALIADOR_PDF)));
                 }
             });
         return http.build();

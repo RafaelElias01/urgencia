@@ -45,6 +45,12 @@
                 Processo anonimizado (nome do paciente suprimido). Visualize abaixo antes
                 de registrar seu parecer — nao e necessario baixar o arquivo.
             </p>
+            <div th:if="${algumPdfIndisponivel}" class="alert alert-warning py-2 mb-3">
+                <i class="bi bi-exclamation-triangle"></i>
+                Um ou mais arquivos deste processo estao indisponiveis no momento. Se a
+                visualizacao abaixo aparecer em branco, contate o operador da Secretaria
+                antes de registrar seu parecer.
+            </div>
             <div th:if="${!pdfsAvaliador.isEmpty()}">
                 <div th:each="pdf, iterStat : ${pdfsAvaliador}" th:class="${!iterStat.last} ? 'mb-4' : ''">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -55,8 +61,8 @@
                         </a>
                     </div>
                     <iframe th:src="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
-                            class="w-100 rounded border" style="height: 70vh;"
-                            title="Visualizacao do processo anonimizado">
+                            class="w-100 rounded border" style="height: 70vh;" loading="lazy"
+                            th:title="${'Visualizacao do processo anonimizado: ' + pdf.nomeArquivo}">
                         <p class="small text-muted">
                             Seu navegador nao suporta visualizacao embutida de PDF.
                             <a th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}" target="_blank">Abra o arquivo em nova aba</a>.

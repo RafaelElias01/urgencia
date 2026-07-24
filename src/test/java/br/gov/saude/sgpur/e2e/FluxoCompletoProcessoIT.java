@@ -133,10 +133,18 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             janelaMedico1.onConsoleMessage(msg -> {
                 if ("error".equals(msg.type())) errosConsole.add(msg.text());
             });
+            // onConsoleMessage so pega chamadas explicitas a console.log/warn/error -
+            // uma excecao JS nao tratada (ex.: elemento do modal ausente em
+            // avaliador-votar.js) NAO passa por ali, e sim por onPageError. Sem este
+            // listener, um erro real no fluxo do modal/voto passaria despercebido
+            // pelas asserts de "sem erro no console" abaixo.
+            List<String> errosPagina = new java.util.ArrayList<>();
+            janelaMedico1.onPageError(errosPagina::add);
             AvaliadorPage portalMedico1 = new AvaliadorPage(janelaMedico1).abrirVotacao(processoId);
             // Confirma que o PDF anonimizado carrega embutido na propria tela
-            // (sem precisar baixar) e que o CSP/X-Frame-Options relaxado para
-            // 'self' nao bloqueou o proprio app de se auto-enquadrar.
+            // (sem precisar baixar) e que o CSP/X-Frame-Options - agora escopados
+            // so pra essa rota (ver SecurityConfig.AVALIADOR_PDF_MATCHER) - nao
+            // bloquearam o proprio app de se auto-enquadrar.
             assertThat(portalMedico1.materialInline().isVisible()).isTrue();
             screenshot(janelaMedico1, "avaliador-pdf-inline");
             assertThat(errosConsole).noneMatch(e ->
@@ -150,6 +158,7 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             screenshot(janelaMedico1, "avaliador-modal-confirmacao-voto");
             assertThat(portalMedico1.checkboxConfirmaModal().isChecked()).isFalse();
             portalMedico1.confirmarNoModal();
+            assertThat(errosPagina).isEmpty();
 
             Page janelaMedico2 = novoAtor();
             login(janelaMedico2, "avaliador.e2e.2", "senha123");

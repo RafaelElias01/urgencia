@@ -9,10 +9,10 @@ import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
 import br.gov.saude.sgpur.service.Iniciais;
 import br.gov.saude.sgpur.service.ProcessoService;
+import br.gov.saude.sgpur.service.TempoRespostaService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
 import java.time.LocalDate;
@@ -68,7 +69,11 @@ public class AvaliadorController {
                                ProcessoService processoService,
                                AuditoriaService auditoria,
                                DecisaoFinalService decisaoFinalService,
-                               @Value("${app.avaliador.prazo-dias:7}") int prazoDias) {
+                               // Prazo-meta vem do TempoRespostaService (nao um @Value proprio):
+                               // fonte unica de verdade pro mesmo criterio "fora do prazo" usado
+                               // em /membros e no Painel - evita os dois valores divergirem se o
+                               // default/chave mudar em um lugar so.
+                               TempoRespostaService tempoRespostaService) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
         this.anexoRepo = anexoRepo;
@@ -76,7 +81,7 @@ public class AvaliadorController {
         this.processoService = processoService;
         this.auditoria = auditoria;
         this.decisaoFinalService = decisaoFinalService;
-        this.prazoDias = prazoDias;
+        this.prazoDias = tempoRespostaService.getPrazoDias();
     }
 
     /**
@@ -172,6 +177,11 @@ public class AvaliadorController {
         Processo processo = parecer.getProcesso();
         List<Anexo> pdfsAvaliador = anexoRepo
             .findByProcessoIdAndTipo(processoId, TipoAnexo.SOLICITACAO_AVALIADOR);
+        // O <iframe> da tela de voto nao tem como avisar sozinho se baixarPdf
+        // devolver 404 (arquivo apagado do disco mas o registro continua no
+        // banco) - avisamos aqui, antes, com a mesma checagem que baixarPdf usa.
+        boolean algumPdfIndisponivel = pdfsAvaliador.stream()
+            .anyMatch(a -> !Files.isReadable(anexoStorage.resolverArquivo(a)));
 
         // Apenas iniciais — NUNCA nome completo
         model.addAttribute("iniciais", Iniciais.de(processo.getPacienteNome()));
@@ -179,6 +189,7 @@ public class AvaliadorController {
         model.addAttribute("parecer", parecer);
         model.addAttribute("processo", processo);
         model.addAttribute("pdfsAvaliador", pdfsAvaliador);
+        model.addAttribute("algumPdfIndisponivel", algumPdfIndisponivel);
         model.addAttribute("resultados", List.of(
             ResultadoParecer.FAVORAVEL,
             ResultadoParecer.NAO_FAVORAVEL,

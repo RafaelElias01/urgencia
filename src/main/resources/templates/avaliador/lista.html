@@ -119,16 +119,15 @@
                             <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio).
                                  Fora do prazo-meta: cor + icone (nao so cor), para nao depender
                                  so de matiz em caso de daltonismo. -->
-                            <th:block th:with="dias=${diasDesdeEnvio[par.processo.id]}, foraPrazo=${foraDoPrazoPorProcesso[par.processo.id]}">
-                                <span th:if="${dias != null and foraPrazo == true}"
-                                      class="text-danger fw-semibold"
-                                      th:title="'Acima do prazo-meta de ' + ${prazoDias} + ' dias'">
-                                    <i class="bi bi-exclamation-triangle-fill"></i>
-                                    <span th:text="${dias} + (${dias == 1} ? ' dia' : ' dias')">0 dias</span>
+                            <th:block th:with="dias=${diasDesdeEnvio[par.processo.id]}, foraPrazo=${foraDoPrazoPorProcesso[par.processo.id]} == true">
+                                <span th:if="${dias != null}"
+                                      th:with="textoDias=${dias} + (${dias == 1} ? ' dia' : ' dias'),
+                                               textoPrazo=${prazoDias} + (${prazoDias == 1} ? ' dia' : ' dias')"
+                                      th:classappend="${foraPrazo} ? 'text-danger fw-semibold' : 'text-muted'"
+                                      th:title="${foraPrazo} ? ('Acima do prazo-meta de ' + ${textoPrazo}) : null">
+                                    <i th:if="${foraPrazo}" class="bi bi-exclamation-triangle-fill"></i>
+                                    <span th:text="${foraPrazo} ? ${textoDias} : (${dias == 0} ? 'hoje' : ${textoDias})">0 dias</span>
                                 </span>
-                                <span th:if="${dias != null and foraPrazo != true}"
-                                      class="text-muted"
-                                      th:text="${dias == 0} ? 'hoje' : (${dias} + (${dias == 1} ? ' dia' : ' dias'))">0 dias</span>
                                 <span th:if="${dias == null}" class="text-muted">-</span>
                             </th:block>
                         </td>

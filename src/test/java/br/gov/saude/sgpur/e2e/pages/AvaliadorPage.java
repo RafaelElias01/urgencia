@@ -30,12 +30,16 @@ public class AvaliadorPage {
     }
 
     /**
-     * Locator do &lt;iframe&gt; que embute o PDF anonimizado diretamente na tela
-     * de votacao (visualizacao sem download, ver votar.html). Usado pelo teste
-     * para confirmar que o material carrega inline em vez de exigir um download.
+     * Locator do primeiro &lt;iframe&gt; que embute um PDF anonimizado diretamente
+     * na tela de votacao (visualizacao sem download, ver votar.html). Usado pelo
+     * teste para confirmar que o material carrega inline em vez de exigir um
+     * download. O titulo de cada iframe inclui o nome do arquivo (unico por
+     * anexo) - o seletor usa "comeca com" (^=) e .first() porque um processo
+     * pode ter mais de um PDF anexado, e um locator estatico casaria varios
+     * elementos (Playwright "strict mode violation" em chamadas como .click()).
      */
     public Locator materialInline() {
-        return page.locator("iframe[title='Visualizacao do processo anonimizado']");
+        return page.locator("iframe[title^='Visualizacao do processo anonimizado']").first();
     }
 
     /** Locator do botao de confirmacao final dentro do modal de ciencia do voto. */

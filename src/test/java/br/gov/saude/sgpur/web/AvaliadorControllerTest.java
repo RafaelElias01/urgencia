@@ -8,6 +8,7 @@ import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
 import br.gov.saude.sgpur.service.ProcessoService;
+import br.gov.saude.sgpur.service.TempoRespostaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,7 @@ class AvaliadorControllerTest {
     @MockitoBean private ProcessoService processoService;
     @MockitoBean private DecisaoFinalService decisaoFinalService;
     @MockitoBean private AuditoriaService auditoria;
+    @MockitoBean private TempoRespostaService tempoRespostaService;
 
     private MembroUrgenciaRenal membro;
     private Usuario usuario;
@@ -53,6 +55,8 @@ class AvaliadorControllerTest {
 
     @BeforeEach
     void setUp() {
+        when(tempoRespostaService.getPrazoDias()).thenReturn(7);
+
         membro = new MembroUrgenciaRenal("HCPA", "Veronica Horbe", "veronica@hcpa.edu.br");
         membro.setId(10L);
 
