@@ -362,29 +362,50 @@ Gestalt do card de solicitação, ordenação da lista) já estavam OK e não
 precisam de ação.
 
 Pendente pra próxima sessão:
-1. **Rodar `mvn test`/`.\test.ps1`** pra confirmar que os 3 ajustes de UI
-   acima não quebraram nada — não rodei a suíte completa antes de commitar
-   (sessão terminando, só templates Thymeleaf, sem mudança em Java).
-2. **Vistoria de conformidade de regras de negócio** (cada regra da seção
-   "Regras de negócio" deste arquivo vs. o código real, service+controller)
-   foi disparada em 2026-07-24 mas **cancelada pelo usuário antes de
-   terminar** — sem nenhum resultado. Decidir se vale refazer.
-3. **Vistoria operacional/infra** (mesma sessão): a VM Oracle **não tem**
-   backup dos anexos em disco (`/opt/sgpur/data/anexos`), nem `logrotate`
-   próprio do `sgpur` (só um cron de outro projeto, "petrobras", na mesma
-   máquina), nem monitoramento/alertas. É o ponto mais frágil encontrado -
-   nada foi implementado ainda, só diagnosticado.
-4. **Jars de backup acumulando sem rotação** em `/opt/sgpur/sgpur.jar.bak-*`
+1. **Vistoria operacional/infra** (sessão de 2026-07-10): a VM Oracle **não
+   tem** backup dos anexos em disco (`/opt/sgpur/data/anexos`), nem
+   `logrotate` próprio do `sgpur` (só um cron de outro projeto, "petrobras",
+   na mesma máquina), nem monitoramento/alertas. É o ponto mais frágil
+   encontrado - nada foi implementado ainda, só diagnosticado.
+2. **Jars de backup acumulando sem rotação** em `/opt/sgpur/sgpur.jar.bak-*`
    (cada deploy soma ~70MB) - considerar um cron simples de limpeza.
-5. **Upgrades de dependência disponíveis** (checado com
+3. **Upgrades de dependência disponíveis** (checado com
    `mvn versions:display-dependency-updates` em 2026-07-24): Spring Boot
    `3.5.16 -> 4.1.0`, Spring Security `6.5.11 -> 7.1.0`, OpenPDF
    `1.3.30 -> 3.0.5` - todos major version, não fazer sem sessão dedicada
    (risco de breaking change). Patches menores e seguros:
    `org.postgresql:postgresql 42.7.11 -> 42.7.13`, `org.webjars:bootstrap
    5.3.3 -> 5.3.8`, `com.h2database:h2 2.3.232 -> 2.4.240`.
+4. **Erro 413** ao anexar comprovante de parecer (reportado 2026-07-09), não
+   investigado: suspeita de que o nginx real na VM tem config diferente/mais
+   antiga da que está em `deploy/nginx-sgpur.conf`. Próximo passo: `sudo find
+   /etc/nginx -iname "*sgpur*" -o -iname "*saur*"` na VM.
 
-Nota: o **deploy automático via GitHub Actions foi corrigido nesta sessão**
+**Vistoria de conformidade de regras de negócio concluída em 2026-07-24**
+(cada regra da seção "Regras de negócio" deste arquivo vs. o código real,
+service+controller, cobrindo maioria simples/coordenador, anexos
+obrigatórios, processo encerrado, pausa "Solicita informação", fluxo de 6
+passos, Recebimento/Envio, Portal do Avaliador e imparcialidade). Nenhuma
+violação de regra de negócio encontrada. 4 gaps estruturais corrigidos no
+mesmo dia:
+- `ProcessoService.confirmarRespostaSolicitante` criado como fonte única da
+  regra "Deferido exige comprovante SNT" (antes vivia duplicada em 3
+  lugares: só no controller, sem espelho no service, mais uma cópia inline
+  em `prepararEmailPronto`).
+- `MembroController.salvar` ganhou `@Transactional` (fechava a janela de
+  race condition ao desmarcar outros coordenadores CET-RS).
+- `atualizarStatusPorPareceres`/`tentarDecisaoAutomatica`/
+  `retomarAposInformacao` (ProcessoService) agora lançam
+  `IllegalStateException` em vez de no-op silencioso quando chamados sobre
+  processo já finalizado (todos os call-sites reais já garantiam isso
+  antes; só torna bugs futuros ruidosos em vez de mascarados).
+- `AvaliadorController.votar()` passou a expor `ProcessoVotoView`/
+  `ParecerVotoView` (DTOs projetados) ao template em vez da entidade
+  `Processo`/`Parecer` inteira, fechando por design o risco de um `th:text`
+  futuro vazar `pacienteNome` (quebraria a regra de imparcialidade).
+Suíte completa validada após as correções: **418 testes, 0 falhas** (JDK 21).
+
+Nota: o **deploy automático via GitHub Actions foi corrigido em 2026-07-10**
 (o secret `SAUR_ORACLE_SSH_KEY` estava vazio/malformado desde 21/07, todo
 `Deploy` falhava; corrigido + também corrigido um falso-negativo no
 health-check que tinha timeout curto demais pro boot real de ~76s contra o

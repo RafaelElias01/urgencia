@@ -9,6 +9,7 @@ import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
 import br.gov.saude.sgpur.service.TempoRespostaService.TempoMembro;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
@@ -80,6 +81,7 @@ public class MembroController {
     }
 
     @PostMapping
+    @Transactional
     public String salvar(@Valid @ModelAttribute("membro") MembroUrgenciaRenal membro,
                          BindingResult result, RedirectAttributes ra) {
         if (result.hasErrors()) {
@@ -88,6 +90,10 @@ public class MembroController {
         // So pode haver um coordenador CET-RS por vez (as regras de decisao por
         // maioria assumem no maximo um). Ao marcar este membro como coordenador,
         // desmarca automaticamente qualquer outro que ja estivesse marcado.
+        // @Transactional: le (findByCoordenadorTrue) e escreve (save) dentro da
+        // MESMA transacao/conexao, fechando a janela em que 2 requests
+        // concorrentes poderiam cada um ver "nenhum outro coordenador" e deixar
+        // 2 membros marcados ao final.
         if (membro.isCoordenador()) {
             repo.findByCoordenadorTrue().stream()
                 .filter(outro -> !outro.getId().equals(membro.getId()))

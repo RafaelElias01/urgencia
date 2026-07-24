@@ -96,19 +96,15 @@ public class ProcessoAnexoController {
     public String respostaSolicitante(@PathVariable Long id,
                               @RequestParam(required = false, defaultValue = "false") boolean emailEnviadoSolicitante,
                               RedirectAttributes ra) {
-        Processo p = processoService.buscar(id);
-        // Regra: nao da para confirmar a resposta ao solicitante sem o
-        // comprovante que a sustenta - comprovante SNT no Deferido (simetrico
-        // ao oficio no Indeferido). Centralizado em ProcessoValidator.
-        if (emailEnviadoSolicitante) {
-            var bloqueio = validator.validarRespostaSolicitante(p);
-            if (bloqueio.isPresent()) {
-                ra.addFlashAttribute("erro", bloqueio.get());
-                return "redirect:/processos/" + id + "#finalizacao";
-            }
+        // Regra (comprovante SNT no Deferido / oficio no Indeferido) validada
+        // dentro do servico - ProcessoService.confirmarRespostaSolicitante -
+        // para nao existir so aqui na camada web.
+        try {
+            processoService.confirmarRespostaSolicitante(id, emailEnviadoSolicitante);
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/processos/" + id + "#finalizacao";
         }
-        p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
-        processoService.salvar(p);
         ra.addFlashAttribute("msg", "Finalizacao salva.");
         return "redirect:/processos/" + id + "#finalizacao";
     }

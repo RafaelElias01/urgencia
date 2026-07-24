@@ -183,11 +183,15 @@ public class AvaliadorController {
         boolean algumPdfIndisponivel = pdfsAvaliador.stream()
             .anyMatch(a -> !Files.isReadable(anexoStorage.resolverArquivo(a)));
 
-        // Apenas iniciais — NUNCA nome completo
+        // Apenas iniciais — NUNCA nome completo. Nao expomos a entidade Processo
+        // (tem pacienteNome) nem Parecer (tem processo.pacienteNome) inteiras ao
+        // template: so os poucos campos que a tela de voto realmente usa, num DTO
+        // projetado (ProcessoVotoView/ParecerVotoView) — assim um th:text futuro
+        // digitado errado nao consegue vazar o nome completo por acidente.
         model.addAttribute("iniciais", Iniciais.de(processo.getPacienteNome()));
         model.addAttribute("numero", processo.getNumero());
-        model.addAttribute("parecer", parecer);
-        model.addAttribute("processo", processo);
+        model.addAttribute("parecer", new ParecerVotoView(parecer.getDataEnvio()));
+        model.addAttribute("processo", new ProcessoVotoView(processo.getId()));
         model.addAttribute("pdfsAvaliador", pdfsAvaliador);
         model.addAttribute("algumPdfIndisponivel", algumPdfIndisponivel);
         model.addAttribute("resultados", List.of(
@@ -356,4 +360,10 @@ public class AvaliadorController {
 
         return parecer;
     }
+
+    /** Projecao de Processo para a tela de voto: so o id, usado pelas actions dos forms/links. */
+    private record ProcessoVotoView(Long id) {}
+
+    /** Projecao de Parecer para a tela de voto: so a data de envio, exibida na tela. */
+    private record ParecerVotoView(LocalDate dataEnvio) {}
 }

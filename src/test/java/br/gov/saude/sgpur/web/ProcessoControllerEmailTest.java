@@ -195,6 +195,11 @@ class ProcessoControllerEmailTest {
     @WithMockUser(roles = "OPERADOR")
     void enviarEmailDeferidoBloqueadoSemComprovanteSnt() throws Exception {
         processo.setStatus(StatusProcesso.DEFERIDO);
+        // Checagem de SNT/oficio delega a ProcessoValidator.validarRespostaSolicitante
+        // (fonte unica, mesma regra de ProcessoService.confirmarRespostaSolicitante);
+        // validator e mock aqui, entao precisa do stub para simular o bloqueio.
+        when(processoValidator.validarRespostaSolicitante(processo))
+            .thenReturn(Optional.of("Anexe o comprovante de insercao no SNT antes de confirmar a resposta ao solicitante."));
 
         mvc.perform(post("/processos/1/email/enviar")
                 .param("chave", "deferido")
@@ -272,6 +277,8 @@ class ProcessoControllerEmailTest {
     @WithMockUser(roles = "OPERADOR")
     void previewProntoDeferidoBloqueadoSemComprovanteSnt() throws Exception {
         processo.setStatus(StatusProcesso.DEFERIDO);
+        when(processoValidator.validarRespostaSolicitante(processo))
+            .thenReturn(Optional.of("Anexe o comprovante de insercao no SNT antes de confirmar a resposta ao solicitante."));
 
         mvc.perform(post("/processos/1/email/preview")
                 .param("tipo", "pronto")

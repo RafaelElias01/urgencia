@@ -827,13 +827,17 @@ public class ProcessoDecisaoController {
                 if (email == null || email.isBlank()) {
                     return EmailPreparado.erro("Processo sem e-mail do solicitante cadastrado.");
                 }
-                if ("deferido".equals(chave)
-                        && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.COMPROVANTE_SNT)) {
-                    return EmailPreparado.erro("Anexe o comprovante de insercao no SNT antes de enviar este e-mail.");
-                }
-                if ("indeferido".equals(chave)
-                        && p.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO)) {
-                    return EmailPreparado.erro("Anexe o oficio de indeferimento antes de enviar este e-mail.");
+                // Templates "deferido"/"indeferido" so sao oferecidos quando
+                // p.getStatus() ja e o correspondente (EmailTemplateService),
+                // entao a mesma checagem de ProcessoValidator.validarRespostaSolicitante
+                // (usada em ProcessoService.confirmarRespostaSolicitante) vale aqui -
+                // fonte unica da regra, sem reimplementar SNT/oficio inline.
+                if (("deferido".equals(chave) || "indeferido".equals(chave))) {
+                    var bloqueio = validator.validarRespostaSolicitante(p);
+                    if (bloqueio.isPresent()) {
+                        return EmailPreparado.erro(bloqueio.get().replace(
+                            "antes de confirmar a resposta ao solicitante", "antes de enviar este e-mail"));
+                    }
                 }
                 return EmailPreparado.ok(new String[]{email}, email, assunto, corpo);
             }

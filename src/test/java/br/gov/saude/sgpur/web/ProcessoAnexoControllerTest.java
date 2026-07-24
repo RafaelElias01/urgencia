@@ -113,20 +113,23 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaSolicitanteSemConfirmarNaoValidaESalva() throws Exception {
+        // Regra de validacao (SNT/oficio) agora vive dentro de
+        // ProcessoService.confirmarRespostaSolicitante - o controller so delega.
+        when(processoService.confirmarRespostaSolicitante(1L, false)).thenReturn(processo);
+
         mvc.perform(post("/processos/1/resposta-solicitante").with(csrf()))
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/processos/1#finalizacao"))
             .andExpect(flash().attribute("msg", "Finalizacao salva."));
 
-        verify(validator, never()).validarRespostaSolicitante(any());
-        verify(processoService).salvar(argThat(p -> !p.isEmailEnviadoSolicitante()));
+        verify(processoService).confirmarRespostaSolicitante(1L, false);
     }
 
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaSolicitanteConfirmadaSemComprovanteEhBloqueada() throws Exception {
-        when(validator.validarRespostaSolicitante(processo))
-            .thenReturn(Optional.of("Anexe o comprovante SNT antes de confirmar."));
+        when(processoService.confirmarRespostaSolicitante(1L, true))
+            .thenThrow(new IllegalStateException("Anexe o comprovante SNT antes de confirmar."));
 
         mvc.perform(post("/processos/1/resposta-solicitante")
                 .param("emailEnviadoSolicitante", "true")
@@ -134,14 +137,13 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/processos/1#finalizacao"))
             .andExpect(flash().attribute("erro", "Anexe o comprovante SNT antes de confirmar."));
-
-        verify(processoService, never()).salvar(any());
     }
 
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaSolicitanteConfirmadaComComprovanteSalva() throws Exception {
-        when(validator.validarRespostaSolicitante(processo)).thenReturn(Optional.empty());
+        processo.setEmailEnviadoSolicitante(true);
+        when(processoService.confirmarRespostaSolicitante(1L, true)).thenReturn(processo);
 
         mvc.perform(post("/processos/1/resposta-solicitante")
                 .param("emailEnviadoSolicitante", "true")
@@ -149,7 +151,7 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Finalizacao salva."));
 
-        verify(processoService).salvar(argThat(Processo::isEmailEnviadoSolicitante));
+        verify(processoService).confirmarRespostaSolicitante(1L, true);
     }
 
     // ----- oficio-upload -----

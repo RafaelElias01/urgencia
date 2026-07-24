@@ -234,11 +234,16 @@ class ProcessoServiceTest {
     }
 
     @Test
-    void atualizarStatusNaoRebaixaProcessoJaDecidido() {
+    void atualizarStatusRejeitaProcessoJaDecidido() {
+        // Guarda contra chamar o metodo sobre processo finalizado: os callers
+        // reais (controllers) ja barram antes via edicaoBloqueada, entao chegar
+        // aqui com um processo finalizado e erro de programacao, nao um caso a
+        // silenciar - deve lancar em vez de fazer no-op.
         Processo p = comPareceres(ResultadoParecer.SOLICITA_INFORMACAO);
         p.setStatus(StatusProcesso.DEFERIDO);
         when(processoRepository.findById(3L)).thenReturn(java.util.Optional.of(p));
-        service.atualizarStatusPorPareceres(3L);
+        assertThatThrownBy(() -> service.atualizarStatusPorPareceres(3L))
+            .isInstanceOf(IllegalStateException.class);
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
     }
 

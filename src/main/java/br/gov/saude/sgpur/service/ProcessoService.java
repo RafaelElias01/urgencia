@@ -142,13 +142,16 @@ public class ProcessoService {
      * - se algum medico pediu informacao e o processo ainda nao foi decidido,
      *   o status vai para SOLICITA_INFORMACAO;
      * - caso contrario permanece ENVIADO (ja foi enviado aos medicos).
-     * Processos ja finalizados (DEFERIDO/INDEFERIDO/CANCELADO) nao sao tocados.
+     * Processo ja finalizado (DEFERIDO/INDEFERIDO/CANCELADO) nao pode ser
+     * chamado aqui — o caller deve barrar antes (guarda de edicaoBloqueada);
+     * chegar com um processo finalizado e erro de programacao, nao um caso
+     * valido a silenciar.
      */
     @Transactional
     public Processo atualizarStatusPorPareceres(Long id) {
         Processo p = buscar(id);
         if (p.getStatus().isFinalizado()) {
-            return p;
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
         }
         boolean pediuInfo = p.getPareceres().stream()
             .anyMatch(par -> par.getResultado() == ResultadoParecer.SOLICITA_INFORMACAO);
@@ -166,13 +169,14 @@ public class ProcessoService {
      * Se todas as condicoes estiverem ok, chama {@link #decidir} e retorna o
      * processo atualizado. Caso contrario retorna o processo sem alteracao.
      * Deve ser chamado apos {@link #atualizarStatusPorPareceres} e apos
-     * {@link #retomarAposInformacao}.
+     * {@link #retomarAposInformacao}. Processo ja finalizado e erro de
+     * programacao do caller (mesma razao de atualizarStatusPorPareceres).
      */
     @Transactional
     public Processo tentarDecisaoAutomatica(Long id) {
         Processo p = buscar(id);
         if (p.getStatus().isFinalizado()) {
-            return p;
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
         }
         // O coordenador CET-RS defere sozinho e imediatamente quando vota
         // Favoravel, mesmo que o processo esteja pausado por SOLICITA_INFORMACAO
@@ -211,14 +215,15 @@ public class ProcessoService {
      * tira o processo de SOLICITA_INFORMACAO e o devolve para ENVIADO (fluxo de
      * Respostas/Decisao), para que o(s) avaliador(es) concluam o voto. Limpa o
      * voto "Solicita informacao" dos pareceres que o usaram, para que o medico
-     * registre o parecer definitivo (favoravel/nao favoravel). Nao toca em
-     * processos ja finalizados.
+     * registre o parecer definitivo (favoravel/nao favoravel). Processo ja
+     * finalizado e erro de programacao do caller (mesma razao de
+     * atualizarStatusPorPareceres).
      */
     @Transactional
     public Processo retomarAposInformacao(Long id) {
         Processo p = buscar(id);
         if (p.getStatus().isFinalizado()) {
-            return p;
+            throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
         }
         p.getPareceres().stream()
             .filter(par -> par.getResultado() == ResultadoParecer.SOLICITA_INFORMACAO)
@@ -350,6 +355,25 @@ public class ProcessoService {
         if (decisao == StatusProcesso.INDEFERIDO) {
             p.setMotivoIndeferimento(motivoIndeferimento);
         }
+        return processoRepository.save(p);
+    }
+
+    /**
+     * Confirma (ou desmarca) o envio da resposta ao solicitante (aba 6). Ao
+     * marcar como enviada, exige o comprovante que sustenta a decisao final —
+     * SNT no Deferido, oficio no Indeferido (ProcessoValidator.
+     * validarRespostaSolicitante) — mesma checagem usada na camada web, aqui
+     * como defesa em profundidade: o metodo e publico e nao pode confiar
+     * apenas no guard do controller.
+     */
+    @Transactional
+    public Processo confirmarRespostaSolicitante(Long id, boolean emailEnviadoSolicitante) {
+        Processo p = buscar(id);
+        if (emailEnviadoSolicitante) {
+            validator.validarRespostaSolicitante(p)
+                .ifPresent(msg -> { throw new IllegalStateException(msg); });
+        }
+        p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
         return processoRepository.save(p);
     }
 
