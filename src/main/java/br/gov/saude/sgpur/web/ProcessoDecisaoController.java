@@ -118,11 +118,16 @@ public class ProcessoDecisaoController {
                             if (res == null || res.isBlank()) {
                                 par.setResultado(null);
                             } else {
+                                ResultadoParecer parsed;
                                 try {
-                                    par.setResultado(ResultadoParecer.valueOf(res));
+                                    parsed = ResultadoParecer.valueOf(res);
                                 } catch (IllegalArgumentException e) {
                                     throw new IllegalStateException("Parecer invalido: " + res);
                                 }
+                                if (!parsed.isVotoValido()) {
+                                    throw new IllegalStateException("Parecer invalido: " + res);
+                                }
+                                par.setResultado(parsed);
                                 if (par.getDataResposta() == null) {
                                     par.setDataResposta(LocalDate.now());
                                 }
@@ -519,7 +524,8 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id + "#respostas";
         }
         Parecer parecer = parecerRepository.findById(parecerId)
-            .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado: " + parecerId));
+            .filter(par -> par.getProcesso().getId().equals(id))
+            .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado neste processo: " + parecerId));
         if (parecer.getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
             ra.addFlashAttribute("erro",
                 "Nao e possivel anexar resposta de um avaliador que votou pelo portal (nao-repudio).");
@@ -542,6 +548,10 @@ public class ProcessoDecisaoController {
             try {
                 resultadoParseado = ResultadoParecer.valueOf(resultado);
             } catch (IllegalArgumentException e) {
+                ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
+                return "redirect:/processos/" + id + "#respostas";
+            }
+            if (!resultadoParseado.isVotoValido()) {
                 ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
                 return "redirect:/processos/" + id + "#respostas";
             }

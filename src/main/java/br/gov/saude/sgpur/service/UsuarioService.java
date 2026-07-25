@@ -59,6 +59,7 @@ public class UsuarioService {
         if (repo.existsByUsername(u.getUsername())) {
             throw new IllegalArgumentException("Ja existe um usuario com este login.");
         }
+        u.setId(null);
         aplicarMembro(u, membroId);
         u.setSenha(encoder.encode(senhaPura));
         return repo.save(u);

@@ -19,4 +19,9 @@ public enum ResultadoParecer {
     public String getDescricao() {
         return descricao;
     }
+
+    /** SEM_RESPOSTA existe só para relatorios/estado interno - nao e um voto que um avaliador possa submeter. */
+    public boolean isVotoValido() {
+        return this != SEM_RESPOSTA;
+    }
 }

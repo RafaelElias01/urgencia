@@ -218,6 +218,10 @@ public class AvaliadorController {
                                 Principal principal,
                                 HttpServletRequest request,
                                 RedirectAttributes ra) {
+        if (!resultado.isVotoValido()) {
+            ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
+            return "redirect:/avaliador/" + processoId;
+        }
         MembroUrgenciaRenal membro = resolverMembro(principal);
         Parecer parecer = resolverParecerPendente(processoId, membro);
 
