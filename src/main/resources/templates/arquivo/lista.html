@@ -69,7 +69,7 @@
                         </a>
                         <form th:action="@{/processos/{id}/reabrir(id=${p.id})}" method="post" class="d-inline"
                               sec:authorize="hasRole('ADMIN')"
-                              onsubmit="return confirm('Reabrir este processo encerrado? Ele voltara para o status Enviado e podera ser decidido novamente.');">
+                              data-confirm-msg="Reabrir este processo encerrado? Ele voltara para o status Enviado e podera ser decidido novamente.">
                             <button class="btn btn-sm btn-outline-warning">
                                 <i class="bi bi-arrow-counterclockwise"></i> Reabrir
                             </button>
@@ -89,6 +89,8 @@
 </div>
 
 <div th:replace="~{layout :: footer}"></div>
+<div th:replace="~{layout :: confirmModal}"></div>
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: confirmarAcaoScript}"></script>
 </body>
 </html>

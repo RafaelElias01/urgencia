@@ -35,7 +35,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Nome do paciente *</label>
-                    <input type="text" th:field="*{pacienteNome}" class="form-control" maxlength="200">
+                    <input type="text" th:field="*{pacienteNome}" class="form-control" maxlength="200" required>
                     <div class="text-danger small" th:errors="*{pacienteNome}"></div>
                 </div>
                 <div class="col-md-4">
@@ -50,7 +50,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Equipe / hospital solicitante *</label>
-                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control" maxlength="200">
+                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control" maxlength="200" required>
                     <div class="text-danger small" th:errors="*{solicitanteEquipe}"></div>
                 </div>
                 <div class="col-md-4">
@@ -67,7 +67,7 @@
                 <span th:text="${totalAvaliadores}">3</span>
             </h2>
             <p class="small text-muted">Selecione exatamente <span th:text="${totalAvaliadores}">3</span> medicos.</p>
-            <div class="row g-2">
+            <div class="row g-2" id="listaMedicos" th:attr="data-max-avaliadores=${totalAvaliadores}">
                 <div class="col-md-6" th:each="m : ${medicos}">
                     <div class="form-check border rounded p-2 ps-4">
                         <input class="form-check-input medico-check" type="checkbox" name="medicoIds"
@@ -91,17 +91,6 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
-<script th:inline="javascript">
-    const max = [[${totalAvaliadores}]];
-    const checks = document.querySelectorAll('.medico-check');
-    const contador = document.getElementById('contador');
-    function atualizar() {
-        const marcados = document.querySelectorAll('.medico-check:checked').length;
-        contador.textContent = marcados;
-        checks.forEach(c => { c.disabled = (!c.checked && marcados >= max); });
-    }
-    checks.forEach(c => c.addEventListener('change', atualizar));
-    atualizar();
-</script>
+<script th:src="@{/js/processo-form.js}"></script>
 </body>
 </html>

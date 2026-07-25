@@ -138,7 +138,10 @@ class AvaliadorControllerTest {
             .andExpect(model().attribute("favoraveis", 2L))
             .andExpect(model().attribute("naoFavoraveis", 1L))
             .andExpect(model().attribute("solicitaInfo", 1L))
-            .andExpect(model().attribute("historico", List.of(votado)))
+            // Historico e projetado em DTO (nunca a entidade Parecer/Processo completa,
+            // que carregaria pacienteNome/solicitanteEquipe/co-avaliadores) - verifica
+            // so os campos relevantes expostos pela view.
+            .andExpect(model().attribute("historico", org.hamcrest.Matchers.hasSize(1)))
             // Historico usa apenas iniciais — nunca nome completo
             .andExpect(content().string(org.hamcrest.Matchers.not(
                 org.hamcrest.Matchers.containsString("Joao Pedro Alves"))));

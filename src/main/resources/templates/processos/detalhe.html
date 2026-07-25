@@ -11,7 +11,7 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <a th:href="@{/processos}" class="btn btn-sm btn-outline-secondary rounded-circle p-1"
-                   title="Voltar para lista" style="width:32px;height:32px;">
+                   title="Voltar para lista" aria-label="Voltar para lista" style="width:32px;height:32px;">
                     <i class="bi bi-arrow-left"></i>
                 </a>
                 <h1 class="h4 mb-0">
@@ -39,7 +39,7 @@
         <form th:if="${processo.status.finalizado}"
               th:action="@{/processos/{id}/reabrir(id=${processo.id})}" method="post"
               sec:authorize="hasRole('ADMIN')"
-              onsubmit="return confirm('Reabrir este processo encerrado? Ele voltara para o status Enviado e podera ser decidido novamente.');">
+              data-confirm-msg="Reabrir este processo encerrado? Ele voltara para o status Enviado e podera ser decidido novamente.">
             <button class="btn btn-outline-warning">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir processo
             </button>
@@ -73,7 +73,7 @@
                 <div class="card-body pt-0">
                     <!-- Barra de progresso -->
                     <div class="progress mb-2" style="height: 8px;">
-                        <div class="progress-bar complete" th:classappend="${progresso < 100} ? '' : 'complete'"
+                        <div class="progress-bar" th:classappend="${progresso < 100} ? '' : 'complete'"
                              role="progressbar"
                              th:style="'width:' + ${progresso} + '%'"
                              th:aria-valuenow="${progresso}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -117,7 +117,7 @@
                         <form th:unless="${processo.status.finalizado}"
                               sec:authorize="hasRole('ADMIN')"
                               th:action="@{/processos/{id}/excluir(id=${processo.id})}" method="post"
-                              onsubmit="return confirm('Excluir definitivamente este processo e seus anexos?');">
+                              data-confirm-msg="Excluir definitivamente este processo e seus anexos?">
                             <button type="submit" class="btn btn-outline-danger btn-sm w-100 text-start">
                                 <i class="bi bi-trash me-2"></i> Excluir processo
                             </button>
@@ -142,7 +142,8 @@
                         <div class="accordion-item" th:each="mail, it : ${emails}">
                             <h2 class="accordion-header">
                                 <button class="accordion-button collapsed small py-2" type="button"
-                                        data-bs-toggle="collapse" th:data-bs-target="'#mail' + ${it.index}">
+                                        data-bs-toggle="collapse" th:data-bs-target="'#mail' + ${it.index}"
+                                        aria-expanded="false" th:attr="aria-controls='mail' + ${it.index}">
                                     <i class="bi me-1" th:classappend="'bi-' + ${mail.icone}"></i>
                                     <span class="small" th:text="${mail.titulo}">titulo</span>
                                 </button>
@@ -290,7 +291,7 @@
                                 <span class="text-muted small ms-2">Copia da solicitacao e capa do processo registradas.</span>
                             </div>
                             <button type="button" class="btn btn-success btn-sm"
-                                    onclick="document.querySelector('.wizard-step[href=&quot;#pane-envio&quot;]').click()">
+                                    data-goto-pane="pane-envio">
                                 <i class="bi bi-arrow-right"></i> Avancar para Envio
                             </button>
                         </div>
@@ -363,8 +364,8 @@
                                         </button>
                                         <form th:unless="${processo.status.finalizado}"
                                               th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
-                                              class="d-inline" onsubmit="return confirm('Remover este documento clinico?');">
-                                            <button class="btn btn-sm btn-outline-danger" title="Remover">
+                                              class="d-inline" data-confirm-msg="Remover este documento clinico?">
+                                            <button class="btn btn-sm btn-outline-danger" title="Remover" aria-label="Remover documento clinico">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>
@@ -461,7 +462,7 @@
                             <span class="text-muted small ms-2">Documentos enviados aos 3 avaliadores.</span>
                         </div>
                         <button type="button" class="btn btn-success btn-sm"
-                                onclick="document.querySelector('.wizard-step[href=&quot;#pane-respostas&quot;]').click()">
+                                data-goto-pane="pane-respostas">
                             <i class="bi bi-arrow-right"></i> Avancar para Respostas
                         </button>
                     </div>
@@ -509,14 +510,14 @@
 
                     <!-- 2) Registrar o recebimento da resposta e retomar a analise -->
                     <form th:action="@{/processos/{id}/retomar-analise(id=${processo.id})}" method="post"
-                          enctype="multipart/form-data" class="row g-2 align-items-end">
+                          enctype="multipart/form-data" class="row g-2 align-items-end"
+                          data-confirm-msg="Confirmar o recebimento da informacao e retomar a analise? Os pareceres marcados como Solicita informacao serao reabertos.">
                         <div class="col-md-8">
                             <label class="form-label small fw-semibold">Resposta com as informacoes complementares (opcional)</label>
                             <input type="file" name="arquivo" class="form-control form-control-sm" accept=".pdf,.eml,.msg">
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
-                            <button class="btn btn-success btn-sm w-100"
-                                    onclick="return confirm('Confirmar o recebimento da informacao e retomar a analise? Os pareceres marcados como Solicita informacao serao reabertos.');">
+                            <button class="btn btn-success btn-sm w-100">
                                 <i class="bi bi-arrow-repeat"></i> Informacao recebida - retomar analise
                             </button>
                         </div>
@@ -712,7 +713,7 @@
                             <span class="text-muted small ms-2">Todos os pareceres recebidos.</span>
                         </div>
                         <button type="button" class="btn btn-success btn-sm"
-                                onclick="document.querySelector('.wizard-step[href=&quot;#pane-decisao&quot;]').click()">
+                                data-goto-pane="pane-decisao">
                             <i class="bi bi-arrow-right"></i> Avancar para Decisao
                         </button>
                     </div>
@@ -783,7 +784,7 @@
                             <span class="text-muted small ms-2" th:text="'Processo ' + ${processo.status.descricao}"></span>
                         </div>
                         <button type="button" class="btn btn-success btn-sm"
-                                onclick="document.querySelector('.wizard-step[href=&quot;#pane-finalizacao&quot;]').click()">
+                                data-goto-pane="pane-finalizacao">
                             <i class="bi bi-arrow-right"></i> Avancar para Finalizacao
                         </button>
                     </div>
@@ -984,8 +985,8 @@
                                 <small class="text-muted" th:text="${#temporals.format(a.dataUpload, 'dd/MM/yyyy HH:mm')}"></small>
                                 <form th:unless="${processo.status.finalizado}"
                                       th:action="@{/processos/anexos/{id}/excluir(id=${a.id})}" method="post"
-                                      onsubmit="return confirm('Remover este anexo?');">
-                                    <button class="btn btn-sm btn-outline-danger" title="Remover">
+                                      data-confirm-msg="Remover este anexo?">
+                                    <button class="btn btn-sm btn-outline-danger" title="Remover" aria-label="Remover anexo">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
@@ -1029,6 +1030,8 @@
 
 <div th:replace="~{layout :: footer}"></div>
 
+<div th:replace="~{layout :: confirmModal}"></div>
+
 <!-- Modal de confirmacao de envio de e-mail: NENHUM e-mail e enviado sem que
      este modal exiba antes os destinatarios e o conteudo completo. -->
 <div class="modal fade" id="modalConfirmaEmail" tabindex="-1" aria-hidden="true">
@@ -1061,6 +1064,7 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: confirmarAcaoScript}"></script>
 <script th:src="@{/js/processo-detalhe.js}"></script>
 </body>
 </html>

@@ -129,6 +129,30 @@
     <small class="d-block text-muted" style="font-size:.7rem;opacity:.7;">Produzido por Rafael Elias Ioppi</small>
 </div>
 
+<!-- Modal generico de confirmacao de acao destrutiva (excluir/reabrir/cancelar).
+     Substitui o confirm() nativo do navegador - ver static/js/confirmar-acao.js.
+     Qualquer form/link com data-confirm-msg="..." usa este modal automaticamente. -->
+<div th:fragment="confirmModal" class="modal fade" id="modalConfirmarAcao" tabindex="-1"
+     aria-labelledby="modalConfirmarAcaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmarAcaoLabel">
+                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> Confirmar acao</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p id="modalConfirmarAcaoMensagem" class="mb-0">Confirma esta acao?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarAcaoFinal">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script th:fragment="scripts" th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
+<script th:fragment="confirmarAcaoScript" th:src="@{/js/confirmar-acao.js}"></script>
 </body>
 </html>

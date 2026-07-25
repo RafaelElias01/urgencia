@@ -28,7 +28,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Nome do paciente *</label>
-                    <input type="text" th:field="*{pacienteNome}" class="form-control">
+                    <input type="text" th:field="*{pacienteNome}" class="form-control" required>
                     <div class="text-danger small" th:errors="*{pacienteNome}"></div>
                 </div>
                 <div class="col-md-4">
@@ -43,7 +43,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Equipe / hospital solicitante *</label>
-                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control">
+                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control" required>
                     <div class="text-danger small" th:errors="*{solicitanteEquipe}"></div>
                 </div>
                 <div class="col-md-4">

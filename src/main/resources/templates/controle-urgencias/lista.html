@@ -101,7 +101,7 @@
                             <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
                                   th:action="@{/controle-urgencias/{id}/cancelar(id=${r.id})}"
                                   method="post" class="d-inline"
-                                  onsubmit="return confirm('Cancelar esta urgencia?')">
+                                  data-confirm-msg="Cancelar esta urgencia?">
                                 <button class="btn btn-sm btn-outline-danger" title="Cancelar">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
@@ -120,6 +120,8 @@
     </div>
 </div>
 
+<div th:replace="~{layout :: confirmModal}"></div>
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: confirmarAcaoScript}"></script>
 </body>
 </html>

@@ -113,6 +113,12 @@ public class AvaliadorController {
         // pelo indicador de tempo de resposta (TempoRespostaService).
         Map<Long, Boolean> foraDoPrazoPorProcesso = new HashMap<>();
         LocalDate hoje = LocalDate.now();
+        // Projecao para a view: so numero/id/dataEnvio do processo, nunca a
+        // entidade completa (que carrega pacienteNome, solicitanteEquipe e os
+        // outros pareceres do mesmo processo) - mesmo padrao ja usado em
+        // votar() (ProcessoVotoView/ParecerVotoView), fechando por design o
+        // risco de um th:text futuro vazar dado protegido nesta tela tambem.
+        List<ParecerPendenteView> pareceresView = new java.util.ArrayList<>();
         for (Parecer par : parecersFiltrados) {
             Long pid = par.getProcesso().getId();
             List<Anexo> pdfs = anexoRepo.findByProcessoIdAndTipo(
@@ -126,15 +132,19 @@ public class AvaliadorController {
                 diasDesdeEnvio.put(pid, dias);
                 foraDoPrazoPorProcesso.put(pid, dias > prazoDias);
             }
+            pareceresView.add(new ParecerPendenteView(pid, par.getProcesso().getNumero(), par.getDataEnvio()));
         }
 
         // Historico: pareceres ja votados pelo membro (mais recente primeiro).
-        List<Parecer> historico = parecerRepo
+        List<Parecer> historicoEntidades = parecerRepo
             .findByMembroIdAndResultadoIsNotNullOrderByDataRespostaDesc(membroId);
         Map<Long, String> iniciaisHistorico = new HashMap<>();
-        for (Parecer par : historico) {
+        List<ParecerHistoricoView> historico = new java.util.ArrayList<>();
+        for (Parecer par : historicoEntidades) {
             iniciaisHistorico.put(par.getId(),
                 Iniciais.de(par.getProcesso().getPacienteNome()));
+            historico.add(new ParecerHistoricoView(par.getId(), par.getProcesso().getNumero(),
+                par.getResultado(), par.getDataHoraVoto(), par.getDataResposta()));
         }
 
         // Contadores consolidados (reutilizam as queries de contagem do repo).
@@ -147,7 +157,7 @@ public class AvaliadorController {
         long solicitaInfo = parecerRepo
             .countByMembroIdAndResultado(membroId, ResultadoParecer.SOLICITA_INFORMACAO);
 
-        model.addAttribute("pareceres", parecersFiltrados);
+        model.addAttribute("pareceres", pareceresView);
         model.addAttribute("pdfPorProcesso", pdfPorProcesso);
         model.addAttribute("iniciaisPorProcesso", iniciaisPorProcesso);
         model.addAttribute("diasDesdeEnvio", diasDesdeEnvio);
@@ -370,4 +380,11 @@ public class AvaliadorController {
 
     /** Projecao de Parecer para a tela de voto: so a data de envio, exibida na tela. */
     private record ParecerVotoView(LocalDate dataEnvio) {}
+
+    /** Projecao para a lista de pendentes (aba "Pendentes de voto" do painel). */
+    private record ParecerPendenteView(Long processoId, String processoNumero, LocalDate dataEnvio) {}
+
+    /** Projecao para o historico de votos do proprio avaliador. */
+    private record ParecerHistoricoView(Long id, String processoNumero, ResultadoParecer resultado,
+                                        LocalDateTime dataHoraVoto, LocalDate dataResposta) {}
 }

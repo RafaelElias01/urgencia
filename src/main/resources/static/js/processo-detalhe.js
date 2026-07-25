@@ -38,16 +38,28 @@ function mostrarToast(mensagem, tipo) {
     }
 })();
 
-// Confirmacao ao alterar parecer ja preenchido
+// Confirmacao ao alterar parecer ja preenchido (usa o modal generico de
+// confirmar-acao.js em vez de confirm() nativo - window.confirmarAcao
+// retorna uma Promise, entao a mudanca so e confirmada/revertida quando o
+// usuario responde no modal).
 document.querySelectorAll('.parecer-select').forEach(function (select) {
     select.addEventListener('change', function () {
-        if (this.dataset.valorAnterior && this.dataset.valorAnterior !== this.value) {
-            if (!confirm('Alterar o parecer deste avaliador? O resultado anterior sera substituido.')) {
-                this.value = this.dataset.valorAnterior;
-                return;
-            }
+        var el = this;
+        var novoValor = el.value;
+        if (el.dataset.valorAnterior && el.dataset.valorAnterior !== novoValor) {
+            var confirmar = window.confirmarAcao
+                ? window.confirmarAcao('Alterar o parecer deste avaliador? O resultado anterior sera substituido.')
+                : Promise.resolve(confirm('Alterar o parecer deste avaliador? O resultado anterior sera substituido.'));
+            confirmar.then(function (ok) {
+                if (!ok) {
+                    el.value = el.dataset.valorAnterior;
+                    return;
+                }
+                el.dataset.valorAnterior = novoValor;
+            });
+            return;
         }
-        this.dataset.valorAnterior = this.value;
+        el.dataset.valorAnterior = novoValor;
     });
     select.dataset.valorAnterior = select.value;
 });
@@ -58,10 +70,22 @@ document.querySelectorAll('.btn-anexar-resposta').forEach(function (btn) {
         var form = this.closest('form');
         var fileInput = form.querySelector('input[type="file"]');
         if (fileInput && fileInput.files.length > 0) {
-            if (!confirm('Anexar este arquivo como resposta do avaliador?')) {
-                e.preventDefault();
-            }
+            e.preventDefault();
+            var confirmar = window.confirmarAcao
+                ? window.confirmarAcao('Anexar este arquivo como resposta do avaliador?')
+                : Promise.resolve(confirm('Anexar este arquivo como resposta do avaliador?'));
+            confirmar.then(function (ok) {
+                if (ok) form.submit();
+            });
         }
+    });
+});
+
+// Avancar para a proxima aba do wizard (botoes "Avancar para X" de cada etapa concluida)
+document.querySelectorAll('[data-goto-pane]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var passo = document.querySelector('.wizard-step[href="#' + this.dataset.gotoPane + '"]');
+        if (passo) passo.click();
     });
 });
 
