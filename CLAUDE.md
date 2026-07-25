@@ -351,6 +351,16 @@ autenticado do próprio médico no sistema.
   logo após o deploy** (não há Flyway/Liquibase neste projeto — é
   responsabilidade manual).
 
+## Pendência de deploy: backfill de Parecer.versao
+
+Commit `e07df54` (2026-07-25) adicionou `@Version` em `Parecer` (mesmo
+padrao que ja existia em `Processo.versao`, ver "ddl-auto: update nao faz
+backfill" em Convencoes de codigo). **Antes do proximo deploy em prod**,
+rodar no Neon SQL Console: `UPDATE parecer SET versao = 0 WHERE versao IS
+NULL;` — senao qualquer UPDATE num parecer antigo (votar, anexar resposta,
+etc.) da 500 (mesmo sintoma do incidente de `Processo.versao` em
+2026-07-10).
+
 ## Próxima sessão: pendências da vistoria de 2026-07-24
 `docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) já foi aplicado nesta sessão
 (commit `5e17f6c`): coluna "O que falta" movida pra 2ª posição em
