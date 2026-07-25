@@ -116,6 +116,8 @@ public class SolicitacaoAvaliadorService {
      * espaco para logo e numeracao de pagina) - aqui e so texto pequeno (8pt).
      */
     private static final float ALTURA_CARIMBO = 30f;
+    /** Margem lateral usada so para calcular a largura util do texto truncado do carimbo. */
+    private static final float MARGEM_CARIMBO = 40f;
 
     /**
      * Carimba um cabecalho de duas linhas no TOPO de CADA pagina de um PDF ja
@@ -156,6 +158,12 @@ public class SolicitacaoAvaliadorService {
             for (int i = 1; i <= paginas; i++) {
                 Rectangle pageSize = reader.getPageSize(i);
                 float xCentro = pageSize.getWidth() / 2f;
+                // Truncamento defensivo: showTextAligned nao faz wrap/clipping - um
+                // numero de processo ou identificacao mais longa que o normal (dado
+                // legado, por exemplo) desenharia para fora dos limites da pagina.
+                float larguraMax = pageSize.getWidth() - 2 * MARGEM_CARIMBO;
+                String linha1T = PdfCabecalhoStamper.truncarParaLargura(bf, 8, linha1, larguraMax);
+                String linha2T = PdfCabecalhoStamper.truncarParaLargura(bf, 8, linha2, larguraMax);
                 // Expande o MediaBox/CropBox no topo (conteudo original desce
                 // junto) em vez de escrever por cima dele.
                 float topo = PdfCabecalhoStamper.expandirTopo(reader, i, ALTURA_CARIMBO);
@@ -163,10 +171,10 @@ public class SolicitacaoAvaliadorService {
                 over.saveState();
                 over.setColorFill(CINZA);
                 ColumnText.showTextAligned(over, Element.ALIGN_CENTER,
-                    new Phrase(linha1, new Font(bf, 8, Font.NORMAL, CINZA)),
+                    new Phrase(linha1T, new Font(bf, 8, Font.NORMAL, CINZA)),
                     xCentro, topo - 14, 0);
                 ColumnText.showTextAligned(over, Element.ALIGN_CENTER,
-                    new Phrase(linha2, new Font(bf, 8, Font.NORMAL, CINZA)),
+                    new Phrase(linha2T, new Font(bf, 8, Font.NORMAL, CINZA)),
                     xCentro, topo - 24, 0);
                 over.restoreState();
             }

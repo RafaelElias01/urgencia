@@ -717,7 +717,14 @@ public class ProcessoDecisaoController {
         if (!prep.ok()) {
             return AcaoResponse.erro(prep.erro());
         }
-        boolean ok = emailSenderService.enviar(prep.to(), null, prep.assunto(), prep.corpo());
+        // Deferido/Indeferido: o texto do template promete "segue em anexo" o
+        // comprovante SNT/oficio - envia de fato com o arquivo anexado quando
+        // ele existe (prepararEmailPronto ja localizou), em vez do e-mail
+        // simples que deixaria o destinatario sem o documento prometido.
+        boolean ok = prep.anexo() != null
+            ? emailSenderService.enviarComAnexo(prep.to()[0], prep.assunto(), prep.corpo(),
+                anexoStorage.resolverArquivo(prep.anexo()).toFile(), prep.anexo().getNomeArquivo())
+            : emailSenderService.enviar(prep.to(), null, prep.assunto(), prep.corpo());
         if (ok) {
             auditoria.registrar("EMAIL_ENVIADO",
                 "Processo " + p.getNumero() + " - template " + chave + " -> " + prep.destinatarios());
@@ -850,7 +857,17 @@ public class ProcessoDecisaoController {
                             "antes de confirmar a resposta ao solicitante", "antes de enviar este e-mail"));
                     }
                 }
-                return EmailPreparado.ok(new String[]{email}, email, assunto, corpo);
+                // Os templates "deferido"/"indeferido" (EmailTemplateService) dizem
+                // explicitamente ao solicitante "segue em anexo" o comprovante
+                // SNT/oficio - o e-mail precisa de fato levar esse anexo, senao o
+                // texto promete algo que nao chega. TipoAnexo ja foi confirmado
+                // presente pela checagem de validarRespostaSolicitante acima.
+                Anexo anexo = "deferido".equals(chave)
+                    ? anexoStorage.buscarUltimoPorTipo(p.getId(), TipoAnexo.COMPROVANTE_SNT)
+                    : "indeferido".equals(chave)
+                        ? anexoStorage.buscarUltimoPorTipo(p.getId(), TipoAnexo.OFICIO_INDEFERIMENTO)
+                        : null;
+                return EmailPreparado.ok(new String[]{email}, email, assunto, corpo, anexo);
             }
             default -> {
                 return EmailPreparado.erro("Tipo de e-mail desconhecido: " + chave);
@@ -859,12 +876,16 @@ public class ProcessoDecisaoController {
     }
 
     /** Resultado interno de {@link #prepararEmailPronto}: pronto para enviar ou erro. */
-    private record EmailPreparado(String[] to, String destinatarios, String assunto, String corpo, String erro) {
+    private record EmailPreparado(String[] to, String destinatarios, String assunto, String corpo,
+                                  Anexo anexo, String erro) {
         static EmailPreparado ok(String[] to, String destinatarios, String assunto, String corpo) {
-            return new EmailPreparado(to, destinatarios, assunto, corpo, null);
+            return new EmailPreparado(to, destinatarios, assunto, corpo, null, null);
+        }
+        static EmailPreparado ok(String[] to, String destinatarios, String assunto, String corpo, Anexo anexo) {
+            return new EmailPreparado(to, destinatarios, assunto, corpo, anexo, null);
         }
         static EmailPreparado erro(String erro) {
-            return new EmailPreparado(null, null, null, null, erro);
+            return new EmailPreparado(null, null, null, null, null, erro);
         }
         boolean ok() {
             return erro == null;

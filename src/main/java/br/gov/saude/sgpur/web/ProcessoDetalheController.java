@@ -115,6 +115,20 @@ public class ProcessoDetalheController {
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();
         boolean automatica = processoService.isNumeracaoAutomatica(ano);
 
+        // Data da situacao especial define o ANO do processo (numeracao NN/AAAA
+        // e RelatorioAnualService agrupam por ela) - um erro de digitacao no ano
+        // (ex.: 2016 em vez de 2026, comum em datepicker/digitacao manual) e
+        // aceito silenciosamente sem essa checagem, classificando o processo no
+        // ano errado sem qualquer aviso. Janela ampla (5 anos passado/futuro)
+        // porque a "situacao especial" pode legitimamente ser retroativa.
+        if (processo.getDataSituacaoEspecial() != null) {
+            int anoAtual = Year.now().getValue();
+            if (ano < anoAtual - 5 || ano > anoAtual + 5) {
+                result.rejectValue("dataSituacaoEspecial", "foraDoIntervalo",
+                    "Data da situacao especial fora do intervalo esperado (verifique o ano digitado).");
+            }
+        }
+
         // Numero so e obrigatorio/validado quando a numeracao for manual
         if (!automatica) {
             String numero = processo.getNumero();

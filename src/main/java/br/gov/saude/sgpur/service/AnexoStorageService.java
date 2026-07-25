@@ -254,6 +254,17 @@ public class AnexoStorageService {
             .orElseThrow(() -> new IllegalArgumentException("Anexo nao encontrado: " + id));
     }
 
+    /**
+     * Ultimo anexo de um tipo para o processo (o mais recente, pela ordem
+     * natural da consulta - so deveria haver um por tipo apos uma
+     * substituicao bem sucedida, mas usa o ultimo por seguranca). Retorna
+     * null se nao existir nenhum.
+     */
+    public Anexo buscarUltimoPorTipo(Long processoId, TipoAnexo tipo) {
+        var anexos = anexoRepository.findByProcessoIdAndTipo(processoId, tipo);
+        return anexos.isEmpty() ? null : anexos.get(anexos.size() - 1);
+    }
+
     /** Remove um anexo (arquivo em disco + registro no banco). Retorna o id do processo. */
     @Transactional
     public Long excluir(Long anexoId) {

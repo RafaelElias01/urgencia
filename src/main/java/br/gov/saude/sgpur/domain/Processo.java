@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,21 +45,25 @@ public class Processo {
 
     // ----- Receptor (paciente) -----
     @NotBlank
+    @Size(max = 200, message = "Nome do paciente muito longo (maximo 200 caracteres).")
     @Column(name = "paciente_nome", nullable = false, length = 200)
     private String pacienteNome;
 
     /** Registro RGCT / SNT do paciente. Obrigatorio via @NotBlank (validacao de formulario). */
     @NotBlank
+    @Size(max = 60, message = "Registro RGCT/SNT muito longo (maximo 60 caracteres).")
     @Column(name = "paciente_rgct", length = 60)
     private String pacienteRgct;
 
     // ----- Equipe solicitante -----
     @NotBlank
+    @Size(max = 200, message = "Nome da equipe solicitante muito longo (maximo 200 caracteres).")
     @Column(name = "solicitante_equipe", nullable = false, length = 200)
     private String solicitanteEquipe;
 
     @NotBlank
     @Email
+    @Size(max = 150, message = "E-mail do solicitante muito longo (maximo 150 caracteres).")
     @Column(name = "solicitante_email", length = 150)
     private String solicitanteEmail;
 

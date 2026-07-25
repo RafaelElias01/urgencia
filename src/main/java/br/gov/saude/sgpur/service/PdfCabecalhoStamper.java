@@ -69,6 +69,34 @@ final class PdfCabecalhoStamper {
     }
 
     /**
+     * Trunca {@code texto} (com reticencias) ate caber em {@code larguraMax}
+     * pontos na fonte/tamanho informados. showTextAligned nao faz wrap nem
+     * clipping - sem isso, um texto mais longo que o esperado (nome de
+     * equipe/processo de um registro legado, por exemplo) desenha para fora
+     * dos limites laterais da pagina em vez de ser cortado com aviso visual.
+     * Retorna o texto original se ja couber.
+     */
+    static String truncarParaLargura(BaseFont bf, float tamanhoFonte, String texto, float larguraMax) {
+        if (texto == null || texto.isEmpty()) {
+            return texto;
+        }
+        if (bf.getWidthPoint(texto, tamanhoFonte) <= larguraMax) {
+            return texto;
+        }
+        String reticencias = "...";
+        float larguraReticencias = bf.getWidthPoint(reticencias, tamanhoFonte);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < texto.length(); i++) {
+            String candidato = sb.toString() + texto.charAt(i);
+            if (bf.getWidthPoint(candidato, tamanhoFonte) + larguraReticencias > larguraMax) {
+                break;
+            }
+            sb.append(texto.charAt(i));
+        }
+        return sb.toString().stripTrailing() + reticencias;
+    }
+
+    /**
      * Expande o MediaBox/CropBox de UMA pagina de {@code reader} em
      * {@code alturaExtra} pontos no TOPO, deslocando o conteudo original para
      * baixo (em vez de desenhar por cima dele). Retorna a nova coordenada Y do
@@ -130,13 +158,15 @@ final class PdfCabecalhoStamper {
 
                 float textoX = MARGEM_ESQ + LOGO_TAMANHO + 6;
                 float textoLarg = largUtil - LOGO_TAMANHO - 6;
+                String linha1Truncada = truncarParaLargura(bf, 10, linha1, textoLarg);
+                String linha2Truncada = truncarParaLargura(bf, 10, linha2, textoLarg);
 
                 over.beginText();
                 over.setFontAndSize(bf, 10);
-                over.showTextAligned(Element.ALIGN_CENTER, linha1,
+                over.showTextAligned(Element.ALIGN_CENTER, linha1Truncada,
                     textoX + textoLarg / 2, topo - 20, 0);
                 over.setFontAndSize(bf, 10);
-                over.showTextAligned(Element.ALIGN_CENTER, linha2,
+                over.showTextAligned(Element.ALIGN_CENTER, linha2Truncada,
                     textoX + textoLarg / 2, topo - 35, 0);
                 over.endText();
 

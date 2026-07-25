@@ -78,19 +78,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Violacao de constraint do banco (ex.: numero de processo duplicado por
-     * dois operadores cadastrando quase ao mesmo tempo — Processo.numero e
-     * unique). O banco ja impede o dado duplicado; este handler so troca o
-     * "Erro interno do servidor" generico por uma mensagem que explica o que
-     * aconteceu e pede para tentar de novo.
+     * Violacao de constraint do banco: pode ser um dado duplicado (ex.:
+     * numero de processo, unique) por dois operadores cadastrando quase ao
+     * mesmo tempo, OU um campo maior que o limite da coluna (ex.: nome de
+     * equipe/paciente muito longo) que escapou da validacao de formulario
+     * (ex.: dado legado editado por outro caminho). A mensagem generica cobre
+     * os dois casos sem presumir qual foi - "duplicado" seria enganoso
+     * quando o problema real e tamanho do campo.
      */
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public String handleDataIntegrityViolation(
             org.springframework.dao.DataIntegrityViolationException ex, RedirectAttributes ra) {
         log.warn("Violacao de integridade de dados: {}", ex.getMessage());
         ra.addFlashAttribute("erro",
-            "Nao foi possivel salvar: um registro com os mesmos dados (ex.: numero de processo) "
-            + "ja existe, possivelmente cadastrado por outra pessoa ao mesmo tempo. Tente novamente.");
+            "Nao foi possivel salvar: os dados informados violam uma regra do banco "
+            + "(pode ser um valor duplicado, como o numero do processo, ou um campo "
+            + "maior que o permitido). Revise os campos e tente novamente.");
         return "redirect:/processos";
     }
 

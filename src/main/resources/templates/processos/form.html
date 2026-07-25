@@ -35,12 +35,12 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Nome do paciente *</label>
-                    <input type="text" th:field="*{pacienteNome}" class="form-control">
+                    <input type="text" th:field="*{pacienteNome}" class="form-control" maxlength="200">
                     <div class="text-danger small" th:errors="*{pacienteNome}"></div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">RGCT / SNT *</label>
-                    <input type="text" th:field="*{pacienteRgct}" class="form-control" placeholder="123456789-12345" required>
+                    <input type="text" th:field="*{pacienteRgct}" class="form-control" placeholder="123456789-12345" required maxlength="60">
                     <div class="text-danger small" th:errors="*{pacienteRgct}"></div>
                 </div>
             </div>
@@ -50,12 +50,12 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label">Equipe / hospital solicitante *</label>
-                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control">
+                    <input type="text" th:field="*{solicitanteEquipe}" class="form-control" maxlength="200">
                     <div class="text-danger small" th:errors="*{solicitanteEquipe}"></div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">E-mail do solicitante *</label>
-                    <input type="email" th:field="*{solicitanteEmail}" class="form-control" required>
+                    <input type="email" th:field="*{solicitanteEmail}" class="form-control" required maxlength="150">
                     <div class="text-danger small" th:errors="*{solicitanteEmail}"></div>
                 </div>
             </div>
