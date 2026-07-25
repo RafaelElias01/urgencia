@@ -51,7 +51,7 @@ final class PdfCabecalhoStamper {
     static final float ALTURA_CABECALHO = 55;
 
     /** Logo do RS em cache (carregado uma vez e reusado em todos os documentos). */
-    private static Image LOGO_CACHE;
+    private static volatile Image LOGO_CACHE;
 
     private static Image carregarLogo() {
         if (LOGO_CACHE != null) return LOGO_CACHE;
@@ -131,9 +131,8 @@ final class PdfCabecalhoStamper {
      * @param linha2 segunda linha do cabecalho (identificacao do documento)
      */
     static byte[] estampar(byte[] pdf, String linha1, String linha2) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfReader reader = new PdfReader(pdf);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (PdfReader reader = new PdfReader(pdf)) {
             PdfStamper stamper = new PdfStamper(reader, baos);
 
             Image logo = carregarLogo();
@@ -185,7 +184,6 @@ final class PdfCabecalhoStamper {
             }
 
             stamper.close();
-            reader.close();
             return baos.toByteArray();
         } catch (Exception e) {
             throw new IllegalStateException("Falha ao estampar cabecalho do PDF", e);

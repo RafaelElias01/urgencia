@@ -74,6 +74,16 @@ public class Parecer {
     @Column(name = "justificativa", columnDefinition = "TEXT")
     private String justificativa;
 
+    /**
+     * Controle de concorrencia otimista, igual a Processo.versao: sem isso,
+     * dois votos simultaneos no mesmo parecer (ex.: abas duplicadas, clique
+     * duplo) se sobrescrevem silenciosamente em vez de disparar
+     * OptimisticLockException.
+     */
+    @Version
+    @Column(name = "versao")
+    private Long versao;
+
     public Parecer() {
     }
 
@@ -172,5 +182,9 @@ public class Parecer {
 
     public void setJustificativa(String justificativa) {
         this.justificativa = justificativa;
+    }
+
+    public Long getVersao() {
+        return versao;
     }
 }

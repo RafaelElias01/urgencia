@@ -685,6 +685,15 @@ public class ProcessoDecisaoController {
     /**
      * Revisa/melhora, via IA, o corpo de um texto de e-mail pronto (assunto +
      * corpo) exibido na tela de detalhe. O operador confere antes de copiar.
+     *
+     * ATENCAO (so relevante com app.gemini.enabled=true, desligado por
+     * padrao em producao): os e-mails dirigidos ao SOLICITANTE (Deferido,
+     * Indeferido, Solicita informacao) levam o NOME COMPLETO do paciente por
+     * regra de negocio - o corpo inteiro, incluindo esse nome, e enviado ao
+     * Gemini (API externa) para revisao. Nao ha como mitigar sem quebrar a
+     * propria funcao (revisar o texto real que sera enviado com nome
+     * completo); e uma troca deliberada, condicionada ao operador ligar o
+     * recurso de IA conscientemente.
      */
     @PostMapping("/{id}/email/revisar-ia")
     @ResponseBody

@@ -2,6 +2,8 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.LogAuditoria;
 import br.gov.saude.sgpur.repository.LogAuditoriaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuditoriaService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditoriaService.class);
 
     private final LogAuditoriaRepository repo;
 
@@ -33,8 +37,11 @@ public class AuditoriaService {
             String usuario = usuarioAtual();
             String det = (detalhe != null && detalhe.length() > 400) ? detalhe.substring(0, 400) : detalhe;
             repo.save(new LogAuditoria(usuario, acao, det, ip));
-        } catch (Exception ignored) {
-            // auditoria nunca pode interromper a operacao principal
+        } catch (Exception e) {
+            // auditoria nunca pode interromper a operacao principal, mas uma
+            // falha aqui (ex.: banco fora do ar durante um voto) nao pode
+            // ficar totalmente invisivel - loga para nao perder o rastro.
+            log.warn("Falha ao registrar auditoria (acao={}): {}", acao, e.getMessage());
         }
     }
 

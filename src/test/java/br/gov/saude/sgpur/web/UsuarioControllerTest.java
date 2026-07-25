@@ -136,7 +136,7 @@ class UsuarioControllerTest {
             .andExpect(flash().attribute("msg", "Usuario criado."));
 
         verify(service).criar(any(Usuario.class), eq("segredo123"), isNull());
-        verify(auditoria).registrar(eq("USUARIO_CRIADO"), eq("Usuario novo1"));
+        verify(auditoria).registrar(eq("USUARIO_CRIADO"), eq("Usuario novo1"), any());
     }
 
     @Test
@@ -226,7 +226,7 @@ class UsuarioControllerTest {
             .andExpect(flash().attribute("msg", "Usuario atualizado."));
 
         verify(service).atualizar(eq(5L), any(Usuario.class), isNull(), isNull());
-        verify(auditoria).registrar(eq("USUARIO_EDITADO"), eq("Usuario id 5"));
+        verify(auditoria).registrar(eq("USUARIO_EDITADO"), eq("Usuario id 5"), any());
     }
 
     @Test
@@ -315,7 +315,7 @@ class UsuarioControllerTest {
             .andExpect(flash().attribute("msg", "Usuario excluido."));
 
         verify(service).excluir(7L, "admin1");
-        verify(auditoria).registrar(eq("USUARIO_EXCLUIDO"), eq("Usuario id 7"));
+        verify(auditoria).registrar(eq("USUARIO_EXCLUIDO"), eq("Usuario id 7"), any());
     }
 
     @Test
@@ -370,7 +370,7 @@ class UsuarioControllerTest {
             .andExpect(flash().attribute("msg", "Senha alterada com sucesso."));
 
         verify(service).alterarPropriaSenha("operador1", "atual123", "novaSenha123", "novaSenha123");
-        verify(auditoria).registrar(eq("SENHA_ALTERADA"), eq("Usuario operador1"));
+        verify(auditoria).registrar(eq("SENHA_ALTERADA"), eq("Usuario operador1"), any());
     }
 
     @Test
@@ -413,6 +413,6 @@ class UsuarioControllerTest {
             .andExpect(model().attribute("msgRedefinicao", containsString("Se o login existir")));
 
         verify(service).resetarSenha("qualquerLogin");
-        verify(auditoria).registrar(eq("SENHA_RESET_SOLICITADO"), eq("Usuario qualquerLogin"));
+        verify(auditoria).registrar(eq("SENHA_RESET_SOLICITADO"), eq("Usuario qualquerLogin"), any());
     }
 }

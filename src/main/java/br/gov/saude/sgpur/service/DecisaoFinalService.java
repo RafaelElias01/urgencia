@@ -58,11 +58,14 @@ public class DecisaoFinalService {
                 processoService.salvar(p);
             }
             try {
-                anexoStorage.removerPorTipo(id, TipoAnexo.OFICIO_INDEFERIMENTO);
+                // Gera e salva o novo oficio ANTES de remover o antigo: se
+                // oficioService.gerar() falhar, o oficio anterior (se houver)
+                // permanece intacto em vez do processo ficar sem nenhum.
                 byte[] of = oficioService.gerar(p);
                 String nomeOf = "oficio-indeferimento-" + p.getNumero().replace("/", "-") + ".pdf";
-                anexoStorage.salvarBytes(p, TipoAnexo.OFICIO_INDEFERIMENTO,
+                var novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.OFICIO_INDEFERIMENTO,
                     "Oficio de indeferimento gerado na decisao", nomeOf, "application/pdf", of);
+                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.OFICIO_INDEFERIMENTO, novoAnexo.getId());
             } catch (IOException e) {
                 log.error("Falha ao gerar oficio de indeferimento para processo {}", p.getNumero(), e);
                 throw new IllegalStateException(
@@ -72,11 +75,12 @@ public class DecisaoFinalService {
 
         if (p.getStatus().isFinalizado()) {
             try {
-                anexoStorage.removerPorTipo(id, TipoAnexo.RELATORIO_FINAL);
+                // Mesma ordem do oficio: gera e salva antes de remover o antigo.
                 byte[] pdf = relatorioService.gerar(p);
                 String nome = "relatorio-processo-" + p.getNumero().replace("/", "-") + ".pdf";
-                anexoStorage.salvarBytes(p, TipoAnexo.RELATORIO_FINAL,
+                var novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.RELATORIO_FINAL,
                     "Relatorio final gerado na decisao", nome, "application/pdf", pdf);
+                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.RELATORIO_FINAL, novoAnexo.getId());
             } catch (IOException e) {
                 log.error("Falha ao gerar relatorio final para processo {}", p.getNumero(), e);
                 throw new IllegalStateException(

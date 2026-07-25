@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.UsuarioService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +62,7 @@ public class UsuarioController {
     public String criar(@Valid @ModelAttribute("usuario") Usuario usuario, BindingResult result,
                         @RequestParam String senha,
                         @RequestParam(required = false) Long membroId,
-                        Model model, RedirectAttributes ra) {
+                        Model model, RedirectAttributes ra, HttpServletRequest request) {
         if (senha == null || senha.isBlank()) {
             result.rejectValue("senha", "obrigatorio", "Informe a senha.");
         }
@@ -81,7 +82,7 @@ public class UsuarioController {
             model.addAttribute("erro", e.getMessage());
             return "usuarios/form";
         }
-        auditoria.registrar("USUARIO_CRIADO", "Usuario " + usuario.getUsername());
+        auditoria.registrar("USUARIO_CRIADO", "Usuario " + usuario.getUsername(), request.getRemoteAddr());
         ra.addFlashAttribute("msg", "Usuario criado.");
         return "redirect:/usuarios";
     }
@@ -91,7 +92,7 @@ public class UsuarioController {
                             BindingResult result,
                             @RequestParam(required = false) String senha,
                             @RequestParam(required = false) Long membroId,
-                            Model model, RedirectAttributes ra) {
+                            Model model, RedirectAttributes ra, HttpServletRequest request) {
         if (form.getEmail() == null || form.getEmail().isBlank()) {
             result.rejectValue("email", "obrigatorio", "Informe o e-mail.");
         }
@@ -106,7 +107,7 @@ public class UsuarioController {
             ra.addFlashAttribute("erro", e.getMessage());
             return "redirect:/usuarios/" + id + "/editar";
         }
-        auditoria.registrar("USUARIO_EDITADO", "Usuario id " + id);
+        auditoria.registrar("USUARIO_EDITADO", "Usuario id " + id, request.getRemoteAddr());
         ra.addFlashAttribute("msg", "Usuario atualizado.");
         return "redirect:/usuarios";
     }
@@ -126,14 +127,14 @@ public class UsuarioController {
 
     @PostMapping("/{id}/excluir")
     public String excluir(@PathVariable Long id, java.security.Principal principal,
-                          RedirectAttributes ra) {
+                          RedirectAttributes ra, HttpServletRequest request) {
         try {
             service.excluir(id, principal == null ? null : principal.getName());
         } catch (IllegalStateException e) {
             ra.addFlashAttribute("erro", e.getMessage());
             return "redirect:/usuarios";
         }
-        auditoria.registrar("USUARIO_EXCLUIDO", "Usuario id " + id);
+        auditoria.registrar("USUARIO_EXCLUIDO", "Usuario id " + id, request.getRemoteAddr());
         ra.addFlashAttribute("msg", "Usuario excluido.");
         return "redirect:/usuarios";
     }
@@ -154,14 +155,14 @@ public class UsuarioController {
                                    @RequestParam String senhaAtual,
                                    @RequestParam String novaSenha,
                                    @RequestParam String confirmacao,
-                                   RedirectAttributes ra) {
+                                   RedirectAttributes ra, HttpServletRequest request) {
         try {
             service.alterarPropriaSenha(principal.getName(), senhaAtual, novaSenha, confirmacao);
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute("erro", e.getMessage());
             return "redirect:/usuarios/minha-senha";
         }
-        auditoria.registrar("SENHA_ALTERADA", "Usuario " + principal.getName());
+        auditoria.registrar("SENHA_ALTERADA", "Usuario " + principal.getName(), request.getRemoteAddr());
         ra.addFlashAttribute("msg", "Senha alterada com sucesso.");
         return "redirect:/usuarios/minha-senha";
     }
@@ -177,9 +178,9 @@ public class UsuarioController {
      * quais logins sao validos (enumeracao de usuarios).
      */
     @PostMapping("/esqueci-senha")
-    public String redefinirSenha(@RequestParam String username, Model model) {
+    public String redefinirSenha(@RequestParam String username, Model model, HttpServletRequest request) {
         service.resetarSenha(username);
-        auditoria.registrar("SENHA_RESET_SOLICITADO", "Usuario " + username);
+        auditoria.registrar("SENHA_RESET_SOLICITADO", "Usuario " + username, request.getRemoteAddr());
         model.addAttribute("sucesso", true);
         model.addAttribute("msgRedefinicao",
             "Se o login existir e tiver e-mail cadastrado, enviamos as instrucoes "

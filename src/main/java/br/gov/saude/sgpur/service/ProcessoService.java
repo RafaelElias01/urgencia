@@ -113,6 +113,11 @@ public class ProcessoService {
                 .orElseThrow(() -> new IllegalArgumentException("Medico nao encontrado: " + medicoId));
             processo.addParecer(new Parecer(medico));
         }
+        // proximoNumero() calcula MAX(sequencial)+1 sem lock: dois cadastros
+        // simultaneos no mesmo ano podem calcular o mesmo numero. A constraint
+        // UNIQUE em Processo.numero ja impede a duplicata no banco, e o
+        // GlobalExceptionHandler ja traduz a DataIntegrityViolationException
+        // resultante numa mensagem amigavel - nao precisa de tratamento aqui.
         return processoRepository.save(processo);
     }
 

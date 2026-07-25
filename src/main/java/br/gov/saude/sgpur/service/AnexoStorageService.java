@@ -196,19 +196,6 @@ public class AnexoStorageService {
         return anexoRepository.save(anexo);
     }
 
-    /** Remove todos os anexos de um tipo de um processo (arquivos + registros). */
-    @Transactional
-    public void removerPorTipo(Long processoId, TipoAnexo tipo) {
-        for (Anexo a : anexoRepository.findByProcessoIdAndTipo(processoId, tipo)) {
-            try {
-                Files.deleteIfExists(resolverArquivo(a));
-            } catch (IOException ignored) {
-                // best-effort
-            }
-            anexoRepository.delete(a);
-        }
-    }
-
     /**
      * Remove os anexos de um tipo de um processo, EXCETO o informado em
      * {@code manterId}. Usado por "substituir": salva o novo anexo primeiro

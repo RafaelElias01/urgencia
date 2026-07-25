@@ -215,6 +215,7 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void uploadComprovanteEnvioSolicitanteComSucesso() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "comprovante.pdf",
             "application/pdf", "conteudo".getBytes());
 
@@ -229,6 +230,7 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void uploadComprovanteEnvioSolicitanteComFalhaVoltaFlashDeErro() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "comprovante.pdf",
             "application/pdf", "conteudo".getBytes());
         when(anexoStorage.salvar(any(), any(), any(), any())).thenThrow(new IllegalArgumentException("tipo invalido"));

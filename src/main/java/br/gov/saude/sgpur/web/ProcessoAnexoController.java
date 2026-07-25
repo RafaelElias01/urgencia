@@ -147,6 +147,12 @@ public class ProcessoAnexoController {
                                                     @RequestParam("arquivo") MultipartFile arquivo,
                                                     RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (!p.getStatus().isFinalizado()) {
+            ra.addFlashAttribute("erro",
+                "Upload do comprovante de envio ao solicitante so e permitido apos a decisao "
+                + "(Deferido/Indeferido/Cancelado).");
+            return "redirect:/processos/" + id + "#finalizacao";
+        }
         try {
             substituirAnexo(p, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE,
                 "Comprovante de envio da resposta ao solicitante", arquivo);
@@ -304,6 +310,14 @@ public class ProcessoAnexoController {
         }
         if (texto.isBlank()) {
             return IaTextoResponse.erro("Nao foi possivel extrair texto deste PDF (pode ser uma imagem digitalizada).");
+        }
+        // Redige o nome completo do paciente antes de enviar a API externa
+        // (Gemini/Google): documentos clinicos originais tipicamente contem o
+        // nome, e diferente do material aos avaliadores (so iniciais), aqui
+        // nao ha necessidade do nome para o resumo administrativo.
+        String pacienteNome = anexo.getProcesso() != null ? anexo.getProcesso().getPacienteNome() : null;
+        if (pacienteNome != null && !pacienteNome.isBlank()) {
+            texto = texto.replaceAll("(?i)" + java.util.regex.Pattern.quote(pacienteNome), "[PACIENTE]");
         }
         // Limita o tamanho enviado a API (documentos muito longos sao truncados).
         String textoLimitado = texto.length() > 20000 ? texto.substring(0, 20000) : texto;

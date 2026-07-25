@@ -61,11 +61,11 @@ class PdfRelatorioBuilder {
         PdfCopy copier = new PdfCopy(doc, baos);
         doc.open();
 
-        PdfReader summaryReader = new PdfReader(summary);
-        for (int i = 1; i <= summaryReader.getNumberOfPages(); i++) {
-            copier.addPage(copier.getImportedPage(summaryReader, i));
+        try (PdfReader summaryReader = new PdfReader(summary)) {
+            for (int i = 1; i <= summaryReader.getNumberOfPages(); i++) {
+                copier.addPage(copier.getImportedPage(summaryReader, i));
+            }
         }
-        summaryReader.close();
 
         for (Anexo a : pdfs) {
             Path path = anexoStorage.resolverArquivo(a);
@@ -78,12 +78,10 @@ class PdfRelatorioBuilder {
                         + ") nao foi localizado no disco.");
                 continue;
             }
-            try {
-                PdfReader reader = new PdfReader(Files.readAllBytes(path));
+            try (PdfReader reader = new PdfReader(Files.readAllBytes(path))) {
                 for (int i = 1; i <= reader.getNumberOfPages(); i++) {
                     copier.addPage(copier.getImportedPage(reader, i));
                 }
-                reader.close();
             } catch (Exception e) {
                 log.error("Erro ao importar anexo PDF {}: {}", a.getNomeArquivo(), e.getMessage());
                 adicionarPaginaAviso(copier,
@@ -123,9 +121,9 @@ class PdfRelatorioBuilder {
         d.add(pCorpo);
         d.close();
 
-        PdfReader reader = new PdfReader(baos.toByteArray());
-        copier.addPage(copier.getImportedPage(reader, 1));
-        reader.close();
+        try (PdfReader reader = new PdfReader(baos.toByteArray())) {
+            copier.addPage(copier.getImportedPage(reader, 1));
+        }
     }
 
     // -----------------------------------------------------------------------
