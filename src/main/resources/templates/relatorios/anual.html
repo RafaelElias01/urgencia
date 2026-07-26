@@ -34,7 +34,7 @@
                   th:attr="data-base=@{/relatorios/anual}">
                 <div class="col-auto">
                     <label for="anoSelect" class="form-label">Ano</label>
-                    <select id="anoSelect" class="form-select">
+                    <select id="anoSelect" class="form-select" style="max-width: 220px;">
                         <option th:each="a : ${anos}" th:value="${a}" th:text="${a}">2026</option>
                     </select>
                 </div>

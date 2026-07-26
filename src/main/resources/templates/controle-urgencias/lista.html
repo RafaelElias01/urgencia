@@ -86,27 +86,29 @@
                             <span th:if="${r.situacao.name() == 'ATIVA' and r.dataVencimento lt hoje}"
                                   class="badge bg-danger ms-1">Vencida</span>
                         </td>
-                        <td class="text-end text-nowrap">
-                            <a th:href="@{/controle-urgencias/{id}/editar(id=${r.id})}"
-                               class="btn btn-sm btn-outline-secondary" title="Editar" aria-label="Editar urgencia">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
-                                  th:action="@{/controle-urgencias/{id}/renovar(id=${r.id})}"
-                                  method="post" class="d-inline"
-                                  data-confirm-msg="Renovar esta urgencia por mais 30 dias?">
-                                <button class="btn btn-sm btn-outline-success" title="Renovar por mais 30 dias">
-                                    <i class="bi bi-arrow-clockwise"></i> Renovar
-                                </button>
-                            </form>
-                            <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
-                                  th:action="@{/controle-urgencias/{id}/cancelar(id=${r.id})}"
-                                  method="post" class="d-inline"
-                                  data-confirm-msg="Cancelar esta urgencia?">
-                                <button class="btn btn-sm btn-outline-danger" title="Cancelar" aria-label="Cancelar urgencia">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </form>
+                        <td class="text-end">
+                            <div class="d-flex flex-column flex-sm-row justify-content-sm-end gap-1">
+                                <a th:href="@{/controle-urgencias/{id}/editar(id=${r.id})}"
+                                   class="btn btn-sm btn-outline-secondary" title="Editar" aria-label="Editar urgencia">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
+                                      th:action="@{/controle-urgencias/{id}/renovar(id=${r.id})}"
+                                      method="post"
+                                      data-confirm-msg="Renovar esta urgencia por mais 30 dias?">
+                                    <button class="btn btn-sm btn-outline-success w-100" title="Renovar por mais 30 dias">
+                                        <i class="bi bi-arrow-clockwise"></i> Renovar
+                                    </button>
+                                </form>
+                                <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
+                                      th:action="@{/controle-urgencias/{id}/cancelar(id=${r.id})}"
+                                      method="post"
+                                      data-confirm-msg="Cancelar esta urgencia?">
+                                    <button class="btn btn-sm btn-outline-danger w-100" title="Cancelar" aria-label="Cancelar urgencia">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     <tr th:if="${registros.isEmpty()}">
