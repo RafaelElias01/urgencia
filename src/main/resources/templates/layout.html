@@ -19,7 +19,7 @@
 <nav class="navbar navbar-expand-md navbar-dark navbar-sgpur" th:fragment="navbar">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2"
-           th:href="@{${#authorization.expression('hasRole(''AVALIADOR'')')} ? '/avaliador' : '/'}">
+           th:href="@{${#authorization.expression('hasRole(''AVALIADOR'')')} ? '/avaliador' : (${#authorization.expression('hasRole(''SOLICITANTE'')')} ? '/solicitante' : '/')}">
             <i class="bi bi-droplet-fill" style="font-size: 1.25rem;"></i>
             <span>SAUR</span>
             <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
