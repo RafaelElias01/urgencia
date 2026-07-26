@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -35,6 +36,7 @@ class ArquivoControllerTest {
     // nao tem ROLE_AVALIADOR, entao pendentesAvaliador() curto-circuita em 0).
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private static Processo processo(Long id, String numero, String paciente,
                                       String equipe, StatusProcesso status) {

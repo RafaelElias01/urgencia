@@ -10,6 +10,7 @@ import br.gov.saude.sgpur.service.OficioService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import com.lowagie.text.Document;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfWriter;
@@ -60,6 +61,7 @@ class ProcessoAnexoControllerTest {
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     @TempDir
     Path tempDir;

@@ -6,6 +6,7 @@ import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,7 @@ class UsuarioControllerTest {
     // slice @WebMvcTest) - sem eles o contexto falha ao subir.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     @BeforeEach
     void setUp() {

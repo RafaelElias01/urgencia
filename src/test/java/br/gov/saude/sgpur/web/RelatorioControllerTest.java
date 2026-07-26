@@ -8,6 +8,7 @@ import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.RelatorioAnualService;
 import br.gov.saude.sgpur.service.RelatorioAvaliadorService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -41,6 +42,7 @@ class RelatorioControllerTest {
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     @Test
     @WithMockUser(roles = "OPERADOR")

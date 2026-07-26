@@ -38,6 +38,13 @@
     --rs-transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease;
 }
 
+/* Container estreito para formularios/detalhes de leitura focada (ex.: Portal
+   do Solicitante, triagem de solicitacao online) - evita repetir
+   style="max-width: 760px;" inline em cada template. */
+.container-narrow {
+    max-width: 760px;
+}
+
 body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: linear-gradient(135deg, var(--rs-gray-50) 0%, var(--rs-gray-100) 100%);

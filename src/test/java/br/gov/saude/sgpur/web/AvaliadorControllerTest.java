@@ -8,6 +8,7 @@ import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
 import br.gov.saude.sgpur.service.ProcessoService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,7 @@ class AvaliadorControllerTest {
     @MockitoBean private AnexoRepository anexoRepo;
     @MockitoBean private AnexoStorageService anexoStorage;
     @MockitoBean private ProcessoService processoService;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
     @MockitoBean private DecisaoFinalService decisaoFinalService;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private TempoRespostaService tempoRespostaService;

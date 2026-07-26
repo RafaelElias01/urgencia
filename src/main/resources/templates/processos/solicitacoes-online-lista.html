@@ -7,12 +7,25 @@
 
 <div class="container my-4">
     <h1 class="h3 mb-3"><i class="bi bi-inbox-fill"></i> Solicitacoes online — triagem</h1>
-    <div class="alert alert-info py-2">
-        <i class="bi bi-info-circle"></i>
-        Modulo experimental (Portal do Solicitante). Pedidos enviados diretamente pela equipe
-        solicitante, aguardando triagem. Ao converter, voce revisa os dados no formulario normal
-        de cadastro e escolhe os 3 medicos avaliadores.
-    </div>
+    <p class="small text-muted">
+        Pedidos enviados diretamente pela equipe solicitante. Ao converter, voce revisa os dados
+        no formulario normal de cadastro e escolhe os 3 medicos avaliadores.
+    </p>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link" th:classappend="${filtro == 'pendentes'} ? 'active'"
+               th:href="@{/processos/solicitacoes-online(filtro='pendentes')}">
+                <i class="bi bi-hourglass-split"></i> Pendentes
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" th:classappend="${filtro == 'todas'} ? 'active'"
+               th:href="@{/processos/solicitacoes-online(filtro='todas')}">
+                <i class="bi bi-list-ul"></i> Todas
+            </a>
+        </li>
+    </ul>
 
     <div class="card">
         <div class="table-responsive">
@@ -23,6 +36,7 @@
                         <th>RGCT</th>
                         <th>Equipe solicitante</th>
                         <th>Enviada em</th>
+                        <th th:if="${filtro == 'todas'}">Status</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -30,9 +44,20 @@
                     <tr th:each="s : ${solicitacoes}">
                         <td th:text="${s.pacienteNome}">Paciente</td>
                         <td th:text="${s.pacienteRgct}">RGCT</td>
-                        <td th:text="${s.solicitanteEquipe}">Equipe</td>
-                        <td class="small text-muted"
-                            th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</td>
+                        <td><span class="badge badge-rs-blue fw-normal" th:text="${s.solicitanteEquipe}">Equipe</span></td>
+                        <td class="small text-muted">
+                            <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>
+                            <span th:if="${s.status.name() == 'ENVIADA'}"
+                                  class="badge rounded-pill ms-1"
+                                  th:classappend="${diasEspera.get(s.id).badgeClass}"
+                                  th:text="${diasEspera.get(s.id).dias} + 'd'">0d</span>
+                        </td>
+                        <td th:if="${filtro == 'todas'}">
+                            <span class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
+                                <i class="bi" th:classappend="${'bi-' + s.status.badgeIcone}"></i>
+                                <span th:text="${s.status.descricao}">Status</span>
+                            </span>
+                        </td>
                         <td class="text-end">
                             <a th:href="@{/processos/solicitacoes-online/{id}(id=${s.id})}"
                                class="btn btn-sm btn-outline-primary">
@@ -41,9 +66,9 @@
                         </td>
                     </tr>
                     <tr th:if="${solicitacoes.isEmpty()}">
-                        <td colspan="5" class="text-center text-muted py-5">
+                        <td th:colspan="${filtro == 'todas'} ? 6 : 5" class="text-center text-muted py-5">
                             <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
-                            Nenhuma solicitacao aguardando triagem.
+                            <span th:text="${filtro == 'todas'} ? 'Nenhuma solicitacao enviada ainda.' : 'Nenhuma solicitacao aguardando triagem.'">-</span>
                         </td>
                     </tr>
                 </tbody>

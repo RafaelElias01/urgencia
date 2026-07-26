@@ -11,4 +11,8 @@ public interface SolicitacaoOnlineRepository extends JpaRepository<SolicitacaoOn
     List<SolicitacaoOnline> findByUsuarioSolicitanteIdOrderByDataEnvioDesc(Long usuarioSolicitanteId);
 
     List<SolicitacaoOnline> findByStatusOrderByDataEnvioAsc(StatusSolicitacaoOnline status);
+
+    List<SolicitacaoOnline> findAllByOrderByDataEnvioDesc();
+
+    long countByStatus(StatusSolicitacaoOnline status);
 }

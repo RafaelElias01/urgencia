@@ -7,6 +7,7 @@ import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ class HomeControllerTest {
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private static Processo processo(Long id, Integer sequencial, StatusProcesso status) {
         Processo p = new Processo();

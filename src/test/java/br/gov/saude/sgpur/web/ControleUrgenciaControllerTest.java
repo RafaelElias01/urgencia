@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.domain.SituacaoUrgencia;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.ControleUrgenciaService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -38,6 +39,7 @@ class ControleUrgenciaControllerTest {
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     @Test
     @WithMockUser(roles = "OPERADOR")

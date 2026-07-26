@@ -1,12 +1,20 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.Usuario;
+import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -16,6 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.net.MalformedURLException;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
@@ -43,13 +53,19 @@ public class SolicitanteController {
     private final UsuarioRepository usuarioRepo;
     private final SolicitacaoOnlineService solicitacaoService;
     private final AuditoriaService auditoria;
+    private final AnexoSolicitacaoOnlineRepository anexoRepo;
+    private final AnexoSolicitacaoOnlineStorageService anexoStorage;
 
     public SolicitanteController(UsuarioRepository usuarioRepo,
                                  SolicitacaoOnlineService solicitacaoService,
-                                 AuditoriaService auditoria) {
+                                 AuditoriaService auditoria,
+                                 AnexoSolicitacaoOnlineRepository anexoRepo,
+                                 AnexoSolicitacaoOnlineStorageService anexoStorage) {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
+        this.anexoRepo = anexoRepo;
+        this.anexoStorage = anexoStorage;
     }
 
     /**
@@ -129,6 +145,37 @@ public class SolicitanteController {
             ra.addFlashAttribute("erro", e.getMessage());
         }
         return "redirect:/solicitante";
+    }
+
+    /**
+     * Download do proprio documento anexado. Busca o anexo PELO ID persistido
+     * (nunca aceita caminho vindo do request) e so serve o arquivo se ele
+     * pertencer a uma solicitacao do usuario logado - mesmo padrao de posse
+     * de {@link #resolverPropria}.
+     */
+    @GetMapping("/{id}/anexos/{anexoId}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> baixarAnexo(@PathVariable Long id, @PathVariable Long anexoId,
+                                                Principal principal) throws MalformedURLException {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = resolverPropria(id, usuario);
+        AnexoSolicitacaoOnline anexo = anexoRepo.findById(anexoId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!anexo.getSolicitacaoOnline().getId().equals(s.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Este anexo nao pertence a esta solicitacao.");
+        }
+        Path arquivo = anexoStorage.resolverArquivo(anexo);
+        Resource resource = new UrlResource(arquivo.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.notFound().build();
+        }
+        String contentType = anexo.getContentType() != null
+            ? anexo.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(contentType))
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
+            .body(resource);
     }
 
     private Usuario resolverUsuario(Principal principal) {

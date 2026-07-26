@@ -5,7 +5,7 @@
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
 
-<div class="container my-4" style="max-width: 760px;">
+<div class="container my-4 container-narrow">
     <h1 class="h3 mb-3" th:text="${solicitacao.pacienteNome}">Paciente</h1>
 
     <div class="card mb-3">
@@ -48,7 +48,7 @@
             </button>
             <a th:href="@{/processos/solicitacoes-online/{id}/converter(id=${solicitacao.id})}"
                class="btn btn-primary">
-                <i class="bi bi-arrow-right-circle"></i> Converter em processo
+                <i class="bi bi-arrow-right-circle"></i> Revisar e converter
             </a>
         </div>
     </div>

@@ -38,8 +38,12 @@
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')" th:if="${solicitanteHabilitado}">
-                    <a class="nav-link" th:href="@{/processos/solicitacoes-online}">
-                        <i class="bi bi-inbox-fill me-1"></i>Solicitacoes online</a>
+                    <a class="nav-link position-relative" th:href="@{/processos/solicitacoes-online}">
+                        <i class="bi bi-inbox-fill me-1"></i>Solicitacoes online
+                        <span th:if="${pendentesTriagemOnline > 0}"
+                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                              th:text="${pendentesTriagemOnline}">0</span>
+                    </a>
                 </li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                     <a class="nav-link" th:href="@{/usuarios}">Usuarios</a>

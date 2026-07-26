@@ -1,15 +1,19 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.Usuario;
+import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -18,6 +22,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -45,6 +51,11 @@ class SolicitanteControllerTest {
     @MockitoBean private SolicitacaoOnlineService solicitacaoService;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private AnexoSolicitacaoOnlineRepository anexoRepo;
+    @MockitoBean private AnexoSolicitacaoOnlineStorageService anexoStorage;
+
+    @TempDir
+    Path tempDir;
 
     private Usuario dono;
     private Usuario outroUsuario;
@@ -159,6 +170,57 @@ class SolicitanteControllerTest {
 
         verify(solicitacaoService).criar(any(SolicitacaoOnline.class), eq(dono), any());
         verify(auditoria).registrar(eq("SOLICITACAO_ONLINE_ENVIADA"), any());
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante2", roles = "SOLICITANTE")
+    void baixarAnexoExibe403ParaSolicitacaoDeOutroUsuario() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante2")).thenReturn(Optional.of(outroUsuario));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+
+        mvc.perform(get("/solicitante/50/anexos/999"))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(anexoRepo);
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void baixarAnexoRetorna403QuandoAnexoNaoPertenceAEstaSolicitacao() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+
+        SolicitacaoOnline outraSolicitacao = new SolicitacaoOnline();
+        outraSolicitacao.setId(51L);
+        AnexoSolicitacaoOnline anexoDeOutraSolicitacao = new AnexoSolicitacaoOnline();
+        anexoDeOutraSolicitacao.setId(999L);
+        anexoDeOutraSolicitacao.setSolicitacaoOnline(outraSolicitacao);
+        when(anexoRepo.findById(999L)).thenReturn(Optional.of(anexoDeOutraSolicitacao));
+
+        mvc.perform(get("/solicitante/50/anexos/999"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void baixarAnexoFuncionaParaAPropriaSolicitacao() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+
+        AnexoSolicitacaoOnline anexo = new AnexoSolicitacaoOnline();
+        anexo.setId(999L);
+        anexo.setSolicitacaoOnline(solicitacaoDoDono);
+        anexo.setNomeArquivo("laudo.pdf");
+        anexo.setContentType(MediaType.APPLICATION_PDF_VALUE);
+        when(anexoRepo.findById(999L)).thenReturn(Optional.of(anexo));
+
+        Path arquivo = tempDir.resolve("laudo.pdf");
+        Files.write(arquivo, "conteudo".getBytes());
+        when(anexoStorage.resolverArquivo(anexo)).thenReturn(arquivo);
+
+        mvc.perform(get("/solicitante/50/anexos/999"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("laudo.pdf")));
     }
 
     @Test

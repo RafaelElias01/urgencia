@@ -5,10 +5,9 @@
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
 
-<div class="container my-4" style="max-width: 760px;">
+<div class="container my-4 container-narrow">
     <h1 class="h3 mb-3"><i class="bi bi-send-plus"></i> Nova solicitacao</h1>
-
-    <div th:if="${erro}" class="alert alert-danger" th:text="${erro}"></div>
+    <p class="small text-muted">* Campo obrigatorio</p>
 
     <form th:action="@{/solicitante/nova}" th:object="${solicitacao}" method="post"
           enctype="multipart/form-data" class="card">
@@ -32,11 +31,11 @@
             <h2 class="h6 text-muted">Paciente</h2>
             <div class="row g-3">
                 <div class="col-md-8">
-                    <label class="form-label">Nome do paciente *</label>
+                    <label class="form-label" th:for="pacienteNome">Nome do paciente *</label>
                     <input type="text" th:field="*{pacienteNome}" class="form-control" maxlength="200" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">RGCT / SNT *</label>
+                    <label class="form-label" th:for="pacienteRgct">RGCT / SNT *</label>
                     <input type="text" th:field="*{pacienteRgct}" class="form-control" placeholder="123456789-12345" required maxlength="60">
                 </div>
             </div>
@@ -44,26 +43,27 @@
             <hr>
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label">Data da situacao especial *</label>
+                    <label class="form-label" th:for="dataSituacaoEspecial">Data da situacao especial *</label>
                     <input type="date" th:field="*{dataSituacaoEspecial}" class="form-control" required>
                 </div>
             </div>
 
             <hr>
             <div>
-                <label class="form-label">Justificativa clinica *</label>
+                <label class="form-label" th:for="justificativaClinica">Justificativa clinica *</label>
                 <textarea th:field="*{justificativaClinica}" class="form-control" rows="5" required
                           placeholder="Descreva o quadro clinico e o motivo do pedido de urgencia renal."></textarea>
             </div>
 
             <hr>
             <div>
-                <label class="form-label">Documentos clinicos</label>
-                <input type="file" name="documentos" class="form-control" multiple
+                <label class="form-label" th:for="documentos">Documentos clinicos</label>
+                <input type="file" id="documentos" name="documentos" class="form-control" multiple
                        accept=".pdf,.png,.jpg,.jpeg,.eml,.msg">
                 <div class="form-text text-muted">
                     PDF, imagem (PNG/JPG) ou copia do e-mail (EML/MSG). Pode selecionar varios arquivos.
                 </div>
+                <div id="documentosSelecionados" class="small text-muted mt-1"></div>
             </div>
         </div>
         <div class="card-footer text-end">
@@ -76,5 +76,6 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
+<script th:src="@{/js/solicitante-nova.js}"></script>
 </body>
 </html>

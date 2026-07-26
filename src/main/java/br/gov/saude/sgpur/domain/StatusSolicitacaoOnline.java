@@ -19,4 +19,24 @@ public enum StatusSolicitacaoOnline {
     public String getDescricao() {
         return descricao;
     }
+
+    /** Bootstrap-icon (sem o prefixo "bi-") usado no badge do status, mesmo padrao de {@code StatusProcesso}. */
+    public String getBadgeIcone() {
+        return switch (this) {
+            case ENVIADA -> "hourglass-split";
+            case CONVERTIDA -> "check-circle-fill";
+            case DEVOLVIDA -> "arrow-return-left";
+            case CANCELADA -> "slash-circle-fill";
+        };
+    }
+
+    /** Classe de cor do Bootstrap (badge bg-*), mesmo padrao de {@code StatusProcesso}. */
+    public String getBootstrapBadge() {
+        return switch (this) {
+            case ENVIADA -> "bg-warning text-dark";
+            case CONVERTIDA -> "bg-success";
+            case DEVOLVIDA -> "bg-danger";
+            case CANCELADA -> "bg-secondary";
+        };
+    }
 }

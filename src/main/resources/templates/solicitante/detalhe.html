@@ -5,7 +5,7 @@
 <nav th:replace="~{layout :: navbar}"></nav>
 <div th:replace="~{layout :: flash}"></div>
 
-<div class="container my-4" style="max-width: 760px;">
+<div class="container my-4 container-narrow">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0" th:text="${solicitacao.pacienteNome}">Paciente</h1>
         <span th:switch="${solicitacao.status.name()}">
@@ -50,7 +50,11 @@
 
     <h2 class="h6 text-muted">Documentos anexados</h2>
     <ul class="list-group mb-3">
-        <li class="list-group-item" th:each="a : ${solicitacao.anexos}" th:text="${a.nomeArquivo}"></li>
+        <li class="list-group-item" th:each="a : ${solicitacao.anexos}">
+            <a th:href="@{/solicitante/{id}/anexos/{anexoId}(id=${solicitacao.id},anexoId=${a.id})}"
+               th:text="${a.nomeArquivo}">documento.pdf</a>
+            <i class="bi bi-download text-muted ms-1"></i>
+        </li>
         <li class="list-group-item text-muted" th:if="${solicitacao.anexos.isEmpty()}">
             Nenhum documento anexado.
         </li>

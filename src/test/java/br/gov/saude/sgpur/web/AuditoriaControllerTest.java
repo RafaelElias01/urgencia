@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.LogAuditoria;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -43,6 +44,7 @@ class AuditoriaControllerTest {
     // qualquer slice @WebMvcTest, mesmo quando o controller sob teste nao os usa.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private LogAuditoria logAr(String usuario, String acao, String detalhe, LocalDateTime dataHora) {
         LogAuditoria log = new LogAuditoria(usuario, acao, detalhe);

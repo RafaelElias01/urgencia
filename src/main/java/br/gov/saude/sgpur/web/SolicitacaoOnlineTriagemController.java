@@ -10,6 +10,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Fila de triagem do OPERADOR/ADMIN para os pedidos enviados pelo Portal do
  * Solicitante (modulo experimental, ver docs/PLANO-SOLICITANTE.md).
@@ -36,8 +40,16 @@ public class SolicitacaoOnlineTriagemController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public String lista(Model model) {
-        model.addAttribute("solicitacoes", service.listarPendentesTriagem());
+    public String lista(@RequestParam(required = false, defaultValue = "pendentes") String filtro, Model model) {
+        boolean todas = "todas".equals(filtro);
+        List<SolicitacaoOnline> solicitacoes = todas ? service.listarTodas() : service.listarPendentesTriagem();
+        Map<Long, SolicitacaoOnlineService.DiasEspera> diasEspera = new LinkedHashMap<>();
+        for (SolicitacaoOnline s : solicitacoes) {
+            diasEspera.put(s.getId(), service.diasEspera(s));
+        }
+        model.addAttribute("solicitacoes", solicitacoes);
+        model.addAttribute("diasEspera", diasEspera);
+        model.addAttribute("filtro", todas ? "todas" : "pendentes");
         return "processos/solicitacoes-online-lista";
     }
 
@@ -62,9 +74,14 @@ public class SolicitacaoOnlineTriagemController {
             auditoria.registrar("SOLICITACAO_ONLINE_DEVOLVIDA",
                 "Solicitacao " + id + " - " + s.identificacao());
             ra.addFlashAttribute("msg", "Solicitacao devolvida para o solicitante.");
+            return "redirect:/processos/solicitacoes-online";
         } catch (IllegalStateException e) {
+            // Concorrencia: outro operador ja triou esta solicitacao entre a
+            // abertura da tela e o submit do modal "Devolver". Volta para o
+            // detalhe (nao para a lista) para nao perder o contexto/motivo
+            // digitado e deixar claro o que aconteceu.
             ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/processos/solicitacoes-online/" + id;
         }
-        return "redirect:/processos/solicitacoes-online";
     }
 }

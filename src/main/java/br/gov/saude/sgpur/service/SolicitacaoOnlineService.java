@@ -63,6 +63,33 @@ public class SolicitacaoOnlineService {
         return repository.findByStatusOrderByDataEnvioAsc(StatusSolicitacaoOnline.ENVIADA);
     }
 
+    /** Contagem de pendentes de triagem, para o badge da navbar - evita carregar a lista inteira. */
+    public long contarPendentesTriagem() {
+        return repository.countByStatus(StatusSolicitacaoOnline.ENVIADA);
+    }
+
+    /** Todas as solicitacoes, qualquer status, mais recentes primeiro (aba "Todas" da triagem). */
+    public List<SolicitacaoOnline> listarTodas() {
+        return repository.findAllByOrderByDataEnvioDesc();
+    }
+
+    /**
+     * Dias corridos desde o envio, com a classe de cor Bootstrap para
+     * destacar espera longa na fila de triagem (formatacao pronta aqui, nunca
+     * calculada na view - mesmo padrao de {@code TempoRespostaService}).
+     * Limiares: acima de 7 dias = alerta (vermelho), acima de 3 = atencao
+     * (amarelo), caso contrario neutro.
+     */
+    public DiasEspera diasEspera(SolicitacaoOnline s) {
+        long dias = java.time.Duration.between(s.getDataEnvio(), LocalDateTime.now()).toDays();
+        String cssClass = dias > 7 ? "bg-danger" : dias > 3 ? "bg-warning text-dark" : "bg-secondary";
+        return new DiasEspera(dias, cssClass);
+    }
+
+    /** Dias de espera + classe de cor Bootstrap pronta para o badge (ver {@link #diasEspera}). */
+    public record DiasEspera(long dias, String badgeClass) {
+    }
+
     /**
      * Cria uma nova solicitacao (status ENVIADA) e anexa os documentos
      * clinicos enviados junto. Equipe/e-mail do solicitante SEMPRE vem do

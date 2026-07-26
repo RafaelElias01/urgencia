@@ -7,6 +7,7 @@ import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ class GlobalModelAdviceTest {
     private UsuarioRepository usuarioRepo;
     @Mock
     private ParecerRepository parecerRepo;
+    @Mock
+    private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private GlobalModelAdvice advice;
 
@@ -44,7 +47,7 @@ class GlobalModelAdviceTest {
         // sao injetados pelo MockitoExtension DEPOIS que o construtor da
         // classe de teste roda, entao usuarioRepo/parecerRepo ainda estariam
         // null se "advice" fosse montado ali.
-        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo, true);
+        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, true);
     }
 
     @AfterEach
@@ -105,6 +108,49 @@ class GlobalModelAdviceTest {
             .thenReturn(List.of(pendenteEmAnalise, pendenteEnviado, pendenteFinalizado));
 
         assertThat(advice.pendentesAvaliador()).isEqualTo(2);
+    }
+
+    @Test
+    void pendentesTriagemOnlineRetornaZeroQuandoNaoAutenticado() {
+        SecurityContextHolder.clearContext();
+
+        assertThat(advice.pendentesTriagemOnline()).isZero();
+    }
+
+    @Test
+    void pendentesTriagemOnlineRetornaZeroParaAvaliador() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new TestingAuthenticationToken("aval1", "senha", "ROLE_AVALIADOR"));
+
+        assertThat(advice.pendentesTriagemOnline()).isZero();
+    }
+
+    @Test
+    void pendentesTriagemOnlineRetornaZeroQuandoModuloDesabilitado() {
+        GlobalModelAdvice adviceDesabilitado =
+            new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, false);
+        SecurityContextHolder.getContext().setAuthentication(
+            new TestingAuthenticationToken("op1", "senha", "ROLE_OPERADOR"));
+
+        assertThat(adviceDesabilitado.pendentesTriagemOnline()).isZero();
+    }
+
+    @Test
+    void pendentesTriagemOnlineContaParaOperador() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new TestingAuthenticationToken("op1", "senha", "ROLE_OPERADOR"));
+        when(solicitacaoOnlineService.contarPendentesTriagem()).thenReturn(3L);
+
+        assertThat(advice.pendentesTriagemOnline()).isEqualTo(3L);
+    }
+
+    @Test
+    void pendentesTriagemOnlineContaParaAdmin() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new TestingAuthenticationToken("admin1", "senha", "ROLE_ADMIN"));
+        when(solicitacaoOnlineService.contarPendentesTriagem()).thenReturn(5L);
+
+        assertThat(advice.pendentesTriagemOnline()).isEqualTo(5L);
     }
 
     private Parecer parecerComProcesso(StatusProcesso status) {

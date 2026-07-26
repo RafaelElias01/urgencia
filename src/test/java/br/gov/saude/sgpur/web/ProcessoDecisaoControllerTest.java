@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.*;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,7 @@ class ProcessoDecisaoControllerTest {
     // contexto do @WebMvcTest subir, mesmo o controller nao usando mais
     // ParecerRepository diretamente (movido para ProcessoService.buscarParecer).
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private Processo processo;
 

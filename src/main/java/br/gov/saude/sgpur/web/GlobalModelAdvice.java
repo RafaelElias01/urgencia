@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,25 +16,30 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 /**
  * Atributos de model disponiveis em TODAS as views.
  *
- * Hoje expoe apenas {@code pendentesAvaliador}: a contagem de processos que
- * aguardam o voto do medico logado, usada pelo badge da navbar (sino + numero).
+ * Expoe {@code pendentesAvaliador} (contagem de processos que aguardam o voto
+ * do medico logado, usada pelo sino da navbar) e {@code pendentesTriagemOnline}
+ * (contagem de solicitacoes do Portal do Solicitante aguardando triagem,
+ * mesmo padrao visual, restrito a ADMIN/OPERADOR).
  *
- * IMPARCIALIDADE: o contador e apenas um numero — nunca expoe nome de paciente,
- * equipe solicitante ou co-avaliadores. So e calculado quando o usuario tem
- * ROLE_AVALIADOR e possui membro vinculado; para ADMIN/OPERADOR fica em 0 e o
- * badge nao e renderizado.
+ * IMPARCIALIDADE: o contador de avaliador e apenas um numero — nunca expoe
+ * nome de paciente, equipe solicitante ou co-avaliadores. So e calculado
+ * quando o usuario tem ROLE_AVALIADOR e possui membro vinculado; para
+ * ADMIN/OPERADOR fica em 0 e o badge nao e renderizado.
  */
 @ControllerAdvice
 public class GlobalModelAdvice {
 
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
+    private final SolicitacaoOnlineService solicitacaoOnlineService;
     private final boolean solicitanteHabilitado;
 
     public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo,
+                             SolicitacaoOnlineService solicitacaoOnlineService,
                              @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
+        this.solicitacaoOnlineService = solicitacaoOnlineService;
         this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
@@ -66,6 +72,35 @@ public class GlobalModelAdvice {
             .map(MembroUrgenciaRenal::getId)
             .map(membroId -> AvaliadorController.pendentesDoMembro(parecerRepo, membroId).size())
             .orElse(0);
+    }
+
+    /**
+     * Contagem de solicitacoes online aguardando triagem, para o badge do
+     * link "Solicitacoes online" na navbar - mesmo padrao visual do sino do
+     * avaliador. So calculado para ADMIN/OPERADOR (perfis que acessam a
+     * triagem) e quando o modulo esta habilitado; caso contrario fica em 0 e
+     * o badge nao e renderizado.
+     */
+    @ModelAttribute("pendentesTriagemOnline")
+    @Transactional(readOnly = true)
+    public long pendentesTriagemOnline() {
+        if (!solicitanteHabilitado) {
+            return 0;
+        }
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !temPapelOperadorOuAdmin(auth)) {
+            return 0;
+        }
+        return solicitacaoOnlineService.contarPendentesTriagem();
+    }
+
+    private boolean temPapelOperadorOuAdmin(Authentication auth) {
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(ga.getAuthority()) || "ROLE_OPERADOR".equals(ga.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean temPapelAvaliador(Authentication auth) {

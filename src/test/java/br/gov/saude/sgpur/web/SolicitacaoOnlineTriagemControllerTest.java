@@ -61,11 +61,28 @@ class SolicitacaoOnlineTriagemControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void listaExibeSolicitacoesPendentesDeTriagem() throws Exception {
         when(service.listarPendentesTriagem()).thenReturn(List.of(solicitacao));
+        when(service.diasEspera(solicitacao)).thenReturn(new SolicitacaoOnlineService.DiasEspera(2, "bg-secondary"));
 
         mvc.perform(get("/processos/solicitacoes-online"))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/solicitacoes-online-lista"))
-            .andExpect(model().attribute("solicitacoes", List.of(solicitacao)));
+            .andExpect(model().attribute("solicitacoes", List.of(solicitacao)))
+            .andExpect(model().attribute("filtro", "pendentes"));
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void listaComFiltroTodasExibeTodasAsSolicitacoes() throws Exception {
+        when(service.listarTodas()).thenReturn(List.of(solicitacao));
+        when(service.diasEspera(solicitacao)).thenReturn(new SolicitacaoOnlineService.DiasEspera(2, "bg-secondary"));
+
+        mvc.perform(get("/processos/solicitacoes-online").param("filtro", "todas"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("processos/solicitacoes-online-lista"))
+            .andExpect(model().attribute("solicitacoes", List.of(solicitacao)))
+            .andExpect(model().attribute("filtro", "todas"));
+
+        verify(service, never()).listarPendentesTriagem();
     }
 
     @Test
@@ -86,7 +103,13 @@ class SolicitacaoOnlineTriagemControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/processos/novo?origemSolicitacaoOnlineId=50"));
 
-        verifyNoInteractions(service);
+        // Nao verifica "sem interacoes" puro: o GlobalModelAdvice global chama
+        // service.contarPendentesTriagem() (badge da navbar) para qualquer
+        // requisicao autenticada como OPERADOR/ADMIN, mesmo nesta rota. O que
+        // importa aqui e que o controller em si nao chamou nenhum metodo de
+        // busca/conversao da solicitacao (o redirect e so uma URL montada).
+        verify(service, never()).buscar(any());
+        verify(service, never()).converter(any(), any());
     }
 
     @Test
@@ -117,7 +140,7 @@ class SolicitacaoOnlineTriagemControllerTest {
                 .param("observacoes", "motivo")
                 .with(csrf()))
             .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/solicitacoes-online"))
+            .andExpect(redirectedUrl("/processos/solicitacoes-online/50"))
             .andExpect(flash().attribute("erro", "Esta solicitacao ja foi triada."));
 
         verify(auditoria, never()).registrar(eq("SOLICITACAO_ONLINE_DEVOLVIDA"), any());
