@@ -322,7 +322,10 @@
                             <div>
                                 <i class="bi bi-check-circle-fill fs-5 me-2"></i>
                                 <strong>Recebimento concluido!</strong>
-                                <span class="text-muted small ms-2">Copia da solicitacao e capa do processo registradas.</span>
+                                <span class="text-muted small ms-2"
+                                      th:text="${processoVeioDoPortal}
+                                          ? 'Capa do processo gerada (solicitacao recebida pelo Portal do Solicitante).'
+                                          : 'Copia da solicitacao e capa do processo registradas.'">Copia da solicitacao e capa do processo registradas.</span>
                             </div>
                             <button type="button" class="btn btn-success btn-sm"
                                     data-goto-pane="pane-envio">
