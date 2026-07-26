@@ -109,6 +109,37 @@ class SolicitacaoOnlineDetalheIntegrationTest {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("exame.pdf")));
     }
 
+    /**
+     * O fetch join de uma colecao multiplica as linhas do resultado (1 linha
+     * por anexo). Como {@code findParaDetalhe} devolve {@code Optional}, sem a
+     * deduplicacao o Spring Data estouraria
+     * {@code IncorrectResultSizeDataAccessException} a partir do SEGUNDO anexo
+     * - caso que um teste com um anexo so nunca pegaria, e que e o cenario
+     * normal em producao (o solicitante anexa varios exames).
+     */
+    @Test
+    void detalheComVariosAnexosNaoQuebraOOptional() {
+        // Sem @Transactional de proposito: cada save roda na sua propria
+        // transacao e a solicitacao fica destacada, entao findParaDetalhe le de
+        // uma sessao limpa (que e o cenario real de uma requisicao HTTP). Com o
+        // teste transacional, a colecao anexos ficaria gerenciada e vazia na
+        // sessao e o orphanRemoval apagaria os anexos no flush - artefato de
+        // teste, nao comportamento de producao.
+        SolicitacaoOnline s = solicitacaoRepo.findById(solicitacaoId).orElseThrow();
+        for (int i = 2; i <= 4; i++) {
+            AnexoSolicitacaoOnline extra = new AnexoSolicitacaoOnline();
+            extra.setSolicitacaoOnline(s);
+            extra.setNomeArquivo("exame-" + i + ".pdf");
+            extra.setContentType("application/pdf");
+            extra.setTamanhoBytes(10L);
+            extra.setCaminhoArmazenado("solicitacoes/" + s.getId() + "/exame-" + i + ".pdf");
+            anexoRepo.saveAndFlush(extra);
+        }
+
+        SolicitacaoOnline carregada = solicitacaoRepo.findParaDetalhe(solicitacaoId).orElseThrow();
+        assertThat(carregada.getAnexos()).hasSize(4);
+    }
+
     @Test
     void queryDeDetalheJaTrazAnexosEUsuarioInicializados() {
         SolicitacaoOnline s = solicitacaoRepo.findParaDetalhe(solicitacaoId).orElseThrow();

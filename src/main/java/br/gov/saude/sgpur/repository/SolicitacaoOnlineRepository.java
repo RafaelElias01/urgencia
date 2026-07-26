@@ -19,9 +19,17 @@ public interface SolicitacaoOnlineRepository extends JpaRepository<SolicitacaoOn
      * qualquer proxy LAZY tocado no template estoura
      * {@code LazyInitializationException} (500). Ver
      * {@code SolicitacaoOnlineService#buscarParaDetalhe}.
+     *
+     * Sem {@code distinct} de proposito: o fetch join da colecao multiplica as
+     * linhas (1 por anexo), mas o Hibernate 6 ja deduplica a raiz sozinho, e o
+     * {@code Optional} continua valido com N anexos (coberto por
+     * {@code SolicitacaoOnlineDetalheIntegrationTest}). Um
+     * {@code select distinct} aqui so adicionaria um DISTINCT sobre todas as
+     * colunas das 4 entidades - custo inutil, e quebraria caso alguma delas
+     * ganhe no futuro um tipo nao comparavel no Postgres (ex. @Lob/oid).
      */
     @Query("""
-        select distinct s from SolicitacaoOnline s
+        select s from SolicitacaoOnline s
         left join fetch s.anexos
         left join fetch s.processoGerado
         left join fetch s.usuarioSolicitante
