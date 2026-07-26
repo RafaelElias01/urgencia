@@ -260,6 +260,20 @@ class ProcessoValidatorTest {
         assertThat(validator.validarContagemVotos(p, StatusProcesso.INDEFERIDO)).isPresent();
     }
 
+    @Test
+    void validarContagemVotosBloqueiaIndeferidoQuandoCoordenadorVotouFavoravel() {
+        // Regra: o voto Favoravel do coordenador CET-RS DEFERE sozinho, entao
+        // Indeferir fica vedado mesmo que ja existam 2 desfavoraveis (o operador
+        // nao pode sobrepor manualmente a prioridade do coordenador).
+        Processo p = new Processo();
+        p.addParecer(parecer(ResultadoParecer.FAVORAVEL, true));   // coordenador
+        p.addParecer(parecer(ResultadoParecer.NAO_FAVORAVEL, false));
+        p.addParecer(parecer(ResultadoParecer.NAO_FAVORAVEL, false));
+        assertThat(validator.validarContagemVotos(p, StatusProcesso.INDEFERIDO)).isPresent();
+        // ... e o mesmo processo continua liberado para Deferir (peso do coordenador).
+        assertThat(validator.validarContagemVotos(p, StatusProcesso.DEFERIDO)).isEmpty();
+    }
+
     // ----- validarMotivoIndeferimento -----
 
     @Test

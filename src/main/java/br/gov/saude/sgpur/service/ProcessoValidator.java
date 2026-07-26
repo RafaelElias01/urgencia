@@ -163,10 +163,21 @@ public class ProcessoValidator {
             return Optional.of("Deferimento exige no minimo "
                 + minFavoraveis + " parecer(es) favoravel(is).");
         }
-        if (decisao == StatusProcesso.INDEFERIDO
-                && contarNaoFavoraveis(processo) < ProcessoService.DESFAVORAVEIS_PARA_INDEFERIR) {
-            return Optional.of("Indeferimento exige no minimo "
-                + ProcessoService.DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
+        if (decisao == StatusProcesso.INDEFERIDO) {
+            // O voto Favoravel do coordenador CET-RS defere sozinho (prioridade
+            // absoluta em sugerirDecisao). Simetricamente, INDEFERIR fica vedado
+            // enquanto o coordenador votou Favoravel — mesmo que ja existam 2
+            // desfavoraveis, o resultado do processo e Deferido. Sem esta guarda,
+            // o operador conseguiria sobrepor manualmente a regra do coordenador.
+            if (temVotoCoordenadorFavoravel(processo)) {
+                return Optional.of(
+                    "O coordenador da CET-RS votou favoravel: o processo defere sozinho "
+                    + "e nao pode ser indeferido.");
+            }
+            if (contarNaoFavoraveis(processo) < ProcessoService.DESFAVORAVEIS_PARA_INDEFERIR) {
+                return Optional.of("Indeferimento exige no minimo "
+                    + ProcessoService.DESFAVORAVEIS_PARA_INDEFERIR + " pareceres desfavoraveis.");
+            }
         }
         return Optional.empty();
     }

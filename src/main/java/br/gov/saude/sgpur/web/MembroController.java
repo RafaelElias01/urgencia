@@ -90,11 +90,15 @@ public class MembroController {
         // So pode haver um coordenador CET-RS por vez (as regras de decisao por
         // maioria assumem no maximo um). Ao marcar este membro como coordenador,
         // desmarca automaticamente qualquer outro que ja estivesse marcado.
-        // @Transactional: le (findByCoordenadorTrue) e escreve (save) dentro da
-        // MESMA transacao/conexao, fechando a janela em que 2 requests
-        // concorrentes poderiam cada um ver "nenhum outro coordenador" e deixar
-        // 2 membros marcados ao final.
+        // CONCORRENCIA: @Transactional sob READ COMMITTED NAO fecha sozinho a
+        // janela de "2 coordenadores" quando as duas requests marcam linhas
+        // DIFERENTES sem coordenador previo (nao ha linha compartilhada para o
+        // @Version pegar). Por isso adquirimos primeiro um lock pessimista
+        // (SELECT ... FOR UPDATE) sobre a tabela, serializando as promocoes:
+        // a 2a request so prossegue apos a 1a commitar e entao ja enxerga o
+        // coordenador recem-marcado para desmarca-lo.
         if (membro.isCoordenador()) {
+            repo.lockTodosParaCoordenador();
             repo.findByCoordenadorTrue().stream()
                 .filter(outro -> !outro.getId().equals(membro.getId()))
                 .forEach(outro -> {

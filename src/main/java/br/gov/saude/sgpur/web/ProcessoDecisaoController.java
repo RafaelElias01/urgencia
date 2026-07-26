@@ -490,6 +490,20 @@ public class ProcessoDecisaoController {
             ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome()
                 + " anexada e parecer registrado.");
         } else {
+            // So o anexo foi enviado (parecer ja tinha resultado, faltava o
+            // comprovante). Subir esse anexo pode satisfazer a ultima
+            // pre-condicao pendente (pareceresRecebidosSemAnexo) e liberar a
+            // decisao por maioria - por isso reavalia igual aos demais
+            // call-sites (salvarPareceres/portal), em vez de so exibir a mensagem.
+            processoService.atualizarStatusPorPareceres(id);
+            Processo pDecidido = processoService.tentarDecisaoAutomatica(id);
+            if (pDecidido.getStatus().isFinalizado()) {
+                try { decisaoFinalService.gerarDocumentos(pDecidido); }
+                catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
+                ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome()
+                    + " anexada. Decisao automatica: " + pDecidido.getStatus().getDescricao() + ".");
+                return "redirect:/processos/" + id;
+            }
             ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome() + " anexada.");
         }
         return "redirect:/processos/" + id + "#respostas";

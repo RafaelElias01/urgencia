@@ -294,8 +294,7 @@ public class FluxoProcessoService {
         // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
         boolean recebimentoFeito = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA)
             && temAnexo(p, TipoAnexo.CAPA_PROCESSO);
-        boolean envioFeito = !p.getPareceres().isEmpty()
-            && p.getPareceres().get(0).getDataEnvio() != null;
+        boolean envioFeito = envioRegistrado(p);
         long respondidos = processoService.contarRespondidos(p);
         int totalMedicos = p.getPareceres().size();
         boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
@@ -335,8 +334,7 @@ public class FluxoProcessoService {
         if (p.getStatus() != StatusProcesso.ENVIADO && p.getStatus() != StatusProcesso.EM_ANALISE) {
             return null;
         }
-        boolean envioFeito = !p.getPareceres().isEmpty()
-            && p.getPareceres().get(0).getDataEnvio() != null;
+        boolean envioFeito = envioRegistrado(p);
         long respondidos = processoService.contarRespondidos(p);
         int totalMedicos = p.getPareceres().size();
         var sugestao = processoService.sugerirDecisao(p);
@@ -385,5 +383,17 @@ public class FluxoProcessoService {
 
     private boolean temAnexo(Processo p, TipoAnexo tipo) {
         return p.getAnexos().stream().anyMatch(a -> a.getTipo() == tipo);
+    }
+
+    /**
+     * Envio registrado = existem pareceres E TODOS tem dataEnvio preenchida.
+     * Mesmo criterio usado em {@link #montarEtapas} (enviadosCount ==
+     * totalMedicos) - fonte unica, para o gating das abas e o sub-rotulo nunca
+     * divergirem da timeline (antes usavam apenas {@code pareceres.get(0)}, o
+     * que destoava quando so parte dos pareceres tinha data de envio).
+     */
+    private boolean envioRegistrado(Processo p) {
+        return !p.getPareceres().isEmpty()
+            && p.getPareceres().stream().allMatch(par -> par.getDataEnvio() != null);
     }
 }

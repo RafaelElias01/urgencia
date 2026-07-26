@@ -83,8 +83,13 @@ public class ProcessoDetalheController {
     }
 
     @ModelAttribute("resultadoValores")
-    public ResultadoParecer[] resultadoValores() {
-        return ResultadoParecer.values();
+    public java.util.List<ResultadoParecer> resultadoValores() {
+        // Apenas os votos que um avaliador pode de fato submeter (SEM_RESPOSTA
+        // existe so para relatorio/estado interno e sempre seria rejeitado no
+        // POST). Mesmo criterio de AvaliadorController.votar.
+        return java.util.Arrays.stream(ResultadoParecer.values())
+            .filter(ResultadoParecer::isVotoValido)
+            .toList();
     }
 
     @ModelAttribute("tipoAnexoValores")

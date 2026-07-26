@@ -363,6 +363,19 @@ NULL;` — senao qualquer UPDATE num parecer antigo (votar, anexar resposta,
 etc.) da 500 (mesmo sintoma do incidente de `Processo.versao` em
 2026-07-10).
 
+## Pendência de deploy: backfill de MembroUrgenciaRenal.versao
+
+A correcao da race de "2 coordenadores" (vistoria 2026-07-26) adicionou
+`@Version private Long versao` em `MembroUrgenciaRenal` (mesmo padrao de
+`Processo.versao`/`Parecer.versao`), alem de um lock pessimista
+(`MembroUrgenciaRenalRepository.lockTodosParaCoordenador`, SELECT ... FOR
+UPDATE) usado em `MembroController.salvar` para serializar a promocao de
+coordenador. **Antes do proximo deploy em prod**, rodar no console SQL do
+banco: `UPDATE membro_urgencia_renal SET versao = 0 WHERE versao IS NULL;`
+— senao qualquer UPDATE num membro antigo (editar, alternar ativo, marcar
+coordenador) da 500 (mesmo sintoma dos incidentes de `Processo.versao` e
+`Parecer.versao`).
+
 ## Próxima sessão: pendências da vistoria de 2026-07-24
 `docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) já foi aplicado nesta sessão
 (commit `5e17f6c`): coluna "O que falta" movida pra 2ª posição em

@@ -221,7 +221,8 @@ public class SolicitacaoOnlineService {
             try {
                 byte[] dados = Files.readAllBytes(anexoStorage.resolverArquivo(anexo));
                 anexoStorageProcesso.salvarBytes(processoGerado, TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR,
-                    "Documento clinico enviado pelo solicitante no Portal do Solicitante",
+                    "Documento enviado pelo solicitante no Portal do Solicitante - NAO ANONIMIZADO: "
+                        + "revisar e anonimizar o corpo (nome do paciente) antes de enviar aos avaliadores",
                     anexo.getNomeArquivo(), anexo.getContentType(), dados);
             } catch (IOException e) {
                 throw new IllegalStateException(

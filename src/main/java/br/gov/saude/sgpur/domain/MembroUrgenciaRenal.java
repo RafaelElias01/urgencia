@@ -40,6 +40,19 @@ public class MembroUrgenciaRenal {
     @org.hibernate.annotations.ColumnDefault("false")
     private boolean coordenador = false;
 
+    /**
+     * Controle de concorrencia otimista (evita lost update em edicoes
+     * simultaneas da MESMA linha). A unicidade do coordenador entre linhas
+     * DIFERENTES e garantida a parte, por lock pessimista em
+     * {@code MembroController.salvar} (ver comentario la). Como o
+     * {@code Processo.versao}/{@code Parecer.versao}, adicionar esta coluna
+     * numa tabela ja populada exige backfill manual em prod
+     * (UPDATE membro_urgencia_renal SET versao = 0 WHERE versao IS NULL) -
+     * ver CLAUDE.md, secao de pendencia de deploy.
+     */
+    @Version
+    private Long versao;
+
     public MembroUrgenciaRenal() {
     }
 
@@ -101,5 +114,13 @@ public class MembroUrgenciaRenal {
 
     public void setCoordenador(boolean coordenador) {
         this.coordenador = coordenador;
+    }
+
+    public Long getVersao() {
+        return versao;
+    }
+
+    public void setVersao(Long versao) {
+        this.versao = versao;
     }
 }
