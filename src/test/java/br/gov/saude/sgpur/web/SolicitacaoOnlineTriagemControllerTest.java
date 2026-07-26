@@ -88,7 +88,7 @@ class SolicitacaoOnlineTriagemControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void detalheExibeASolicitacao() throws Exception {
-        when(service.buscar(50L)).thenReturn(solicitacao);
+        when(service.buscarParaDetalhe(50L)).thenReturn(solicitacao);
 
         mvc.perform(get("/processos/solicitacoes-online/50"))
             .andExpect(status().isOk())

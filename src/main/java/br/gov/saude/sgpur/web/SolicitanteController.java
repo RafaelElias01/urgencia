@@ -128,7 +128,10 @@ public class SolicitanteController {
     @Transactional(readOnly = true)
     public String detalhe(@PathVariable Long id, Principal principal, Model model) {
         Usuario usuario = resolverUsuario(principal);
-        SolicitacaoOnline s = resolverPropria(id, usuario);
+        // buscarParaDetalhe (e nao buscar) porque o template mostra anexos e o
+        // processo gerado, ambos LAZY - com open-in-view: false o Thymeleaf
+        // roda fora da transacao e um proxy nao inicializado vira 500.
+        SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
         model.addAttribute("solicitacao", s);
         return "solicitante/detalhe";
     }
@@ -185,7 +188,11 @@ public class SolicitanteController {
 
     /** Garante que a solicitacao pertence ao usuario logado (nunca ve pedido de outra equipe). */
     private SolicitacaoOnline resolverPropria(Long id, Usuario usuario) {
-        SolicitacaoOnline s = solicitacaoService.buscar(id);
+        return conferirPosse(solicitacaoService.buscar(id), usuario);
+    }
+
+    /** Mesma checagem de posse, para quando a solicitacao ja foi carregada. */
+    private SolicitacaoOnline conferirPosse(SolicitacaoOnline s, Usuario usuario) {
         if (!s.getUsuarioSolicitante().getId().equals(usuario.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta solicitacao nao pertence a voce.");
         }

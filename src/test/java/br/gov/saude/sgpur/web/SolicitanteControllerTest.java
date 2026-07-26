@@ -91,7 +91,7 @@ class SolicitanteControllerTest {
     @WithMockUser(username = "solicitante2", roles = "SOLICITANTE")
     void detalheExibe403ParaSolicitacaoDeOutroUsuario() throws Exception {
         when(usuarioRepo.findByUsername("solicitante2")).thenReturn(Optional.of(outroUsuario));
-        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
 
         mvc.perform(get("/solicitante/50"))
             .andExpect(status().isForbidden());
@@ -114,7 +114,7 @@ class SolicitanteControllerTest {
     @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
     void detalheExibeAPropriaSolicitacaoNormalmente() throws Exception {
         when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
-        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
 
         mvc.perform(get("/solicitante/50"))
             .andExpect(status().isOk())

@@ -56,7 +56,10 @@ public class SolicitacaoOnlineTriagemController {
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public String detalhe(@PathVariable Long id, Model model) {
-        model.addAttribute("solicitacao", service.buscar(id));
+        // buscarParaDetalhe (e nao buscar): o template lista os anexos, que sao
+        // LAZY - com open-in-view: false o Thymeleaf renderiza fora da
+        // transacao e o proxy nao inicializado vira 500 (bug de 2026-07-26).
+        model.addAttribute("solicitacao", service.buscarParaDetalhe(id));
         return "processos/solicitacoes-online-detalhe";
     }
 

@@ -55,6 +55,18 @@ public class SolicitacaoOnlineService {
             .orElseThrow(() -> new IllegalArgumentException("Solicitacao online nao encontrada: " + id));
     }
 
+    /**
+     * Versao de {@link #buscar(Long)} para as TELAS DE DETALHE (portal do
+     * solicitante e triagem do operador), que renderizam anexos e o processo
+     * gerado. Com {@code open-in-view: false} o template roda fora da
+     * transacao, entao as associacoes precisam vir carregadas daqui - senao da
+     * {@code LazyInitializationException} e o usuario ve 500.
+     */
+    public SolicitacaoOnline buscarParaDetalhe(Long id) {
+        return repository.findParaDetalhe(id)
+            .orElseThrow(() -> new IllegalArgumentException("Solicitacao online nao encontrada: " + id));
+    }
+
     public List<SolicitacaoOnline> listarMinhas(Long usuarioSolicitanteId) {
         return repository.findByUsuarioSolicitanteIdOrderByDataEnvioDesc(usuarioSolicitanteId);
     }
