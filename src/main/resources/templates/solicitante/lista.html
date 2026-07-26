@@ -89,8 +89,8 @@
                             <span th:if="${s.status.name() == 'ENVIADA'}"
                                   class="badge rounded-pill ms-1"
                                   th:classappend="${diasEspera.get(s.id).badgeClass}"
-                                  th:text="${diasEspera.get(s.id).dias} + 'd'"
-                                  th:title="'Dias corridos desde o envio'">0d</span>
+                                  th:text="${diasEspera.get(s.id).dias == 0} ? 'Enviado hoje' : (${diasEspera.get(s.id).dias} + (${diasEspera.get(s.id).dias == 1} ? ' dia de espera' : ' dias de espera'))"
+                                  th:title="'Dias corridos desde o envio'">Enviado hoje</span>
                         </td>
                         <td>
                             <a th:if="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
