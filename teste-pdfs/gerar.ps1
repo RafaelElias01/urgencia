@@ -1,35 +1,38 @@
-$Dir = [System.IO.Path]::GetFullPath(".")
+$Dir = $PSScriptRoot
 function New-Pdf($path, $text) {
-    $stream = @"
-BT /F1 14 Tf 50 750 Td ($text) Tj ET
-"@
-    $streamLen = [System.Text.Encoding]::ASCII.GetBytes($stream).Length
-    $header = @"
-%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj
-4 0 obj<</Length $streamLen>>stream
-"@
-    $footer = @"
-endstream
-endobj
-5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000266 00000 n 
-0000000373 00000 n 
-trailer<</Size 6/Root 1 0 R>>
-startxref
-459
-%%%%EOF
-"@
-    $content = $header + $stream + "`n" + $footer
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes($content)
+    # Calcula os offsets de byte de verdade em vez de usar valores fixos -
+    # o tamanho de $text varia por PDF, entao offsets hardcoded ficavam
+    # errados (e o trailer tinha "%%%%EOF" em vez de "%%EOF"), gerando
+    # PDFs com xref/EOF invalidos (bug encontrado e corrigido em 2026-07-26).
+    $enc = [System.Text.Encoding]::ASCII
+    $streamContent = "BT /F1 14 Tf 50 750 Td ($text) Tj ET`n"
+    $streamLen = $enc.GetBytes($streamContent).Length
+
+    $sb = New-Object System.Text.StringBuilder
+    $offsets = @(0,0,0,0,0,0)
+
+    [void]$sb.Append("%PDF-1.4`n")
+    $offsets[1] = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj`n")
+    $offsets[2] = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj`n")
+    $offsets[3] = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj`n")
+    $offsets[4] = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("4 0 obj<</Length $streamLen>>stream`n")
+    [void]$sb.Append($streamContent)
+    [void]$sb.Append("endstream`nendobj`n")
+    $offsets[5] = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj`n")
+
+    $xrefOffset = $enc.GetBytes($sb.ToString()).Length
+    [void]$sb.Append("xref`n0 6`n0000000000 65535 f `n")
+    foreach ($i in 1..5) {
+        [void]$sb.Append(("{0:D10} 00000 n `n" -f $offsets[$i]))
+    }
+    [void]$sb.Append("trailer<</Size 6/Root 1 0 R>>`nstartxref`n$xrefOffset`n%%EOF")
+
+    $bytes = $enc.GetBytes($sb.ToString())
     [System.IO.File]::WriteAllBytes($path, $bytes)
     Write-Host "  OK: $path"
 }
