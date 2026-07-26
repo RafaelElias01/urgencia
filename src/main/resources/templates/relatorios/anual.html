@@ -30,7 +30,8 @@
             </div>
 
             <form th:if="${anos != null and !anos.isEmpty()}"
-                  onsubmit="return false;" id="formAnual" class="row g-2 align-items-end">
+                  onsubmit="return false;" id="formAnual" class="row g-2 align-items-end"
+                  th:attr="data-base=@{/relatorios/anual}">
                 <div class="col-auto">
                     <label for="anoSelect" class="form-label">Ano</label>
                     <select id="anoSelect" class="form-select">
@@ -48,20 +49,6 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
-<script th:inline="javascript" th:if="${anos != null and !anos.isEmpty()}">
-    (function () {
-        var base = /*[[@{/relatorios/anual}]]*/ '/relatorios/anual';
-        var btn = document.getElementById('btnGerar');
-        var sel = document.getElementById('anoSelect');
-        if (btn && sel) {
-            btn.addEventListener('click', function () {
-                var ano = sel.value;
-                if (ano) {
-                    window.open(base + '/' + ano + '/pdf', '_blank');
-                }
-            });
-        }
-    })();
-</script>
+<script th:if="${anos != null and !anos.isEmpty()}" th:src="@{/js/relatorio-anual.js}"></script>
 </body>
 </html>
