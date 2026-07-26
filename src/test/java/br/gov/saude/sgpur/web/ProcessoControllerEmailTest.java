@@ -76,7 +76,7 @@ class ProcessoControllerEmailTest {
         parecerPendente.setId(100L);
         parecerPendente.setProcesso(processo);
         parecerPendente.setDataEnvio(LocalDate.now());
-        processo.getPareceres().add(parecerPendente);
+        processo.addParecer(parecerPendente);
 
         when(processoService.buscar(1L)).thenReturn(processo);
     }
@@ -221,7 +221,7 @@ class ProcessoControllerEmailTest {
         processo.setStatus(StatusProcesso.DEFERIDO);
         Anexo comprovante = new Anexo();
         comprovante.setTipo(TipoAnexo.COMPROVANTE_SNT);
-        processo.getAnexos().add(comprovante);
+        processo.addAnexo(comprovante);
         when(emailSenderService.enviar(eq(new String[]{"solicitante@example.com"}), isNull(), anyString(), anyString()))
             .thenReturn(true);
 
@@ -472,7 +472,7 @@ class ProcessoControllerEmailTest {
         Anexo respostaExistente = new Anexo();
         respostaExistente.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
         respostaExistente.setParecer(parecerPendente);
-        processo.getAnexos().add(respostaExistente);
+        processo.addAnexo(respostaExistente);
         when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);

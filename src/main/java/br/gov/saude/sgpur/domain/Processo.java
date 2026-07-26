@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -283,16 +284,23 @@ public class Processo {
         this.dataDecisao = dataDecisao;
     }
 
+    /**
+     * Somente leitura: use {@link #addParecer(Parecer)} para adicionar - a
+     * lista e devolvida imutavel para impedir mutacao por fora do vinculo
+     * bidirecional (um {@code .add()} direto aqui deixaria o {@code Parecer}
+     * sem {@code processo} setado, quebrando a navegacao inversa).
+     */
     public List<Parecer> getPareceres() {
-        return pareceres;
+        return Collections.unmodifiableList(pareceres);
     }
 
     public void setPareceres(List<Parecer> pareceres) {
         this.pareceres = pareceres;
     }
 
+    /** Somente leitura: use {@link #addAnexo(Anexo)} para adicionar - mesmo motivo de {@link #getPareceres()}. */
     public List<Anexo> getAnexos() {
-        return anexos;
+        return Collections.unmodifiableList(anexos);
     }
 
     public void setAnexos(List<Anexo> anexos) {

@@ -2,10 +2,10 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Processo;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.RelatorioAnualService;
 import br.gov.saude.sgpur.service.RelatorioAvaliadorService;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,7 +34,7 @@ class RelatorioControllerTest {
     private MockMvc mvc;
 
     @MockitoBean private ProcessoRepository processoRepository;
-    @MockitoBean private MembroUrgenciaRenalRepository membroRepository;
+    @MockitoBean private MembroUrgenciaRenalService membroService;
     @MockitoBean private RelatorioAnualService relatorioAnualService;
     @MockitoBean private RelatorioAvaliadorService relatorioAvaliadorService;
     // GlobalModelAdvice (@ControllerAdvice global) precisa dessas duas pro
@@ -77,7 +76,7 @@ class RelatorioControllerTest {
         MembroUrgenciaRenal membro = new MembroUrgenciaRenal("HCPA", "Dra. Ana", "ana@hcpa.edu.br");
         membro.setId(10L);
         when(processoRepository.findAnosComProcessos()).thenReturn(List.of(2026));
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of(membro));
+        when(membroService.listarAtivos()).thenReturn(List.of(membro));
 
         mvc.perform(get("/relatorios/avaliador"))
             .andExpect(status().isOk())
@@ -91,7 +90,7 @@ class RelatorioControllerTest {
     void avaliadorPdfGeraOPdfDoMembroEAno() throws Exception {
         MembroUrgenciaRenal membro = new MembroUrgenciaRenal("HCPA", "Dra. Ana", "ana@hcpa.edu.br");
         membro.setId(10L);
-        when(membroRepository.findById(10L)).thenReturn(Optional.of(membro));
+        when(membroService.buscar(10L)).thenReturn(membro);
         when(processoRepository.findByAnoComPareceres(2026)).thenReturn(List.of());
         when(relatorioAvaliadorService.gerar(2026, membro, List.of())).thenReturn("pdf-avaliador".getBytes());
 
@@ -106,7 +105,7 @@ class RelatorioControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void avaliadorPdfRetorna404QuandoMembroNaoExiste() throws Exception {
-        when(membroRepository.findById(99L)).thenReturn(Optional.empty());
+        when(membroService.buscar(99L)).thenThrow(new IllegalArgumentException("Membro nao encontrado: 99"));
 
         mvc.perform(get("/relatorios/avaliador/2026/99/pdf"))
             .andExpect(status().isNotFound());

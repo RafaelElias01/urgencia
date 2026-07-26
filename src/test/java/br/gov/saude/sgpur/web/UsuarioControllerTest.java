@@ -2,7 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
@@ -57,7 +57,7 @@ class UsuarioControllerTest {
 
     @MockitoBean private UsuarioService service;
     @MockitoBean private AuditoriaService auditoria;
-    @MockitoBean private MembroUrgenciaRenalRepository membroRepo;
+    @MockitoBean private MembroUrgenciaRenalService membroService;
     // Nao usados diretamente pelo UsuarioController, mas exigidos pelo
     // GlobalModelAdvice (@ControllerAdvice global carregado em qualquer
     // slice @WebMvcTest) - sem eles o contexto falha ao subir.
@@ -66,7 +66,7 @@ class UsuarioControllerTest {
 
     @BeforeEach
     void setUp() {
-        when(membroRepo.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
     }
 
     private Usuario usuario(Long id, String username, Perfil perfil) {
@@ -103,7 +103,7 @@ class UsuarioControllerTest {
             .andExpect(model().attribute("edicao", false))
             .andExpect(model().attribute("usuario", instanceOf(Usuario.class)));
 
-        verify(membroRepo).findByAtivoTrueOrderByInstituicaoAsc();
+        verify(membroService).listarAtivos();
     }
 
     @Test

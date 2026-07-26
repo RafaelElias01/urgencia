@@ -2,7 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.UsuarioService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,13 +20,13 @@ public class UsuarioController {
 
     private final UsuarioService service;
     private final AuditoriaService auditoria;
-    private final MembroUrgenciaRenalRepository membroRepo;
+    private final MembroUrgenciaRenalService membroService;
 
     public UsuarioController(UsuarioService service, AuditoriaService auditoria,
-                             MembroUrgenciaRenalRepository membroRepo) {
+                             MembroUrgenciaRenalService membroService) {
         this.service = service;
         this.auditoria = auditoria;
-        this.membroRepo = membroRepo;
+        this.membroService = membroService;
     }
 
     @ModelAttribute("perfis")
@@ -45,7 +45,7 @@ public class UsuarioController {
     public String novo(Model model) {
         model.addAttribute("usuario", new Usuario());
         model.addAttribute("edicao", false);
-        model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+        model.addAttribute("membros", membroService.listarAtivos());
         return "usuarios/form";
     }
 
@@ -54,7 +54,7 @@ public class UsuarioController {
     public String editar(@PathVariable Long id, Model model) {
         model.addAttribute("usuario", service.buscar(id));
         model.addAttribute("edicao", true);
-        model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+        model.addAttribute("membros", membroService.listarAtivos());
         return "usuarios/form";
     }
 
@@ -72,14 +72,14 @@ public class UsuarioController {
         }
         if (result.hasErrors()) {
             model.addAttribute("edicao", false);
-            model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+            model.addAttribute("membros", membroService.listarAtivos());
             return "usuarios/form";
         }
         try {
             service.criar(usuario, senha, membroId, equipeSolicitante);
         } catch (IllegalArgumentException e) {
             model.addAttribute("edicao", false);
-            model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+            model.addAttribute("membros", membroService.listarAtivos());
             model.addAttribute("erro", e.getMessage());
             return "usuarios/form";
         }
@@ -100,7 +100,7 @@ public class UsuarioController {
         }
         if (result.hasErrors()) {
             model.addAttribute("edicao", true);
-            model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
+            model.addAttribute("membros", membroService.listarAtivos());
             return "usuarios/form";
         }
         try {

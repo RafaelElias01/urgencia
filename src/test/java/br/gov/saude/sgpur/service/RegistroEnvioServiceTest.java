@@ -62,7 +62,7 @@ class RegistroEnvioServiceTest {
         processo.setId(1L);
         processo.setNumero("01/2026");
         processo.setPacienteNome("Fulano de Tal");
-        processo.getPareceres().add(new Parecer(new br.gov.saude.sgpur.domain.MembroUrgenciaRenal("HCPA", "Medico", null)));
+        processo.addParecer(new Parecer(new br.gov.saude.sgpur.domain.MembroUrgenciaRenal("HCPA", "Medico", null)));
 
         when(processoService.buscar(1L)).thenReturn(processo);
     }
@@ -106,8 +106,8 @@ class RegistroEnvioServiceTest {
 
     @Test
     void sucessoComUmDocumentoClinicoPdfValidoEComprovante() throws Exception {
-        processo.getAnexos().add(comprovanteEnvio());
-        processo.getAnexos().add(documentoClinicoPdf("exame.pdf", pdfValido()));
+        processo.addAnexo(comprovanteEnvio());
+        processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
 
         when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
         when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
@@ -133,10 +133,10 @@ class RegistroEnvioServiceTest {
 
     @Test
     void pdfCorrompidoFicaDeForaComAvisoMasEnvioSeguePorHaverOutroValido() throws Exception {
-        processo.getAnexos().add(comprovanteEnvio());
-        processo.getAnexos().add(documentoClinicoPdf("bom.pdf", pdfValido()));
+        processo.addAnexo(comprovanteEnvio());
+        processo.addAnexo(documentoClinicoPdf("bom.pdf", pdfValido()));
         // bytes que nao formam um PDF valido - PdfReader lanca excecao ao ler
-        processo.getAnexos().add(documentoClinicoPdf("corrompido.pdf", "isto nao e um pdf valido".getBytes()));
+        processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "isto nao e um pdf valido".getBytes()));
 
         when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
         when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
@@ -155,7 +155,7 @@ class RegistroEnvioServiceTest {
 
     @Test
     void bloqueiaSemNenhumDocumentoClinicoPdfValido() {
-        processo.getAnexos().add(comprovanteEnvio());
+        processo.addAnexo(comprovanteEnvio());
         // sem nenhum documento clinico anexado
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
@@ -169,7 +169,7 @@ class RegistroEnvioServiceTest {
     @Test
     void bloqueiaSemComprovanteDeEnvio() throws Exception {
         // sem TipoAnexo.EMAIL_ENVIADO_AVALIADORES anexado, mesmo com documento clinico valido
-        processo.getAnexos().add(documentoClinicoPdf("exame.pdf", pdfValido()));
+        processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
 
@@ -181,8 +181,8 @@ class RegistroEnvioServiceTest {
 
     @Test
     void bloqueiaQuandoTodosOsPdfsEstaoCorrompidos() throws Exception {
-        processo.getAnexos().add(comprovanteEnvio());
-        processo.getAnexos().add(documentoClinicoPdf("corrompido.pdf", "nao e pdf".getBytes()));
+        processo.addAnexo(comprovanteEnvio());
+        processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "nao e pdf".getBytes()));
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
 

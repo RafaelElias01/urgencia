@@ -2,8 +2,8 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Processo;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.RelatorioAnualService;
 import br.gov.saude.sgpur.service.RelatorioAvaliadorService;
 import org.springframework.http.HttpHeaders;
@@ -28,16 +28,16 @@ import java.util.List;
 public class RelatorioController {
 
     private final ProcessoRepository processoRepository;
-    private final MembroUrgenciaRenalRepository membroRepository;
+    private final MembroUrgenciaRenalService membroService;
     private final RelatorioAnualService relatorioAnualService;
     private final RelatorioAvaliadorService relatorioAvaliadorService;
 
     public RelatorioController(ProcessoRepository processoRepository,
-                               MembroUrgenciaRenalRepository membroRepository,
+                               MembroUrgenciaRenalService membroService,
                                RelatorioAnualService relatorioAnualService,
                                RelatorioAvaliadorService relatorioAvaliadorService) {
         this.processoRepository = processoRepository;
-        this.membroRepository = membroRepository;
+        this.membroService = membroService;
         this.relatorioAnualService = relatorioAnualService;
         this.relatorioAvaliadorService = relatorioAvaliadorService;
     }
@@ -67,7 +67,7 @@ public class RelatorioController {
     @GetMapping("/avaliador")
     public String avaliador(Model model) {
         List<Integer> anos = processoRepository.findAnosComProcessos();
-        List<MembroUrgenciaRenal> membros = membroRepository.findByAtivoTrueOrderByInstituicaoAsc();
+        List<MembroUrgenciaRenal> membros = membroService.listarAtivos();
         model.addAttribute("anos", anos);
         model.addAttribute("membros", membros);
         return "relatorios/avaliador";
@@ -75,8 +75,12 @@ public class RelatorioController {
 
     @GetMapping("/avaliador/{ano}/{membroId}/pdf")
     public ResponseEntity<byte[]> avaliadorPdf(@PathVariable int ano, @PathVariable Long membroId) {
-        MembroUrgenciaRenal membro = membroRepository.findById(membroId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliador nao encontrado."));
+        MembroUrgenciaRenal membro;
+        try {
+            membro = membroService.buscar(membroId);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliador nao encontrado.");
+        }
         List<Processo> processos = processoRepository.findByAnoComPareceres(ano);
         byte[] pdf = relatorioAvaliadorService.gerar(ano, membro, processos);
         String nome = "relatorio-avaliador-" + ano + "-" + membroId + ".pdf";

@@ -1,13 +1,13 @@
 package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.ConflitoEquipeMatcher;
 import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.GeminiService;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
@@ -36,7 +36,7 @@ public class ProcessoDetalheController {
     private final ProcessoService processoService;
     private final FluxoProcessoService fluxoService;
     private final EmailTemplateService emailTemplateService;
-    private final MembroUrgenciaRenalRepository membroRepository;
+    private final MembroUrgenciaRenalService membroService;
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
     private final GeminiService geminiService;
@@ -47,7 +47,7 @@ public class ProcessoDetalheController {
     public ProcessoDetalheController(ProcessoService processoService,
                                      FluxoProcessoService fluxoService,
                                      EmailTemplateService emailTemplateService,
-                                     MembroUrgenciaRenalRepository membroRepository,
+                                     MembroUrgenciaRenalService membroService,
                                      AnexoStorageService anexoStorage,
                                      AuditoriaService auditoria,
                                      GeminiService geminiService,
@@ -57,7 +57,7 @@ public class ProcessoDetalheController {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
-        this.membroRepository = membroRepository;
+        this.membroService = membroService;
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
         this.geminiService = geminiService;
@@ -120,7 +120,7 @@ public class ProcessoDetalheController {
         }
         model.addAttribute("processo", p);
         model.addAttribute("numeracaoAutomatica", automatica);
-        model.addAttribute("medicos", membroRepository.findByAtivoTrueOrderByInstituicaoAsc());
+        model.addAttribute("medicos", membroService.listarAtivos());
         model.addAttribute("totalAvaliadores", ProcessoService.AVALIADORES_POR_PROCESSO);
         return "processos/form";
     }
@@ -167,7 +167,7 @@ public class ProcessoDetalheController {
         }
         if (result.hasErrors()) {
             model.addAttribute("numeracaoAutomatica", automatica);
-            model.addAttribute("medicos", membroRepository.findByAtivoTrueOrderByInstituicaoAsc());
+            model.addAttribute("medicos", membroService.listarAtivos());
             model.addAttribute("totalAvaliadores", ProcessoService.AVALIADORES_POR_PROCESSO);
             model.addAttribute("origemSolicitacaoOnlineId", origemSolicitacaoOnlineId);
             return "processos/form";

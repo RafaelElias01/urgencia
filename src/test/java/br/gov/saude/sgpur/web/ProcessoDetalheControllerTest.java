@@ -1,7 +1,7 @@
 package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.*;
@@ -40,7 +40,7 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private ProcessoService processoService;
     @MockitoBean private FluxoProcessoService fluxoService;
     @MockitoBean private EmailTemplateService emailTemplateService;
-    @MockitoBean private MembroUrgenciaRenalRepository membroRepository;
+    @MockitoBean private MembroUrgenciaRenalService membroService;
     @MockitoBean private AnexoStorageService anexoStorage;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private GeminiService geminiService;
@@ -144,7 +144,7 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void salvarSemNumeroEmNumeracaoManualEhRejeitado() throws Exception {
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(formValido())
             .andExpect(status().isOk())
@@ -157,7 +157,7 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void salvarComNumeroEmFormatoInvalidoEhRejeitado() throws Exception {
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(formValido().param("numero", "abc"))
             .andExpect(status().isOk())
@@ -171,7 +171,7 @@ class ProcessoDetalheControllerTest {
     void salvarComNumeroDuplicadoEhRejeitado() throws Exception {
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
         when(processoService.numeroJaExiste("01/2026")).thenReturn(true);
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(formValido().param("numero", "01/2026"))
             .andExpect(status().isOk())
@@ -184,7 +184,7 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void salvarComQuantidadeErradaDeMedicosEhRejeitado() throws Exception {
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(true);
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(post("/processos")
                 .param("pacienteNome", "Maria Silva")
@@ -204,7 +204,7 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void salvarComCamposObrigatoriosEmBrancoEhRejeitadoPelaBeanValidation() throws Exception {
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(true);
-        when(membroRepository.findByAtivoTrueOrderByInstituicaoAsc()).thenReturn(List.of());
+        when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(post("/processos")
                 .param("dataSituacaoEspecial", "2026-07-01")
@@ -257,8 +257,8 @@ class ProcessoDetalheControllerTest {
         solicitacao.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
         Anexo capa = new Anexo();
         capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        processo.getAnexos().add(solicitacao);
-        processo.getAnexos().add(capa);
+        processo.addAnexo(solicitacao);
+        processo.addAnexo(capa);
         when(fluxoService.calcularGating(processo)).thenReturn(
             new FluxoProcessoService.GatingAbas(true, true, false, false, false));
 
@@ -274,10 +274,10 @@ class ProcessoDetalheControllerTest {
         MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
         MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
         MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
-        processo.getPareceres().add(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
+        processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
             LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
-        processo.getPareceres().add(parecer(processo, m2, null, LocalDate.now(), null));
-        processo.getPareceres().add(parecer(processo, m3, null, LocalDate.now(), null));
+        processo.addParecer(parecer(processo, m2, null, LocalDate.now(), null));
+        processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarRespondidos(processo)).thenReturn(1L);
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
@@ -301,16 +301,16 @@ class ProcessoDetalheControllerTest {
         solicitacao.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
         Anexo capa = new Anexo();
         capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        processo.getAnexos().add(solicitacao);
-        processo.getAnexos().add(capa);
+        processo.addAnexo(solicitacao);
+        processo.addAnexo(capa);
         MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
         MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
         MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
-        processo.getPareceres().add(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
+        processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
             LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
-        processo.getPareceres().add(parecer(processo, m2, ResultadoParecer.FAVORAVEL,
+        processo.addParecer(parecer(processo, m2, ResultadoParecer.FAVORAVEL,
             LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
-        processo.getPareceres().add(parecer(processo, m3, null, LocalDate.now(), null));
+        processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.of(StatusProcesso.DEFERIDO));
         when(processoService.contarRespondidos(processo)).thenReturn(2L);
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
@@ -331,7 +331,7 @@ class ProcessoDetalheControllerTest {
     void detalheBloqueiaDecisaoQuandoAguardandoInformacaoComplementar() throws Exception {
         processo.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
         MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
-        processo.getPareceres().add(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
+        processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
             LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarRespondidos(processo)).thenReturn(1L);
@@ -350,7 +350,7 @@ class ProcessoDetalheControllerTest {
         Parecer votadoPeloPortal = parecer(processo, m1, ResultadoParecer.FAVORAVEL,
             LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA);
         votadoPeloPortal.setId(100L);
-        processo.getPareceres().add(votadoPeloPortal);
+        processo.addParecer(votadoPeloPortal);
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
 
@@ -363,7 +363,7 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void detalheAvisaSobreMedicoDaMesmaEquipeDoSolicitante() throws Exception {
         MembroUrgenciaRenal m1 = membro(1L, "Equipe A", "Ana");
-        processo.getPareceres().add(parecer(processo, m1, null, null, null));
+        processo.addParecer(parecer(processo, m1, null, null, null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
         when(conflitoEquipeMatcher.mesmaEquipe("Equipe A", "Equipe A")).thenReturn(true);

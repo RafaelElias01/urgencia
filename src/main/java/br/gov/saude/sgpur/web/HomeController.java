@@ -1,9 +1,9 @@
 package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.Processo;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
 import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
 import org.springframework.stereotype.Controller;
@@ -19,16 +19,16 @@ import java.util.Map;
 public class HomeController {
 
     private final ProcessoRepository processoRepository;
-    private final MembroUrgenciaRenalRepository membroRepository;
+    private final MembroUrgenciaRenalService membroService;
     private final FluxoProcessoService fluxoService;
     private final TempoRespostaService tempoRespostaService;
 
     public HomeController(ProcessoRepository processoRepository,
-                          MembroUrgenciaRenalRepository membroRepository,
+                          MembroUrgenciaRenalService membroService,
                           FluxoProcessoService fluxoService,
                           TempoRespostaService tempoRespostaService) {
         this.processoRepository = processoRepository;
-        this.membroRepository = membroRepository;
+        this.membroService = membroService;
         this.fluxoService = fluxoService;
         this.tempoRespostaService = tempoRespostaService;
     }
@@ -83,7 +83,7 @@ public class HomeController {
         model.addAttribute("cancelados", cancelados);
         model.addAttribute("emAndamento", emAndamento);
         model.addAttribute("pendencias", pendencias);
-        model.addAttribute("membrosAtivos", membroRepository.countByAtivoTrue());
+        model.addAttribute("membrosAtivos", membroService.contarAtivos());
 
         // Planilha do painel: os processos do ano com os 3 medicos e o status
         // de cada parecer (Favoravel / Desfavoravel / Aguardando / ...).

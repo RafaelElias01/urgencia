@@ -2,7 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.StatusProcesso;
-import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
@@ -35,7 +35,7 @@ class HomeControllerTest {
     private MockMvc mvc;
 
     @MockitoBean private ProcessoRepository processoRepository;
-    @MockitoBean private MembroUrgenciaRenalRepository membroRepository;
+    @MockitoBean private MembroUrgenciaRenalService membroService;
     @MockitoBean private FluxoProcessoService fluxoService;
     @MockitoBean private TempoRespostaService tempoRespostaService;
     // GlobalModelAdvice (@ControllerAdvice global) precisa dessas duas pro
@@ -72,7 +72,7 @@ class HomeControllerTest {
             processo(5L, 5, StatusProcesso.SOLICITADO));
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(processos);
         when(fluxoService.resumoPendencia(org.mockito.ArgumentMatchers.any())).thenReturn("Falta algo");
-        when(membroRepository.countByAtivoTrue()).thenReturn(3L);
+        when(membroService.contarAtivos()).thenReturn(3L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(0, null, 0, 7, Map.of()));
 
@@ -96,7 +96,7 @@ class HomeControllerTest {
         Processo finalizado = processo(2L, 2, StatusProcesso.DEFERIDO);
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(List.of(emAndamento, finalizado));
         when(fluxoService.resumoPendencia(emAndamento)).thenReturn("Falta a decisao");
-        when(membroRepository.countByAtivoTrue()).thenReturn(0L);
+        when(membroService.contarAtivos()).thenReturn(0L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(0, null, 0, 7, Map.of()));
 
@@ -112,7 +112,7 @@ class HomeControllerTest {
     void indicadorDeTempoDentroDoPrazoQuandoMediaMenorOuIgualAoPrazo() throws Exception {
         int ano = Year.now().getValue();
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(List.of());
-        when(membroRepository.countByAtivoTrue()).thenReturn(0L);
+        when(membroService.contarAtivos()).thenReturn(0L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(10, 5.0, 1, 7, Map.of()));
 
@@ -128,7 +128,7 @@ class HomeControllerTest {
     void indicadorDeTempoForaDoPrazoQuandoMediaMaiorQueOPrazo() throws Exception {
         int ano = Year.now().getValue();
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(List.of());
-        when(membroRepository.countByAtivoTrue()).thenReturn(0L);
+        when(membroService.contarAtivos()).thenReturn(0L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(10, 9.0, 4, 7, Map.of()));
 
@@ -142,7 +142,7 @@ class HomeControllerTest {
     void indicadorDeTempoConsideraDentroDoPrazoQuandoNaoHaMediaAinda() throws Exception {
         int ano = Year.now().getValue();
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(List.of());
-        when(membroRepository.countByAtivoTrue()).thenReturn(0L);
+        when(membroService.contarAtivos()).thenReturn(0L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(0, null, 0, 7, Map.of()));
 
@@ -162,7 +162,7 @@ class HomeControllerTest {
         Processo emAndamento = processo(2L, 2, StatusProcesso.ENVIADO);
         when(processoRepository.findByAnoComPareceres(ano)).thenReturn(List.of(finalizado, emAndamento));
         when(fluxoService.resumoPendencia(emAndamento)).thenReturn("Falta algo");
-        when(membroRepository.countByAtivoTrue()).thenReturn(0L);
+        when(membroService.contarAtivos()).thenReturn(0L);
         when(tempoRespostaService.calcular()).thenReturn(
             new TempoRespostaService.ResumoTempo(0, null, 0, 7, Map.of()));
 
