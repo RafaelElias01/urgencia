@@ -1,0 +1,4 @@
+# PDFs sao binarios - sem isso, core.autocrlf=true reescreve LF->CRLF no
+# checkout e quebra os offsets internos (xref/Length), corrompendo o arquivo
+# (bug encontrado em 2026-07-26 nos PDFs de teste em teste-pdfs/).
+*.pdf binary
