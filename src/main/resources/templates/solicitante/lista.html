@@ -20,6 +20,54 @@
         Envie sua solicitacao pelo sistema — nossa equipe vai analisar e retornar por e-mail.
     </p>
 
+    <!-- Cards de resumo por status, mesmo padrao visual do Painel (stat-card / --rs-*) -->
+    <div class="row row-cols-2 row-cols-sm-4 g-3 mb-4">
+        <div class="col">
+            <div class="stat-card stat-card-total"
+                 style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.total()}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-collection"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Total enviadas</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="stat-card stat-card-andamento"
+                 style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.aguardando()}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-hourglass-split"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Aguardando triagem</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="stat-card stat-card-deferido"
+                 style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.convertidas()}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-check-circle-fill"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Convertidas em processo</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="stat-card stat-card-indeferido"
+                 style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.devolvidas()}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-arrow-return-left"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Devolvidas p/ correcao</div>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -36,18 +84,18 @@
                     <tr th:each="s : ${solicitacoes}">
                         <td th:text="${s.pacienteNome}">Paciente</td>
                         <td th:text="${s.pacienteRgct}">RGCT</td>
-                        <td class="small text-muted"
-                            th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</td>
+                        <td class="small text-muted">
+                            <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>
+                            <span th:if="${s.status.name() == 'ENVIADA'}"
+                                  class="badge rounded-pill ms-1"
+                                  th:classappend="${diasEspera.get(s.id).badgeClass}"
+                                  th:text="${diasEspera.get(s.id).dias} + 'd'"
+                                  th:title="'Dias corridos desde o envio'">0d</span>
+                        </td>
                         <td>
-                            <span th:switch="${s.status.name()}">
-                                <span th:case="'ENVIADA'" class="badge bg-warning text-dark">
-                                    <i class="bi bi-hourglass-split"></i> Aguardando triagem</span>
-                                <span th:case="'CONVERTIDA'" class="badge bg-success">
-                                    <i class="bi bi-check-circle-fill"></i> Convertida em processo</span>
-                                <span th:case="'DEVOLVIDA'" class="badge bg-danger">
-                                    <i class="bi bi-arrow-return-left"></i> Devolvida</span>
-                                <span th:case="'CANCELADA'" class="badge bg-secondary">
-                                    <i class="bi bi-slash-circle"></i> Cancelada</span>
+                            <span class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
+                                <i class="bi" th:classappend="${'bi-' + s.status.badgeIcone}"></i>
+                                <span th:text="${s.status.descricao}">Status</span>
                             </span>
                         </td>
                         <td class="text-end">

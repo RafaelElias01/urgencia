@@ -103,6 +103,32 @@ public class SolicitacaoOnlineService {
     }
 
     /**
+     * Contagem por status de uma lista de solicitacoes ja carregada (ex.: as
+     * do proprio solicitante em {@code listarMinhas}) - usado nos cards de
+     * resumo do Portal do Solicitante. Calculo puro em memoria, sem query
+     * adicional, para nao acoplar a tela a uma nova consulta ao banco.
+     */
+    public Resumo resumir(List<SolicitacaoOnline> solicitacoes) {
+        long aguardando = 0;
+        long convertidas = 0;
+        long devolvidas = 0;
+        long canceladas = 0;
+        for (SolicitacaoOnline s : solicitacoes) {
+            switch (s.getStatus()) {
+                case ENVIADA -> aguardando++;
+                case CONVERTIDA -> convertidas++;
+                case DEVOLVIDA -> devolvidas++;
+                case CANCELADA -> canceladas++;
+            }
+        }
+        return new Resumo(solicitacoes.size(), aguardando, convertidas, devolvidas, canceladas);
+    }
+
+    /** Resumo por status para os cards de estatistica da tela "Minhas solicitacoes". */
+    public record Resumo(long total, long aguardando, long convertidas, long devolvidas, long canceladas) {
+    }
+
+    /**
      * Cria uma nova solicitacao (status ENVIADA) e anexa os documentos
      * clinicos enviados junto. Equipe/e-mail do solicitante SEMPRE vem do
      * {@code Usuario} logado (nunca do formulario) - evita que o solicitante

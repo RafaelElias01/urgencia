@@ -16,11 +16,75 @@
         </span>
     </div>
 
+    <p class="text-muted small mb-4">
+        Enviada em <span th:text="${#temporals.format(solicitacao.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>
+        — <span th:text="${diasEspera.dias()}">0</span>
+        <span th:text="${diasEspera.dias() == 1} ? 'dia' : 'dias'">dias</span>
+        <span th:text="${solicitacao.status.name() == 'ENVIADA'} ? 'de espera pela triagem.' : 'desde o envio.'">de espera.</span>
+    </p>
+
+    <!-- Linha do tempo do pedido: mesmo componente visual (.timeline) usado no
+         detalhe do processo, adaptado aos 3 momentos deste modulo de staging. -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h6 text-muted mb-3">Andamento do pedido</h2>
+            <div class="timeline">
+                <div class="timeline-item concluida">
+                    <div class="timeline-dot"><i class="bi bi-check"></i></div>
+                    <div class="timeline-title">Solicitacao enviada</div>
+                    <div class="timeline-desc">
+                        Recebemos seu pedido em
+                        <span th:text="${#temporals.format(solicitacao.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>.
+                    </div>
+                </div>
+                <div class="timeline-item"
+                     th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'atual' : 'concluida'">
+                    <div class="timeline-dot">
+                        <i class="bi" th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'bi-hourglass-split' : 'bi-check'"></i>
+                    </div>
+                    <div class="timeline-title">Em analise pela equipe de Urgencia Renal</div>
+                    <div class="timeline-desc">
+                        A equipe confere os dados e os documentos anexados antes de prosseguir.
+                    </div>
+                </div>
+                <div class="timeline-item"
+                     th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : (${solicitacao.status.name() == 'CONVERTIDA'} ? 'concluida' : 'negativa')">
+                    <div class="timeline-dot" th:switch="${solicitacao.status.name()}">
+                        <i th:case="'CONVERTIDA'" class="bi bi-check"></i>
+                        <i th:case="'DEVOLVIDA'" class="bi bi-arrow-return-left"></i>
+                        <i th:case="'CANCELADA'" class="bi bi-x-lg"></i>
+                        <i th:case="*"></i>
+                    </div>
+                    <div class="timeline-title" th:switch="${solicitacao.status.name()}">
+                        <span th:case="'CONVERTIDA'">Convertida em processo</span>
+                        <span th:case="'DEVOLVIDA'">Devolvida para correcao</span>
+                        <span th:case="'CANCELADA'">Cancelada por voce</span>
+                        <span th:case="*">Aguardando decisao</span>
+                    </div>
+                    <div class="timeline-desc" th:switch="${solicitacao.status.name()}">
+                        <span th:case="'CONVERTIDA'">
+                            Seu pedido virou um processo oficial na Central de Transplantes.
+                        </span>
+                        <span th:case="'DEVOLVIDA'">
+                            Precisa de um ajuste antes de seguir — veja o motivo abaixo.
+                        </span>
+                        <span th:case="'CANCELADA'">Voce cancelou este pedido antes da triagem.</span>
+                        <span th:case="*">
+                            Assim que a triagem terminar, o pedido vira um processo ou e devolvido
+                            para correcao.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div th:if="${solicitacao.status.name() == 'CONVERTIDA'}" class="alert alert-success">
         <i class="bi bi-check-circle-fill"></i>
         Seu pedido foi aceito e virou o processo
         <strong th:text="${solicitacao.processoGerado != null ? solicitacao.processoGerado.numero : '?'}">00/0000</strong>
         na Central de Transplantes do Estado do Rio Grande do Sul.
+        Voce recebera o resultado da avaliacao por e-mail assim que a decisao for concluida.
     </div>
     <div th:if="${solicitacao.status.name() == 'DEVOLVIDA'}" class="alert alert-danger">
         <i class="bi bi-arrow-return-left"></i>
@@ -28,7 +92,14 @@
         <div th:if="${solicitacao.observacoesTriagem}" class="mt-2">
             <strong>Motivo:</strong> <span th:text="${solicitacao.observacoesTriagem}"></span>
         </div>
-        <div class="mt-2">Envie uma nova solicitacao com os ajustes necessarios.</div>
+        <hr>
+        <strong>O que fazer agora:</strong> envie uma <a th:href="@{/solicitante/nova}" class="alert-link">nova
+        solicitacao</a> com os ajustes indicados acima. Esta aqui nao sera reanalisada.
+    </div>
+    <div th:if="${solicitacao.status.name() == 'ENVIADA'}" class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Nao e necessario fazer nada agora. Assim que a equipe de Urgencia Renal analisar o pedido,
+        voce sera avisado por e-mail (<span th:text="${solicitacao.solicitanteEmail}"></span>).
     </div>
 
     <div class="card mb-3">

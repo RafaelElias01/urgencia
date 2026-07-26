@@ -199,4 +199,40 @@ class SolicitacaoOnlineServiceTest {
         assertThatThrownBy(() -> service.converter(16L, new Processo()))
             .isInstanceOf(IllegalStateException.class);
     }
+
+    private SolicitacaoOnline comStatus(long id, StatusSolicitacaoOnline status) {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(id);
+        s.setStatus(status);
+        return s;
+    }
+
+    @Test
+    void resumirContaCorretamentePorStatus() {
+        java.util.List<SolicitacaoOnline> solicitacoes = java.util.List.of(
+            comStatus(1L, StatusSolicitacaoOnline.ENVIADA),
+            comStatus(2L, StatusSolicitacaoOnline.ENVIADA),
+            comStatus(3L, StatusSolicitacaoOnline.CONVERTIDA),
+            comStatus(4L, StatusSolicitacaoOnline.DEVOLVIDA),
+            comStatus(5L, StatusSolicitacaoOnline.CANCELADA));
+
+        SolicitacaoOnlineService.Resumo resumo = service.resumir(solicitacoes);
+
+        assertThat(resumo.total()).isEqualTo(5);
+        assertThat(resumo.aguardando()).isEqualTo(2);
+        assertThat(resumo.convertidas()).isEqualTo(1);
+        assertThat(resumo.devolvidas()).isEqualTo(1);
+        assertThat(resumo.canceladas()).isEqualTo(1);
+    }
+
+    @Test
+    void resumirComListaVaziaRetornaTodosZerados() {
+        SolicitacaoOnlineService.Resumo resumo = service.resumir(java.util.List.of());
+
+        assertThat(resumo.total()).isZero();
+        assertThat(resumo.aguardando()).isZero();
+        assertThat(resumo.convertidas()).isZero();
+        assertThat(resumo.devolvidas()).isZero();
+        assertThat(resumo.canceladas()).isZero();
+    }
 }

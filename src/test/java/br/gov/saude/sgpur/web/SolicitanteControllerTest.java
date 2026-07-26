@@ -115,6 +115,8 @@ class SolicitanteControllerTest {
     void detalheExibeAPropriaSolicitacaoNormalmente() throws Exception {
         when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
         when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(0, "bg-secondary"));
 
         mvc.perform(get("/solicitante/50"))
             .andExpect(status().isOk())
@@ -134,6 +136,23 @@ class SolicitanteControllerTest {
 
         verify(solicitacaoService).cancelar(50L, 1L);
         verify(auditoria).registrar(eq("SOLICITACAO_ONLINE_CANCELADA"), any());
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void listaExpoeResumoEDiasEsperaNoModel() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.listarMinhas(1L)).thenReturn(java.util.List.of(solicitacaoDoDono));
+        when(solicitacaoService.resumir(java.util.List.of(solicitacaoDoDono)))
+            .thenReturn(new br.gov.saude.sgpur.service.SolicitacaoOnlineService.Resumo(1, 1, 0, 0, 0));
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(2, "bg-secondary"));
+
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("solicitante/lista"))
+            .andExpect(model().attributeExists("resumo"))
+            .andExpect(model().attributeExists("diasEspera"));
     }
 
     @Test

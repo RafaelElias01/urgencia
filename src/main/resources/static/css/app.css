@@ -382,6 +382,14 @@ tr.linha-inativa > td:first-child {
 
 .timeline-item.pendente .timeline-dot { background: var(--rs-gray-100); }
 
+/* Desfecho negativo (ex.: solicitacao devolvida/cancelada) - mesma estrutura
+   da timeline, so muda a cor para vermelho em vez do verde de "concluida". */
+.timeline-item.negativa .timeline-dot {
+    background: var(--rs-red);
+    border-color: var(--rs-red);
+    color: #fff;
+}
+
 .timeline-item .timeline-title {
     font-weight: 600;
     font-size: .85rem;
@@ -393,6 +401,8 @@ tr.linha-inativa > td:first-child {
 .timeline-item.atual .timeline-title { color: var(--rs-blue); }
 
 .timeline-item.pendente .timeline-title { color: var(--rs-gray-400); }
+
+.timeline-item.negativa .timeline-title { color: var(--rs-red); }
 
 .timeline-item .timeline-desc {
     font-size: .78rem;

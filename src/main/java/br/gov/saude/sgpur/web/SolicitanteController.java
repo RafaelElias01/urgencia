@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
+import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
@@ -28,7 +29,9 @@ import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.security.Principal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Portal do Solicitante — modulo experimental e OPCIONAL (ver
@@ -88,7 +91,18 @@ public class SolicitanteController {
     @Transactional(readOnly = true)
     public String lista(Principal principal, Model model) {
         Usuario usuario = resolverUsuario(principal);
-        model.addAttribute("solicitacoes", solicitacaoService.listarMinhas(usuario.getId()));
+        List<SolicitacaoOnline> minhas = solicitacaoService.listarMinhas(usuario.getId());
+        model.addAttribute("solicitacoes", minhas);
+        model.addAttribute("resumo", solicitacaoService.resumir(minhas));
+        // Dias de espera so faz sentido para quem ainda aguarda triagem (ENVIADA);
+        // reaproveita o mesmo calculo/formatacao ja usado na fila do operador.
+        Map<Long, SolicitacaoOnlineService.DiasEspera> diasEspera = new LinkedHashMap<>();
+        for (SolicitacaoOnline s : minhas) {
+            if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
+                diasEspera.put(s.getId(), solicitacaoService.diasEspera(s));
+            }
+        }
+        model.addAttribute("diasEspera", diasEspera);
         model.addAttribute("equipe", usuario.getEquipeSolicitante());
         return "solicitante/lista";
     }
@@ -133,6 +147,9 @@ public class SolicitanteController {
         // roda fora da transacao e um proxy nao inicializado vira 500.
         SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
         model.addAttribute("solicitacao", s);
+        // Tempo decorrido desde o envio, sempre (independente do status) - contexto
+        // util pro solicitante entender ha quanto tempo o pedido esta parado/foi resolvido.
+        model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         return "solicitante/detalhe";
     }
 
