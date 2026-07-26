@@ -8,6 +8,7 @@
     --rs-blue-rgb: 26,77,143;       /* componentes do --rs-blue, para uso em rgba() */
     --rs-blue-light: #e3edf7;
     --rs-blue-dark: #0f3163;
+    --rs-blue-darker: #061a33;      /* 3o stop do gradiente de fundo de login/esqueci-senha */
     --rs-gold: #f5a623;
     --rs-gold-light: #fef3e2;
     --rs-gold-dark: #755a12;        /* texto de badge/alert ouro com contraste AA */
@@ -46,8 +47,8 @@ body {
 
 /* === Navbar === */
 .navbar-sgpur {
-    background: linear-gradient(135deg, var(--rs-blue) 0%, var(--rs-blue-dark) 100%) !important;
-    box-shadow: 0 2px 8px rgba(26,77,143,.35);
+    background: linear-gradient(135deg, var(--rs-blue) 0%, var(--rs-blue-dark) 100%);
+    box-shadow: 0 2px 8px rgba(var(--rs-blue-rgb),.35);
     border-bottom: 2px solid var(--rs-gold);
 }
 
@@ -301,10 +302,14 @@ tr.linha-inativa > td:first-child {
     box-shadow: 0 0 0 3px rgba(var(--rs-blue-rgb),.35);
 }
 
-/* Bloqueada */
-.wizard-step.bloqueada { opacity: .5; cursor: not-allowed; }
+/* Bloqueada: opacidade so no circulo (indicador visual de "desabilitado");
+   o rotulo usa uma cor fixa mais escura em vez de depender da opacidade
+   herdada, que deixava o texto com contraste baixo demais sobre fundo claro. */
+.wizard-step.bloqueada { cursor: not-allowed; }
 
-.wizard-step.bloqueada .wizard-circle { background: var(--rs-gray-100); }
+.wizard-step.bloqueada .wizard-circle { background: var(--rs-gray-100); opacity: .6; }
+
+.wizard-step.bloqueada .wizard-label { color: var(--rs-gray-600); }
 
 @keyframes pulse-ring {
     0% { box-shadow: 0 0 0 0 rgba(var(--rs-blue-rgb),.4); }
@@ -539,7 +544,7 @@ tr.linha-inativa > td:first-child {
 
 /* === Paginacao === */
 .page-link {
-    border-radius: 8px !important;
+    --bs-pagination-border-radius: 8px;
     margin: 0 2px;
     border: 1px solid var(--rs-gray-200);
     color: var(--rs-gray-600);
@@ -574,6 +579,11 @@ tr.linha-inativa > td:first-child {
     transition: var(--rs-transition);
     cursor: pointer;
     border: none;
+    --stat-bg: #fff;
+    --stat-border: var(--rs-gray-200);
+    --stat-text: var(--rs-gray-800);
+    --stat-icon-bg: var(--rs-gray-100);
+    --stat-icon-color: var(--rs-gray-500);
 }
 
 .stat-card:hover {
@@ -657,21 +667,14 @@ tr.linha-inativa > td:first-child {
 }
 
 /* === Variantes de stat-card para o Painel ===
-   Usam as --rs-* colors em vez de classes Tailwind. Cada variante define as
-   cores de fundo, borda, texto e icone via CSS properties herdadas. */
-.stat-card {
-    --stat-bg: #fff;
-    --stat-border: var(--rs-gray-200);
-    --stat-text: var(--rs-gray-800);
-    --stat-icon-bg: var(--rs-gray-100);
-    --stat-icon-color: var(--rs-gray-500);
-}
+   Usam as --rs-* colors em vez de hex cru, para nao duplicar a paleta (o
+   bloco base de --stat-* fica junto com o resto de .stat-card, la em cima). */
 .stat-card-total     { --stat-bg: #fff; --stat-border: var(--rs-gray-200); --stat-text: var(--rs-gray-800); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
-.stat-card-andamento { --stat-bg: #fef3e2; --stat-border: var(--rs-gold); --stat-text: var(--rs-gold-dark); --stat-icon-bg: #fef3e2; --stat-icon-color: var(--rs-gold); }
-.stat-card-deferido  { --stat-bg: #e8f5ed; --stat-border: var(--rs-green); --stat-text: var(--rs-green-dark); --stat-icon-bg: #e8f5ed; --stat-icon-color: var(--rs-green); }
-.stat-card-indeferido{ --stat-bg: #fce8e8; --stat-border: var(--rs-red); --stat-text: var(--rs-red-dark); --stat-icon-bg: #fce8e8; --stat-icon-color: var(--rs-red); }
-.stat-card-cancelado { --stat-bg: #fff; --stat-border: var(--rs-gray-300); --stat-text: var(--rs-gray-500); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
-.stat-card-membros   { --stat-bg: #e3edf7; --stat-border: var(--rs-blue); --stat-text: var(--rs-blue); --stat-icon-bg: #e3edf7; --stat-icon-color: var(--rs-blue); }
+.stat-card-andamento { --stat-bg: var(--rs-gold-light); --stat-border: var(--rs-gold); --stat-text: var(--rs-gold-dark); --stat-icon-bg: var(--rs-gold-light); --stat-icon-color: var(--rs-gold); }
+.stat-card-deferido  { --stat-bg: var(--rs-green-light); --stat-border: var(--rs-green); --stat-text: var(--rs-green-dark); --stat-icon-bg: var(--rs-green-light); --stat-icon-color: var(--rs-green); }
+.stat-card-indeferido{ --stat-bg: var(--rs-red-light); --stat-border: var(--rs-red); --stat-text: var(--rs-red-dark); --stat-icon-bg: var(--rs-red-light); --stat-icon-color: var(--rs-red); }
+.stat-card-cancelado { --stat-bg: #fff; --stat-border: var(--rs-gray-300); --stat-text: var(--rs-gray-600); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
+.stat-card-membros   { --stat-bg: var(--rs-blue-light); --stat-border: var(--rs-blue); --stat-text: var(--rs-blue); --stat-icon-bg: var(--rs-blue-light); --stat-icon-color: var(--rs-blue); }
 .stat-card-tempo     { --stat-bg: #fff; --stat-border: var(--rs-gray-200); --stat-text: var(--rs-gray-800); --stat-icon-bg: var(--rs-gray-100); --stat-icon-color: var(--rs-gray-500); }
 
 /* Tabela do dashboard: scroll vertical so em desktop (evita cortar conteudo em mobile) */

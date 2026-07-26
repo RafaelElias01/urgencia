@@ -49,6 +49,12 @@
             var evento = isForm ? 'submit' : 'click';
 
             el.addEventListener(evento, function (ev) {
+                // So relevante para <a>/click(): re-disparar o evento (linha
+                // abaixo, el.click()) passa de novo por este listener, e essa
+                // flag evita reabrir o modal na segunda vez. Para <form>,
+                // el.submit() NAO redispara 'submit' (comportamento do DOM),
+                // entao este guard nunca chega a importar nesse caminho - mas
+                // mantido igual nos dois branches por simetria/robustez.
                 if (el.dataset.confirmed === 'true') {
                     el.dataset.confirmed = '';
                     return; // ja confirmado pelo modal, deixa a acao prosseguir

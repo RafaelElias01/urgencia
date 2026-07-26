@@ -34,7 +34,8 @@
                 </td>
                 <td class="text-end">
                     <a th:href="@{/usuarios/{id}/editar(id=${u.id})}" class="btn btn-sm btn-outline-secondary">Editar</a>
-                    <form th:action="@{/usuarios/{id}/alternar-ativo(id=${u.id})}" method="post" class="d-inline">
+                    <form th:action="@{/usuarios/{id}/alternar-ativo(id=${u.id})}" method="post" class="d-inline"
+                          th:attr="data-confirm-msg=${u.ativo} ? ('Inativar o usuario &quot;' + ${u.username} + '&quot;? Ele perdera o acesso ao sistema.') : ('Reativar o usuario &quot;' + ${u.username} + '&quot;?')">
                         <button class="btn btn-sm btn-outline-warning"
                                 th:text="${u.ativo} ? 'Inativar' : 'Ativar'">Inativar</button>
                     </form>

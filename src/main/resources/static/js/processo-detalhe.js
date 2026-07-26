@@ -61,10 +61,11 @@ window.mostrarToast = function (mensagem, tipo) {
             var el = this;
             var novoValor = el.value;
             if (el.dataset.valorAnterior && el.dataset.valorAnterior !== novoValor) {
-                var confirmar = window.confirmarAcao
-                    ? window.confirmarAcao('Alterar o parecer deste avaliador? O resultado anterior sera substituido.')
-                    : Promise.resolve(confirm('Alterar o parecer deste avaliador? O resultado anterior sera substituido.'));
-                confirmar.then(function (ok) {
+                // window.confirmarAcao (confirmar-acao.js, sempre carregado via
+                // layout::confirmarAcaoScript) ja cai para confirm() nativo
+                // internamente se o modal nao estiver disponivel - nao precisa
+                // duplicar esse fallback aqui.
+                window.confirmarAcao('Alterar o parecer deste avaliador? O resultado anterior sera substituido.').then(function (ok) {
                     if (!ok) {
                         el.value = el.dataset.valorAnterior;
                         return;
@@ -85,10 +86,7 @@ window.mostrarToast = function (mensagem, tipo) {
             var fileInput = form.querySelector('input[type="file"]');
             if (fileInput && fileInput.files.length > 0) {
                 e.preventDefault();
-                var confirmar = window.confirmarAcao
-                    ? window.confirmarAcao('Anexar este arquivo como resposta do avaliador?')
-                    : Promise.resolve(confirm('Anexar este arquivo como resposta do avaliador?'));
-                confirmar.then(function (ok) {
+                window.confirmarAcao('Anexar este arquivo como resposta do avaliador?').then(function (ok) {
                     if (ok) form.submit();
                 });
             }

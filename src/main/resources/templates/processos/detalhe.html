@@ -493,7 +493,8 @@
                     </p>
 
                     <!-- 1) Registrar o reenvio ao solicitante (anexo opcional: copia do e-mail) -->
-                    <form th:action="@{/processos/{id}/solicitar-info(id=${processo.id})}" method="post"
+                    <form th:unless="${processo.status.finalizado}"
+                          th:action="@{/processos/{id}/solicitar-info(id=${processo.id})}" method="post"
                           enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
                         <div class="col-md-8">
                             <label class="form-label small fw-semibold">Copia do e-mail de pedido ao solicitante (opcional)</label>

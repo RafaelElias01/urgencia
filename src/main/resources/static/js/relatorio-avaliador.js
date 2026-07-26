@@ -7,7 +7,7 @@
     if (base && btn && ano && membro) {
         btn.addEventListener('click', function () {
             if (ano.value && membro.value) {
-                window.open(base + '/' + ano.value + '/' + membro.value + '/pdf', '_blank');
+                window.abrirRelatorioPdf(base, [ano.value, membro.value]);
             }
         });
     }

@@ -93,7 +93,8 @@
                             </a>
                             <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
                                   th:action="@{/controle-urgencias/{id}/renovar(id=${r.id})}"
-                                  method="post" class="d-inline">
+                                  method="post" class="d-inline"
+                                  data-confirm-msg="Renovar esta urgencia por mais 30 dias?">
                                 <button class="btn btn-sm btn-outline-success" title="Renovar por mais 30 dias">
                                     <i class="bi bi-arrow-clockwise"></i> Renovar
                                 </button>

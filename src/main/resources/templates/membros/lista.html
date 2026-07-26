@@ -81,7 +81,8 @@
                 </td>
                 <td class="text-end">
                     <a th:href="@{/membros/{id}/editar(id=${m.id})}" class="btn btn-sm btn-outline-secondary">Editar</a>
-                    <form th:action="@{/membros/{id}/alternar-ativo(id=${m.id})}" method="post" class="d-inline">
+                    <form th:action="@{/membros/{id}/alternar-ativo(id=${m.id})}" method="post" class="d-inline"
+                          th:attr="data-confirm-msg=${m.ativo} ? ('Inativar o membro &quot;' + ${m.nome} + '&quot;? Ele deixara de poder ser designado a novos processos.') : ('Reativar o membro &quot;' + ${m.nome} + '&quot;?')">
                         <button class="btn btn-sm btn-outline-warning"
                                 th:text="${m.ativo} ? 'Inativar' : 'Ativar'">Inativar</button>
                     </form>
@@ -96,6 +97,9 @@
     </div>
 </div>
 
+<div th:replace="~{layout :: confirmModal}"></div>
+
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: confirmarAcaoScript}"></script>
 </body>
 </html>

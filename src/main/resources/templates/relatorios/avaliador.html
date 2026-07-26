@@ -56,6 +56,7 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: relatorioPdfScript}"></script>
 <script th:if="${anos != null and !anos.isEmpty() and membros != null and !membros.isEmpty()}"
         th:src="@{/js/relatorio-avaliador.js}"></script>
 </body>
