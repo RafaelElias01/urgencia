@@ -58,4 +58,26 @@ public interface SolicitacaoOnlineRepository extends JpaRepository<SolicitacaoOn
     List<SolicitacaoOnline> findAllByOrderByDataEnvioDesc();
 
     long countByStatus(StatusSolicitacaoOnline status);
+
+    /**
+     * Detecta se um {@link br.gov.saude.sgpur.domain.Processo} foi originado
+     * do Portal do Solicitante (convertido a partir de uma
+     * {@code SolicitacaoOnline}). Usado por {@code FluxoProcessoService} para
+     * dispensar a exigencia de anexar manualmente a copia da solicitacao
+     * original (TipoAnexo.SOLICITACAO_RECEBIDA) no Passo 1 - os dados ja
+     * chegaram digitais pelo proprio sistema, nao existe "e-mail original".
+     */
+    boolean existsByProcessoGeradoId(Long processoId);
+
+    /**
+     * Id da {@code SolicitacaoOnline} que gerou o processo, se houver. Usado
+     * para linkar de volta a triagem original (ver
+     * {@code SolicitacaoOnlineTriagemController}) na tela de detalhe do
+     * processo.
+     */
+    @Query("""
+        select s.id from SolicitacaoOnline s
+        where s.processoGerado.id = :processoId
+        """)
+    Optional<Long> findIdByProcessoGeradoId(@Param("processoId") Long processoId);
 }

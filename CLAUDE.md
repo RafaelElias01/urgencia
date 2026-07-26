@@ -176,6 +176,16 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   médicos — reaproveita a capa do Relatório Final via
   `RelatorioService.gerarCapaProcesso`). Endpoint
   `POST /processos/{id}/recebimento`. A etapa bloqueia até os dois existirem.
+  **Exceção — processo originado do Portal do Solicitante:** quando o
+  `Processo` foi convertido de uma `SolicitacaoOnline`
+  (`FluxoProcessoService.veioDoPortal`, via
+  `SolicitacaoOnlineRepository.existsByProcessoGeradoId`), não existe
+  "e-mail original" a anexar — os dados já chegaram digitais pela própria
+  submissão online. Nesse caso a etapa dispensa `SOLICITACAO_RECEBIDA` e
+  exige só a `CAPA_PROCESSO` (o botão "Registrar recebimento" continua
+  funcionando sem arquivo, pois o parâmetro já era opcional). A tela mostra
+  um formulário simplificado, sem campo de upload, com link de volta para a
+  solicitação online original.
 - **Passo 2 (Envio):** ao registrar o envio o sistema gera a **cópia anonimizada
   para as equipes** (`SOLICITACAO_AVALIADOR`, só iniciais), nome oficial
   `Processo CET-RS NN-AAAA - Paciente X.X.X.pdf`

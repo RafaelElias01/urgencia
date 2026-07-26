@@ -13,6 +13,7 @@ import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ public class ProcessoDetalheController {
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
     private final RelatorioService relatorioService;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
+    private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     private final boolean solicitanteHabilitado;
 
     public ProcessoDetalheController(ProcessoService processoService,
@@ -57,6 +59,7 @@ public class ProcessoDetalheController {
                                      ConflitoEquipeMatcher conflitoEquipeMatcher,
                                      RelatorioService relatorioService,
                                      SolicitacaoOnlineService solicitacaoOnlineService,
+                                     SolicitacaoOnlineRepository solicitacaoOnlineRepository,
                                      @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
@@ -68,6 +71,7 @@ public class ProcessoDetalheController {
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
         this.relatorioService = relatorioService;
         this.solicitacaoOnlineService = solicitacaoOnlineService;
+        this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
         this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
@@ -264,6 +268,16 @@ public class ProcessoDetalheController {
             .filter(a -> a.getTipo() == TipoAnexo.SOLICITACAO_RECEBIDA)
             .findFirst();
         model.addAttribute("solicitacaoOriginal", solicitacaoOriginal.orElse(null));
+        // Passo 1 (Recebimento): quando o processo veio do Portal do
+        // Solicitante nao existe "e-mail original" pra anexar - os dados ja
+        // chegaram digitais na propria submissao online. Ver
+        // FluxoProcessoService.veioDoPortal (fonte unica com o gating).
+        boolean processoVeioDoPortal = fluxoService.veioDoPortal(p);
+        model.addAttribute("processoVeioDoPortal", processoVeioDoPortal);
+        model.addAttribute("solicitacaoOnlineOrigemId",
+            processoVeioDoPortal
+                ? solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null)
+                : null);
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()
             .filter(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR)

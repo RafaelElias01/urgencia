@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -13,6 +14,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class FluxoProcessoServiceTest {
@@ -23,10 +26,16 @@ class FluxoProcessoServiceTest {
     MembroUrgenciaRenalRepository membroRepository;
     @Mock
     ParecerRepository parecerRepository;
+    @Mock
+    SolicitacaoOnlineRepository solicitacaoOnlineRepository;
 
     private FluxoProcessoService fluxo() {
         ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository);
-        return new FluxoProcessoService(ps);
+        // Por padrao nenhum processo veio do Portal do Solicitante nesses
+        // testes (comportamento identico ao existente antes da excecao do
+        // Portal); testes especificos sobrescrevem esse stub.
+        lenient().when(solicitacaoOnlineRepository.existsByProcessoGeradoId(anyLong())).thenReturn(false);
+        return new FluxoProcessoService(ps, solicitacaoOnlineRepository);
     }
 
     private Processo processoComTresPareceres() {
@@ -600,6 +609,77 @@ class FluxoProcessoServiceTest {
         comprovanteSnt.setTipo(TipoAnexo.COMPROVANTE_SNT);
         p.addAnexo(comprovanteSnt);
         assertThat(fluxo().resumoPendencia(p)).startsWith("Resposta ao solicitante");
+    }
+
+    // ----------------------------------------------------------------
+    // Excecao: processo originado do Portal do Solicitante dispensa a copia
+    // manual da solicitacao original (nao existe "e-mail original" a
+    // anexar) - exige so a capa do processo. Mantido em sincronia entre
+    // montarEtapas e calcularGating (mesma fonte: veioDoPortal).
+    // ----------------------------------------------------------------
+
+    @Test
+    void recebimentoConcluiSoComCapaQuandoProcessoVeioDoPortal() {
+        Processo p = processoComTresPareceres();
+        p.setId(10L);
+        Anexo capa = new Anexo();
+        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
+        p.addAnexo(capa);
+        // sem SOLICITACAO_RECEBIDA
+
+        // fluxo() aplica um stub lenient() generico (anyLong -> false) para os
+        // demais testes; o stub especifico abaixo, feito DEPOIS, tem
+        // prioridade no Mockito (ultimo stub que casa vence).
+        FluxoProcessoService fluxo = fluxo();
+        org.mockito.Mockito.when(solicitacaoOnlineRepository.existsByProcessoGeradoId(10L)).thenReturn(true);
+        EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
+        assertThat(recebimento.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+
+        FluxoProcessoService.GatingAbas gating = fluxo.calcularGating(p);
+        assertThat(gating.liberadoRecebimento()).isTrue();
+        // Envio (passo 2) libera so com a capa, sem exigir a solicitacao original.
+        assertThat(gating.liberadoEnvio()).isTrue();
+    }
+
+    @Test
+    void recebimentoNaoConcluiSemCapaMesmoQuandoVeioDoPortal() {
+        Processo p = processoComTresPareceres();
+        p.setId(11L);
+        // nenhum anexo
+
+        FluxoProcessoService fluxo = fluxo();
+        org.mockito.Mockito.when(solicitacaoOnlineRepository.existsByProcessoGeradoId(11L)).thenReturn(true);
+        EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
+        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+        assertThat(recebimento.detalhe()).contains("capa do processo");
+        assertThat(recebimento.detalhe()).doesNotContain("solicitacao original");
+
+        assertThat(fluxo.calcularGating(p).liberadoEnvio()).isFalse();
+    }
+
+    @Test
+    void recebimentoContinuaExigindoSolicitacaoOriginalQuandoNaoVeioDoPortal() {
+        Processo p = processoComTresPareceres();
+        p.setId(12L);
+        // stub default de fluxo() ja cobre existsByProcessoGeradoId -> false
+        Anexo capa = new Anexo();
+        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
+        p.addAnexo(capa);
+        // sem SOLICITACAO_RECEBIDA, e o processo NAO veio do portal
+
+        FluxoProcessoService fluxo = fluxo();
+        EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
+        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+        assertThat(recebimento.detalhe()).contains("solicitacao original");
+
+        assertThat(fluxo.calcularGating(p).liberadoEnvio()).isFalse();
+    }
+
+    @Test
+    void veioDoPortalRetornaFalseParaProcessoSemId() {
+        Processo p = processoComTresPareceres();
+        // processo novo, ainda sem id persistido
+        assertThat(fluxo().veioDoPortal(p)).isFalse();
     }
 
     private EtapaFluxo.Estado estado(List<EtapaFluxo> etapas, String titulo) {

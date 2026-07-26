@@ -1,6 +1,7 @@
 package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.*;
+import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.service.EtapaFluxo.Estado;
 import org.springframework.stereotype.Service;
 
@@ -17,9 +18,26 @@ import java.util.List;
 public class FluxoProcessoService {
 
     private final ProcessoService processoService;
+    private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
 
-    public FluxoProcessoService(ProcessoService processoService) {
+    public FluxoProcessoService(ProcessoService processoService,
+                                 SolicitacaoOnlineRepository solicitacaoOnlineRepository) {
         this.processoService = processoService;
+        this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
+    }
+
+    /**
+     * true se o processo foi originado do Portal do Solicitante (convertido a
+     * partir de uma {@code SolicitacaoOnline}). Nesse caso o Passo 1
+     * (Recebimento) dispensa a copia manual da solicitacao original
+     * (TipoAnexo.SOLICITACAO_RECEBIDA) - os dados ja chegaram digitais pelo
+     * proprio sistema, nao existe "e-mail original" pra anexar. Fonte unica
+     * usada tanto por {@link #montarEtapas} quanto por {@link #calcularGating}
+     * (mesmo espirito de nao deixar as duas conta divergirem, ver historico
+     * de bugs de wizard/timeline dessincronizados).
+     */
+    public boolean veioDoPortal(Processo p) {
+        return p.getId() != null && solicitacaoOnlineRepository.existsByProcessoGeradoId(p.getId());
     }
 
     public List<EtapaFluxo> montarEtapas(Processo p) {
@@ -40,12 +58,21 @@ public class FluxoProcessoService {
         //    para as equipes e gerada no passo 2 (Envio). Mantido em sincronia
         //    com ProcessoDetalheController.recebimentoFeito, que usa a mesma
         //    dupla condicao para liberar a aba de Envio.
+        boolean veioDoPortal = veioDoPortal(p);
         boolean temOriginal = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
         boolean temCapa = temAnexo(p, TipoAnexo.CAPA_PROCESSO);
-        boolean recebimentoOk = temOriginal && temCapa;
+        // Processo originado do Portal do Solicitante: nao existe "e-mail
+        // original" para anexar, os dados ja chegaram digitais pelo proprio
+        // sistema na submissao online. Dispensa SOLICITACAO_RECEBIDA, exige
+        // so a capa do processo.
+        boolean recebimentoOk = veioDoPortal ? temCapa : (temOriginal && temCapa);
         String detReceb;
         if (recebimentoOk) {
-            detReceb = "Solicitacao original e capa do processo anexadas.";
+            detReceb = veioDoPortal
+                ? "Solicitacao recebida pelo Portal do Solicitante; capa do processo anexada."
+                : "Solicitacao original e capa do processo anexadas.";
+        } else if (veioDoPortal) {
+            detReceb = "Falta: capa do processo.";
         } else {
             List<String> faltasReceb = new ArrayList<>();
             if (!temOriginal) faltasReceb.add("copia da solicitacao original");
@@ -292,8 +319,11 @@ public class FluxoProcessoService {
 
     public GatingAbas calcularGating(Processo p) {
         // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
-        boolean recebimentoFeito = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA)
-            && temAnexo(p, TipoAnexo.CAPA_PROCESSO);
+        // Processo originado do Portal do Solicitante dispensa a copia manual
+        // da solicitacao original (ver veioDoPortal/montarEtapas).
+        boolean recebimentoFeito = veioDoPortal(p)
+            ? temAnexo(p, TipoAnexo.CAPA_PROCESSO)
+            : temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA) && temAnexo(p, TipoAnexo.CAPA_PROCESSO);
         boolean envioFeito = envioRegistrado(p);
         long respondidos = processoService.contarRespondidos(p);
         int totalMedicos = p.getPareceres().size();

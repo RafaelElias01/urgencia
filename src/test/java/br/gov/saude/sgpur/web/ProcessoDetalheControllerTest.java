@@ -47,6 +47,7 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private ConflitoEquipeMatcher conflitoEquipeMatcher;
     @MockitoBean private RelatorioService relatorioService;
     @MockitoBean private br.gov.saude.sgpur.service.SolicitacaoOnlineService solicitacaoOnlineService;
+    @MockitoBean private br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     // GlobalModelAdvice (@ControllerAdvice global) precisa dessas duas pro
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
@@ -79,6 +80,9 @@ class ProcessoDetalheControllerTest {
         when(fluxoService.calcularGating(any())).thenReturn(
             new FluxoProcessoService.GatingAbas(true, false, false, false, false));
         when(fluxoService.calcularSubrotuloStatus(any())).thenReturn(null);
+        // Por padrao nenhum processo veio do Portal do Solicitante (fluxo
+        // tradicional); testes especificos sobrescrevem quando precisarem.
+        when(fluxoService.veioDoPortal(any())).thenReturn(false);
     }
 
     private static MembroUrgenciaRenal membro(Long id, String instituicao, String nome) {
@@ -402,6 +406,33 @@ class ProcessoDetalheControllerTest {
             .andExpect(model().attribute("resultadoValores",
                 org.hamcrest.Matchers.not(
                     org.hamcrest.Matchers.hasItem(ResultadoParecer.SEM_RESPOSTA))));
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void detalheExpoeProcessoVeioDoPortalFalseNoFluxoTradicional() throws Exception {
+        mvc.perform(get("/processos/1"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("processoVeioDoPortal", false))
+            .andExpect(model().attribute("solicitacaoOnlineOrigemId", (Object) null));
+
+        verify(solicitacaoOnlineRepository, never()).findIdByProcessoGeradoId(anyLong());
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void detalheExpoeProcessoVeioDoPortalTrueELinkDaOrigem() throws Exception {
+        when(fluxoService.veioDoPortal(processo)).thenReturn(true);
+        when(solicitacaoOnlineRepository.findIdByProcessoGeradoId(1L)).thenReturn(Optional.of(42L));
+        // Passo 1 (Recebimento) so exige a capa quando veio do portal.
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, true, false, false, false));
+
+        mvc.perform(get("/processos/1"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("processoVeioDoPortal", true))
+            .andExpect(model().attribute("solicitacaoOnlineOrigemId", 42L))
+            .andExpect(model().attribute("liberadoEnvio", true));
     }
 
     // ----- editar / atualizar -----

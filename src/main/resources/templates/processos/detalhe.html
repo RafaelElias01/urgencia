@@ -250,45 +250,70 @@
                     <div class="card mb-4" id="recebimento">
                         <div class="card-header"><i class="bi bi-inbox"></i> Recebimento e ajuste do texto</div>
                         <div class="card-body">
-                            <p class="small text-muted mb-3">
-                                Anexe a <strong>solicitacao original</strong> recebida.
-                                A copia anonimizada para as equipes e gerada no passo 2 (Envio).
-                                A capa com os pareceres e o resultado e gerada apenas no <strong>Relatorio Final</strong>.
-                            </p>
+                            <!-- Fluxo tradicional: exige a copia da solicitacao original (e-mail/PDF) -->
+                            <div th:unless="${processoVeioDoPortal}">
+                                <p class="small text-muted mb-3">
+                                    Anexe a <strong>solicitacao original</strong> recebida.
+                                    A copia anonimizada para as equipes e gerada no passo 2 (Envio).
+                                    A capa com os pareceres e o resultado e gerada apenas no <strong>Relatorio Final</strong>.
+                                </p>
 
-                            <!-- Status do anexo da solicitacao original -->
-                            <ul class="list-group mb-3">
-                                <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                    <span>Copia da solicitacao original</span>
-                                    <a th:if="${solicitacaoOriginal != null}"
-                                       th:href="@{/processos/anexos/{id}/download(id=${solicitacaoOriginal.id})}"
-                                       class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-download"></i>
-                                        <span th:text="${solicitacaoOriginal.nomeArquivo}">arquivo</span>
-                                    </a>
-                                    <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
-                                </li>
-                            </ul>
+                                <!-- Status do anexo da solicitacao original -->
+                                <ul class="list-group mb-3">
+                                    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                        <span>Copia da solicitacao original</span>
+                                        <a th:if="${solicitacaoOriginal != null}"
+                                           th:href="@{/processos/anexos/{id}/download(id=${solicitacaoOriginal.id})}"
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-download"></i>
+                                            <span th:text="${solicitacaoOriginal.nomeArquivo}">arquivo</span>
+                                        </a>
+                                        <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
+                                    </li>
+                                </ul>
 
-                            <!-- Acao: anexar a original + gerar a copia para as equipes -->
-                            <form th:unless="${processo.status.finalizado}"
-                                  th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
-                                  enctype="multipart/form-data" class="row g-2 align-items-end">
-                                <div class="col-md-7">
-                                    <label class="form-label">Solicitacao original recebida (PDF/e-mail)</label>
-                                    <input type="file" name="arquivo" class="form-control form-control-sm"
-                                           accept=".pdf,.eml,.msg"
-                                           th:required="${solicitacaoOriginal == null}">
-                                    <div class="form-text" th:if="${solicitacaoOriginal != null}">
-                                        Ja anexada. Selecione um arquivo apenas se quiser substituir.
+                                <!-- Acao: anexar a original + gerar a copia para as equipes -->
+                                <form th:unless="${processo.status.finalizado}"
+                                      th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
+                                      enctype="multipart/form-data" class="row g-2 align-items-end">
+                                    <div class="col-md-7">
+                                        <label class="form-label">Solicitacao original recebida (PDF/e-mail)</label>
+                                        <input type="file" name="arquivo" class="form-control form-control-sm"
+                                               accept=".pdf,.eml,.msg"
+                                               th:required="${solicitacaoOriginal == null}">
+                                        <div class="form-text" th:if="${solicitacaoOriginal != null}">
+                                            Ja anexada. Selecione um arquivo apenas se quiser substituir.
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-5 d-flex align-items-end">
+                                    <div class="col-md-5 d-flex align-items-end">
+                                        <button class="btn btn-primary btn-sm">
+                                            <i class="bi bi-inbox-fill"></i> Registrar recebimento
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Processo originado do Portal do Solicitante: nao ha e-mail/PDF
+                                 original para anexar, os dados ja chegaram digitais no sistema. -->
+                            <div th:if="${processoVeioDoPortal}">
+                                <p class="small text-muted mb-3">
+                                    Esta solicitacao foi enviada diretamente pelo <strong>Portal do
+                                    Solicitante</strong> — nao ha e-mail/PDF original para anexar, os
+                                    dados ja estao digitais no sistema.
+                                    <a th:if="${solicitacaoOnlineOrigemId != null}"
+                                       th:href="@{/processos/solicitacoes-online/{id}(id=${solicitacaoOnlineOrigemId})}">
+                                        Ver solicitacao original
+                                    </a>
+                                </p>
+
+                                <form th:unless="${processo.status.finalizado}"
+                                      th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
+                                      enctype="multipart/form-data">
                                     <button class="btn btn-primary btn-sm">
-                                        <i class="bi bi-inbox-fill"></i> Registrar recebimento
+                                        <i class="bi bi-inbox-fill"></i> Confirmar recebimento e gerar capa do processo
                                     </button>
-                                </div>
-                            </form>
+                                </form>
+                            </div>
                         </div>
 
                         <!-- Finalizacao explicita da etapa (exige solicitacao original + capa,
