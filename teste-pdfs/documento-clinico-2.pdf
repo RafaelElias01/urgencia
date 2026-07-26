@@ -2,8 +2,34 @@
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj
-4 0 obj<</Length 51>>stream
-BT /F1 14 Tf 50 750 Td (DOCUMENTO CLINICO 2) Tj ET
+4 0 obj<</Length 577>>stream
+BT
+/F1 11 Tf
+50 760 Td
+(LAUDO DE ULTRASSONOGRAFIA RENAL) Tj
+0 -15 Td
+(\(DOCUMENTO SIMULADO PARA FINS DE TESTE\)) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Paciente: TESTE QA APAGAR) Tj
+0 -15 Td
+(Data do exame: 18/07/2026) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Rins topicos, de dimensoes reduzidas \(rim direito 7.8cm,) Tj
+0 -15 Td
+(rim esquerdo 7.5cm\), com perda da diferenciacao corticomedular,) Tj
+0 -15 Td
+(compativel com nefropatia cronica em fase avancada. Sem sinais) Tj
+0 -15 Td
+(de dilatacao do sistema pielocalicial.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Dra. Maria Teste Souza - CRM/RS 00001) Tj
+ET
 endstream
 endobj
 5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
@@ -14,8 +40,8 @@ xref
 0000000052 00000 n 
 0000000101 00000 n 
 0000000210 00000 n 
-0000000306 00000 n 
+0000000833 00000 n 
 trailer<</Size 6/Root 1 0 R>>
 startxref
-367
+894
 %%EOF

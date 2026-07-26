@@ -2,8 +2,40 @@
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj
-4 0 obj<</Length 51>>stream
-BT /F1 14 Tf 50 750 Td (DOCUMENTO CLINICO 1) Tj ET
+4 0 obj<</Length 731>>stream
+BT
+/F1 11 Tf
+50 760 Td
+(LAUDO DE EXAME LABORATORIAL) Tj
+0 -15 Td
+(\(DOCUMENTO SIMULADO PARA FINS DE TESTE\)) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Paciente: TESTE QA APAGAR) Tj
+0 -15 Td
+(Data da coleta: 17/07/2026) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Creatinina serica ......... 6.8 mg/dL   \(VR: 0.6 - 1.2\)) Tj
+0 -15 Td
+(Ureia ...................... 145 mg/dL   \(VR: 15 - 45\)) Tj
+0 -15 Td
+(Potassio ................... 5.9 mEq/L   \(VR: 3.5 - 5.0\)) Tj
+0 -15 Td
+(TFG estimada ............... 8 mL/min/1.73m2) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Conclusao: funcao renal gravemente comprometida, compativel) Tj
+0 -15 Td
+(com necessidade de terapia renal substitutiva de urgencia.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Dr. Joao Teste da Silva - CRM/RS 00000) Tj
+ET
 endstream
 endobj
 5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
@@ -14,8 +46,8 @@ xref
 0000000052 00000 n 
 0000000101 00000 n 
 0000000210 00000 n 
-0000000306 00000 n 
+0000000987 00000 n 
 trailer<</Size 6/Root 1 0 R>>
 startxref
-367
+1048
 %%EOF

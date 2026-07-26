@@ -2,8 +2,54 @@
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj
-4 0 obj<</Length 52>>stream
-BT /F1 14 Tf 50 750 Td (SOLICITACAO RECEBIDA) Tj ET
+4 0 obj<</Length 987>>stream
+BT
+/F1 11 Tf
+50 760 Td
+(HOSPITAL DE CLINICAS DE PORTO ALEGRE) Tj
+0 -15 Td
+(Servico de Nefrologia) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Porto Alegre, 18 de julho de 2026.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Ao Comite de Urgencia Renal - CET-RS) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Solicitamos avaliacao de URGENCIA RENAL para o\(a\) paciente:) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Nome: TESTE QA APAGAR) Tj
+0 -15 Td
+(RGCT: 000000-0) Tj
+0 -15 Td
+(Data de nascimento: 01/01/1990) Tj
+0 -15 Td
+(Diagnostico: Insuficiencia Renal Cronica Agudizada) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Justificativa clinica: paciente em fila de transplante renal ha 18) Tj
+0 -15 Td
+(meses, com piora subita da funcao renal \(creatinina 6.8 mg/dL\) e) Tj
+0 -15 Td
+(necessidade de hemodialise de urgencia 3x/semana. Solicita-se) Tj
+0 -15 Td
+(avaliacao prioritaria conforme protocolo estadual.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Atenciosamente,) Tj
+0 -15 Td
+(Dr. Joao Teste da Silva - CRM/RS 00000) Tj
+0 -15 Td
+(\(DOCUMENTO SIMULADO PARA FINS DE TESTE\)) Tj
+ET
 endstream
 endobj
 5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
@@ -14,8 +60,8 @@ xref
 0000000052 00000 n 
 0000000101 00000 n 
 0000000210 00000 n 
-0000000307 00000 n 
+0000001243 00000 n 
 trailer<</Size 6/Root 1 0 R>>
 startxref
-368
+1304
 %%EOF

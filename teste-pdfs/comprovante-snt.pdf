@@ -2,8 +2,30 @@
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>endobj
-4 0 obj<</Length 47>>stream
-BT /F1 14 Tf 50 750 Td (COMPROVANTE SNT) Tj ET
+4 0 obj<</Length 432>>stream
+BT
+/F1 11 Tf
+50 760 Td
+(SISTEMA NACIONAL DE TRANSPLANTES - SNT) Tj
+0 -15 Td
+(Comprovante de insercao em URGENCIA RENAL) Tj
+0 -15 Td
+(\(DOCUMENTO SIMULADO PARA FINS DE TESTE\)) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Paciente: TESTE QA APAGAR) Tj
+0 -15 Td
+(RGCT: 000000-0) Tj
+0 -15 Td
+(Data de insercao: 24/07/2026) Tj
+0 -15 Td
+(Situacao: URGENCIA RENAL - ATIVO) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Protocolo gerado automaticamente pelo sistema.) Tj
+ET
 endstream
 endobj
 5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
@@ -14,8 +36,8 @@ xref
 0000000052 00000 n 
 0000000101 00000 n 
 0000000210 00000 n 
-0000000302 00000 n 
+0000000688 00000 n 
 trailer<</Size 6/Root 1 0 R>>
 startxref
-363
+749
 %%EOF
