@@ -27,8 +27,8 @@ novo ciclo de status e o que ficou pendente.
   SOLICITA_INFORMACAO.
 - **Finais:** DEFERIDO, INDEFERIDO, CANCELADO.
 - Enum: `domain/StatusProcesso.java` — `isFinalizado()`, `isEmAndamento()`,
-  e helpers de cor/ícone de badge (`getBadgeClasse`, `getBadgeIcone`,
-  `getBootstrapBadge`).
+  e helpers de cor/ícone de badge (`getBadgeIcone`, `getBootstrapBadge`).
+  (`getBadgeClasse` foi removido em 2026-07-25 por não ter nenhum chamador.)
 
 ### Decisão sobre `EM_ANALISE`
 Mantido como **sinônimo legado de ENVIADO** (posicionado entre ENVIADO e a

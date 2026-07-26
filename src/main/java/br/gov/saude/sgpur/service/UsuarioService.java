@@ -56,11 +56,22 @@ public class UsuarioService {
      */
     @Transactional
     public Usuario criar(Usuario u, String senhaPura, Long membroId) {
+        return criar(u, senhaPura, membroId, u.getEquipeSolicitante());
+    }
+
+    /**
+     * Cria usuario com membro vinculado (AVALIADOR) e/ou equipe solicitante
+     * (SOLICITANTE). Valida: AVALIADOR exige membroId; SOLICITANTE exige
+     * equipeSolicitante; os demais perfis nao devem ter nenhum dos dois.
+     */
+    @Transactional
+    public Usuario criar(Usuario u, String senhaPura, Long membroId, String equipeSolicitante) {
         if (repo.existsByUsername(u.getUsername())) {
             throw new IllegalArgumentException("Ja existe um usuario com este login.");
         }
         u.setId(null);
         aplicarMembro(u, membroId);
+        aplicarEquipeSolicitante(u, equipeSolicitante);
         u.setSenha(encoder.encode(senhaPura));
         return repo.save(u);
     }
@@ -76,6 +87,15 @@ public class UsuarioService {
      */
     @Transactional
     public Usuario atualizar(Long id, Usuario form, String senhaPura, Long membroId) {
+        return atualizar(id, form, senhaPura, membroId, form.getEquipeSolicitante());
+    }
+
+    /**
+     * Atualiza dados com suporte ao membro vinculado (AVALIADOR) e a equipe
+     * solicitante (SOLICITANTE).
+     */
+    @Transactional
+    public Usuario atualizar(Long id, Usuario form, String senhaPura, Long membroId, String equipeSolicitante) {
         Usuario u = buscar(id);
         if (!u.getUsername().equals(form.getUsername())) {
             if (repo.existsByUsername(form.getUsername())) {
@@ -88,6 +108,7 @@ public class UsuarioService {
         u.setPerfil(form.getPerfil());
         u.setAtivo(form.isAtivo());
         aplicarMembro(u, membroId);
+        aplicarEquipeSolicitante(u, equipeSolicitante);
         if (senhaPura != null && !senhaPura.isBlank()) {
             u.setSenha(encoder.encode(senhaPura));
         }
@@ -268,6 +289,24 @@ public class UsuarioService {
         } else {
             // ADMIN e OPERADOR nao tem membro vinculado
             u.setMembro(null);
+        }
+    }
+
+    /**
+     * Aplica a regra de equipe solicitante: SOLICITANTE exige o campo
+     * preenchido (identifica qual equipe o formulario de nova solicitacao
+     * online deve pre-preencher); outros perfis nao devem ter equipe
+     * vinculada (limpa o campo para evitar estado inconsistente).
+     */
+    private void aplicarEquipeSolicitante(Usuario u, String equipeSolicitante) {
+        if (u.getPerfil() == Perfil.SOLICITANTE) {
+            if (equipeSolicitante == null || equipeSolicitante.isBlank()) {
+                throw new IllegalArgumentException(
+                    "Perfil Solicitante exige o nome da equipe/hospital solicitante.");
+            }
+            u.setEquipeSolicitante(equipeSolicitante.trim());
+        } else {
+            u.setEquipeSolicitante(null);
         }
     }
 }

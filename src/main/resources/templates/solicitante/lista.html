@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Minhas solicitacoes')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 980px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0"><i class="bi bi-send-plus"></i> Minhas solicitacoes</h1>
+            <p class="text-muted small mb-0" th:text="'Equipe: ' + ${equipe}">Equipe</p>
+        </div>
+        <a th:href="@{/solicitante/nova}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Nova solicitacao
+        </a>
+    </div>
+
+    <div class="alert alert-info py-2">
+        <i class="bi bi-info-circle"></i>
+        Modulo experimental: envie o pedido de urgencia renal direto pelo sistema, como
+        alternativa ao envio por e-mail. A equipe de Urgencia Renal faz a triagem e
+        prossegue com a analise; voce nao escolhe os medicos avaliadores.
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Paciente</th>
+                        <th>RGCT</th>
+                        <th>Enviada em</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="s : ${solicitacoes}">
+                        <td th:text="${s.pacienteNome}">Paciente</td>
+                        <td th:text="${s.pacienteRgct}">RGCT</td>
+                        <td class="small text-muted"
+                            th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</td>
+                        <td>
+                            <span th:switch="${s.status.name()}">
+                                <span th:case="'ENVIADA'" class="badge bg-warning text-dark">
+                                    <i class="bi bi-hourglass-split"></i> Aguardando triagem</span>
+                                <span th:case="'CONVERTIDA'" class="badge bg-success">
+                                    <i class="bi bi-check-circle-fill"></i> Convertida em processo</span>
+                                <span th:case="'DEVOLVIDA'" class="badge bg-danger">
+                                    <i class="bi bi-arrow-return-left"></i> Devolvida</span>
+                                <span th:case="'CANCELADA'" class="badge bg-secondary">
+                                    <i class="bi bi-slash-circle"></i> Cancelada</span>
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a th:href="@{/solicitante/{id}(id=${s.id})}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Ver
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${solicitacoes.isEmpty()}">
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                            Voce ainda nao enviou nenhuma solicitacao.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

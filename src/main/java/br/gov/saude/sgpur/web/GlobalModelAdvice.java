@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,10 +28,24 @@ public class GlobalModelAdvice {
 
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
+    private final boolean solicitanteHabilitado;
 
-    public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo) {
+    public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo,
+                             @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
+        this.solicitanteHabilitado = solicitanteHabilitado;
+    }
+
+    /**
+     * Kill-switch do modulo experimental "Solicitacao Online" (ver
+     * docs/PLANO-SOLICITANTE.md), exposto ao layout para esconder os links
+     * de navegacao quando desligado (os controllers ja nem sao registrados
+     * nesse caso - isto so evita mostrar um link morto).
+     */
+    @ModelAttribute("solicitanteHabilitado")
+    public boolean solicitanteHabilitado() {
+        return solicitanteHabilitado;
     }
 
     // @Transactional necessario: par.getProcesso() em pendentesDoMembro() e LAZY

@@ -44,7 +44,7 @@ class GlobalModelAdviceTest {
         // sao injetados pelo MockitoExtension DEPOIS que o construtor da
         // classe de teste roda, entao usuarioRepo/parecerRepo ainda estariam
         // null se "advice" fosse montado ali.
-        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo);
+        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo, true);
     }
 
     @AfterEach

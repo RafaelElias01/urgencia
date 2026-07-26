@@ -62,6 +62,7 @@ public class UsuarioController {
     public String criar(@Valid @ModelAttribute("usuario") Usuario usuario, BindingResult result,
                         @RequestParam String senha,
                         @RequestParam(required = false) Long membroId,
+                        @RequestParam(required = false) String equipeSolicitante,
                         Model model, RedirectAttributes ra, HttpServletRequest request) {
         if (senha == null || senha.isBlank()) {
             result.rejectValue("senha", "obrigatorio", "Informe a senha.");
@@ -75,7 +76,7 @@ public class UsuarioController {
             return "usuarios/form";
         }
         try {
-            service.criar(usuario, senha, membroId);
+            service.criar(usuario, senha, membroId, equipeSolicitante);
         } catch (IllegalArgumentException e) {
             model.addAttribute("edicao", false);
             model.addAttribute("membros", membroRepo.findByAtivoTrueOrderByInstituicaoAsc());
@@ -92,6 +93,7 @@ public class UsuarioController {
                             BindingResult result,
                             @RequestParam(required = false) String senha,
                             @RequestParam(required = false) Long membroId,
+                            @RequestParam(required = false) String equipeSolicitante,
                             Model model, RedirectAttributes ra, HttpServletRequest request) {
         if (form.getEmail() == null || form.getEmail().isBlank()) {
             result.rejectValue("email", "obrigatorio", "Informe o e-mail.");
@@ -102,7 +104,7 @@ public class UsuarioController {
             return "usuarios/form";
         }
         try {
-            service.atualizar(id, form, senha, membroId);
+            service.atualizar(id, form, senha, membroId, equipeSolicitante);
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute("erro", e.getMessage());
             return "redirect:/usuarios/" + id + "/editar";

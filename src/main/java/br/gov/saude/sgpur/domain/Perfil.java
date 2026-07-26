@@ -4,7 +4,8 @@ package br.gov.saude.sgpur.domain;
 public enum Perfil {
     ADMIN("Administrador"),
     OPERADOR("Operador"),
-    AVALIADOR("Avaliador");
+    AVALIADOR("Avaliador"),
+    SOLICITANTE("Solicitante");
 
     private final String descricao;
 

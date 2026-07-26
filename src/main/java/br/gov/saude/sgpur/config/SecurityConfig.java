@@ -118,6 +118,13 @@ public class SecurityConfig {
                     .requestMatchers("/arquivo/**").hasAnyRole("ADMIN", "OPERADOR")
                     .requestMatchers("/", "/processos/**").hasAnyRole("ADMIN", "OPERADOR")
                     .requestMatchers("/avaliador/**").hasRole("AVALIADOR")
+                    // Portal do Solicitante (modulo experimental, ver
+                    // docs/PLANO-SOLICITANTE.md): restrito a ROLE_SOLICITANTE
+                    // independente do feature flag - se app.solicitante.habilitado
+                    // estiver falso, SolicitanteController nem e registrado
+                    // (@ConditionalOnProperty), entao a rota simplesmente 404
+                    // para quem tiver a role, sem precisar duplicar o flag aqui.
+                    .requestMatchers("/solicitante/**").hasRole("SOLICITANTE")
                     .anyRequest().authenticated();
             })
             .formLogin(form -> form
@@ -182,8 +189,9 @@ public class SecurityConfig {
 
     /**
      * Redireciona o usuario apos login conforme o perfil:
-     *  - AVALIADOR -> /avaliador (portal restrito, sem dados sigilosos)
-     *  - demais    -> / (dashboard operacional)
+     *  - AVALIADOR   -> /avaliador (portal restrito, sem dados sigilosos)
+     *  - SOLICITANTE -> /solicitante (portal restrito, modulo experimental)
+     *  - demais      -> / (dashboard operacional)
      */
     @Bean
     public AuthenticationSuccessHandler perfilSuccessHandler() {
@@ -194,7 +202,10 @@ public class SecurityConfig {
                                                 Authentication authentication) throws IOException {
                 boolean isAvaliador = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_AVALIADOR"));
-                response.sendRedirect(request.getContextPath() + (isAvaliador ? "/avaliador" : "/"));
+                boolean isSolicitante = authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_SOLICITANTE"));
+                String destino = isAvaliador ? "/avaliador" : isSolicitante ? "/solicitante" : "/";
+                response.sendRedirect(request.getContextPath() + destino);
             }
         };
     }

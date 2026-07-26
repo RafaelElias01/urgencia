@@ -11,6 +11,7 @@ import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
+import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
@@ -41,6 +42,7 @@ public class ProcessoDetalheController {
     private final GeminiService geminiService;
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
     private final RelatorioService relatorioService;
+    private final SolicitacaoOnlineService solicitacaoOnlineService;
 
     public ProcessoDetalheController(ProcessoService processoService,
                                      FluxoProcessoService fluxoService,
@@ -50,7 +52,8 @@ public class ProcessoDetalheController {
                                      AuditoriaService auditoria,
                                      GeminiService geminiService,
                                      ConflitoEquipeMatcher conflitoEquipeMatcher,
-                                     RelatorioService relatorioService) {
+                                     RelatorioService relatorioService,
+                                     SolicitacaoOnlineService solicitacaoOnlineService) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
@@ -60,6 +63,7 @@ public class ProcessoDetalheController {
         this.geminiService = geminiService;
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
         this.relatorioService = relatorioService;
+        this.solicitacaoOnlineService = solicitacaoOnlineService;
     }
 
     /**
@@ -91,9 +95,24 @@ public class ProcessoDetalheController {
     }
 
     @GetMapping("/novo")
-    public String novo(Model model) {
+    public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model) {
         Processo p = new Processo();
         p.setDataSituacaoEspecial(LocalDate.now());
+        // Modulo experimental "Solicitacao Online" (ver docs/PLANO-SOLICITANTE.md):
+        // pre-preenche o formulario com os dados que o solicitante ja enviou pelo
+        // portal, para o operador nao redigitar tudo. O operador ainda confere os
+        // dados, escolhe os 3 avaliadores e digita o numero normalmente - nada do
+        // fluxo de cadastro muda por causa disso.
+        if (origemSolicitacaoOnlineId != null) {
+            var s = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
+            p.setPacienteNome(s.getPacienteNome());
+            p.setPacienteRgct(s.getPacienteRgct());
+            p.setSolicitanteEquipe(s.getSolicitanteEquipe());
+            p.setSolicitanteEmail(s.getSolicitanteEmail());
+            p.setDataSituacaoEspecial(s.getDataSituacaoEspecial());
+            p.setObservacoes(s.getJustificativaClinica());
+        }
+        model.addAttribute("origemSolicitacaoOnlineId", origemSolicitacaoOnlineId);
         int ano = Year.now().getValue();
         boolean automatica = processoService.isNumeracaoAutomatica(ano);
         if (!automatica) {
@@ -110,6 +129,7 @@ public class ProcessoDetalheController {
     public String salvar(@Valid @ModelAttribute("processo") Processo processo,
                          BindingResult result,
                          @RequestParam(value = "medicoIds", required = false) java.util.List<Long> medicoIds,
+                         @RequestParam(required = false) Long origemSolicitacaoOnlineId,
                          Model model, RedirectAttributes ra) {
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();
@@ -149,11 +169,30 @@ public class ProcessoDetalheController {
             model.addAttribute("numeracaoAutomatica", automatica);
             model.addAttribute("medicos", membroRepository.findByAtivoTrueOrderByInstituicaoAsc());
             model.addAttribute("totalAvaliadores", ProcessoService.AVALIADORES_POR_PROCESSO);
+            model.addAttribute("origemSolicitacaoOnlineId", origemSolicitacaoOnlineId);
             return "processos/form";
         }
         Processo salvo = processoService.cadastrar(processo, medicoIds);
         auditoria.registrar("PROCESSO_CADASTRADO",
             "Processo " + salvo.getNumero() + " - " + salvo.getPacienteNome());
+        // Modulo experimental "Solicitacao Online": se este cadastro veio da
+        // triagem de uma solicitacao enviada pelo portal, fecha o vinculo -
+        // copia os documentos clinicos anexados pelo solicitante para o
+        // processo e marca a solicitacao como CONVERTIDA. Feito DEPOIS do
+        // cadastro ja ter tido sucesso; se falhar aqui, o processo continua
+        // valido (so a solicitacao de origem fica sem o vinculo automatico,
+        // corrigivel manualmente).
+        if (origemSolicitacaoOnlineId != null) {
+            try {
+                solicitacaoOnlineService.converter(origemSolicitacaoOnlineId, salvo);
+                auditoria.registrar("SOLICITACAO_ONLINE_CONVERTIDA",
+                    "Solicitacao " + origemSolicitacaoOnlineId + " -> Processo " + salvo.getNumero());
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                ra.addFlashAttribute("aviso",
+                    "Processo cadastrado, mas houve falha ao vincular a solicitacao online de origem: "
+                        + e.getMessage());
+            }
+        }
         ra.addFlashAttribute("msg", "Processo " + salvo.getNumero() + " cadastrado.");
         return "redirect:/processos/" + salvo.getId();
     }

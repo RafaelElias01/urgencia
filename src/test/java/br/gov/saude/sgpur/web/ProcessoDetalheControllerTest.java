@@ -46,6 +46,7 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private GeminiService geminiService;
     @MockitoBean private ConflitoEquipeMatcher conflitoEquipeMatcher;
     @MockitoBean private RelatorioService relatorioService;
+    @MockitoBean private br.gov.saude.sgpur.service.SolicitacaoOnlineService solicitacaoOnlineService;
     // GlobalModelAdvice (@ControllerAdvice global) precisa dessas duas pro
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;

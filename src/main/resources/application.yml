@@ -97,6 +97,13 @@ app:
   avaliador:
     prazo-dias: ${SGPUR_PRAZO_AVALIADOR:7}
 
+  # Portal do Solicitante (modulo experimental, ver docs/PLANO-SOLICITANTE.md):
+  # kill-switch que registra ou nao SolicitanteController/triagem
+  # (@ConditionalOnProperty). Ligado por padrao em dev; application-prod.yml
+  # troca o default para desligado ate o time decidir usar de fato.
+  solicitante:
+    habilitado: ${SGPUR_SOLICITANTE_HABILITADO:true}
+
   # Google Gemini API (IA generativa). PROTECAO DE DADOS: "enabled" e o
   # kill-switch - quando false, GeminiService.perguntar() nem monta a chamada
   # (nenhum dado sai do servidor). Aqui (base/dev) fica ligado por padrao;

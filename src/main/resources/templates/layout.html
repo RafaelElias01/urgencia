@@ -37,6 +37,10 @@
                     <i class="bi bi-clock-history me-1"></i>Urgencias</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>
+                <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')" th:if="${solicitanteHabilitado}">
+                    <a class="nav-link" th:href="@{/processos/solicitacoes-online}">
+                        <i class="bi bi-inbox-fill me-1"></i>Solicitacoes online</a>
+                </li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                     <a class="nav-link" th:href="@{/usuarios}">Usuarios</a>
                 </li>
@@ -52,6 +56,11 @@
                         <span th:if="${pendentesAvaliador > 0}"
                               class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
                               th:text="${pendentesAvaliador}">0</span>
+                    </a>
+                </li>
+                <li class="nav-item me-2" sec:authorize="hasRole('SOLICITANTE')" th:if="${solicitanteHabilitado}">
+                    <a class="nav-link" th:href="@{/solicitante}" title="Minhas solicitacoes">
+                        <i class="bi bi-send-plus"></i> Minhas solicitacoes
                     </a>
                 </li>
                 <li class="nav-item dropdown" sec:authorize="isAuthenticated()">

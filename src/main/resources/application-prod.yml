@@ -41,3 +41,7 @@ app:
   # apos decisao formal de tratamento de dados (ver GeminiService).
   gemini:
     enabled: ${SGPUR_GEMINI_ENABLED:false}
+  # Modulo experimental (ver docs/PLANO-SOLICITANTE.md): desligado por padrao
+  # em producao ate o time decidir usar. Liga com SGPUR_SOLICITANTE_HABILITADO=true.
+  solicitante:
+    habilitado: ${SGPUR_SOLICITANTE_HABILITADO:false}

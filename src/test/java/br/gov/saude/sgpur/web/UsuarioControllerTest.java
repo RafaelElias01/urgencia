@@ -135,7 +135,7 @@ class UsuarioControllerTest {
             .andExpect(redirectedUrl("/usuarios"))
             .andExpect(flash().attribute("msg", "Usuario criado."));
 
-        verify(service).criar(any(Usuario.class), eq("segredo123"), isNull());
+        verify(service).criar(any(Usuario.class), eq("segredo123"), isNull(), isNull());
         verify(auditoria).registrar(eq("USUARIO_CRIADO"), eq("Usuario novo1"), any());
     }
 
@@ -154,7 +154,7 @@ class UsuarioControllerTest {
             .andExpect(model().attribute("edicao", false))
             .andExpect(model().attributeHasFieldErrors("usuario", "senha"));
 
-        verify(service, never()).criar(any(), anyString(), any());
+        verify(service, never()).criar(any(), anyString(), any(), any());
         verifyNoInteractions(auditoria);
     }
 
@@ -172,14 +172,14 @@ class UsuarioControllerTest {
             .andExpect(view().name("usuarios/form"))
             .andExpect(model().attributeHasFieldErrors("usuario", "email"));
 
-        verify(service, never()).criar(any(), anyString(), any());
+        verify(service, never()).criar(any(), anyString(), any(), any());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void criarComLoginDuplicadoExibeErroDoServicoSemRedirecionar() throws Exception {
         doThrow(new IllegalArgumentException("Ja existe um usuario com este login."))
-            .when(service).criar(any(Usuario.class), anyString(), isNull());
+            .when(service).criar(any(Usuario.class), anyString(), isNull(), isNull());
 
         mvc.perform(post("/usuarios")
                 .with(csrf())
@@ -207,7 +207,7 @@ class UsuarioControllerTest {
                 .param("senha", "segredo123"))
             .andExpect(status().isForbidden());
 
-        verify(service, never()).criar(any(), anyString(), any());
+        verify(service, never()).criar(any(), anyString(), any(), any());
     }
 
     // ---- atualizar (POST /usuarios/{id}/editar) ----
@@ -225,7 +225,7 @@ class UsuarioControllerTest {
             .andExpect(redirectedUrl("/usuarios"))
             .andExpect(flash().attribute("msg", "Usuario atualizado."));
 
-        verify(service).atualizar(eq(5L), any(Usuario.class), isNull(), isNull());
+        verify(service).atualizar(eq(5L), any(Usuario.class), isNull(), isNull(), isNull());
         verify(auditoria).registrar(eq("USUARIO_EDITADO"), eq("Usuario id 5"), any());
     }
 
@@ -243,14 +243,14 @@ class UsuarioControllerTest {
             .andExpect(model().attribute("edicao", true))
             .andExpect(model().attributeHasFieldErrors("usuario", "email"));
 
-        verify(service, never()).atualizar(any(), any(), any(), any());
+        verify(service, never()).atualizar(any(), any(), any(), any(), any());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void atualizarComLoginDuplicadoRedirecionaParaEdicaoComFlashErro() throws Exception {
         doThrow(new IllegalArgumentException("Ja existe um usuario com este login."))
-            .when(service).atualizar(eq(9L), any(Usuario.class), isNull(), isNull());
+            .when(service).atualizar(eq(9L), any(Usuario.class), isNull(), isNull(), isNull());
 
         mvc.perform(post("/usuarios/9/editar")
                 .with(csrf())

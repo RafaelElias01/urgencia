@@ -56,6 +56,17 @@ public class Usuario {
     @JoinColumn(name = "membro_id")
     private MembroUrgenciaRenal membro;
 
+    /**
+     * Nome da equipe/hospital solicitante que este usuario representa.
+     * Preenchido apenas para perfil SOLICITANTE (mesmo padrao condicional de
+     * {@code membro} para AVALIADOR): identifica com qual equipe pre-preencher
+     * o formulario de nova solicitacao online, sem deixar o proprio usuario
+     * declarar outra equipe no formulario (o campo vem travado/somente-leitura
+     * na tela, a partir daqui).
+     */
+    @Column(name = "equipe_solicitante", length = 200)
+    private String equipeSolicitante;
+
     public Usuario() {
     }
 
@@ -121,5 +132,13 @@ public class Usuario {
 
     public void setMembro(MembroUrgenciaRenal membro) {
         this.membro = membro;
+    }
+
+    public String getEquipeSolicitante() {
+        return equipeSolicitante;
+    }
+
+    public void setEquipeSolicitante(String equipeSolicitante) {
+        this.equipeSolicitante = equipeSolicitante;
     }
 }

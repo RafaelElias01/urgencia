@@ -54,6 +54,16 @@
                 </div>
             </div>
 
+            <!-- Equipe solicitante: visivel e obrigatoria apenas para perfil SOLICITANTE -->
+            <div class="mb-3" id="equipeSolicitanteBox">
+                <label class="form-label">Equipe / hospital solicitante *</label>
+                <input type="text" name="equipeSolicitante" class="form-control" id="equipeSolicitanteInput"
+                       th:value="${usuario.equipeSolicitante}" maxlength="200">
+                <div class="form-text text-muted">
+                    Pre-preenche o formulario de nova solicitacao online (/solicitante/nova) deste usuario.
+                </div>
+            </div>
+
             <div class="mb-3">
                 <label class="form-label" th:text="${edicao} ? 'Nova senha (deixe vazio para manter)' : 'Senha *'">Senha</label>
                 <div class="input-group">
@@ -84,11 +94,17 @@
     var perfilSelect = document.getElementById('perfilSelect');
     var membroBox = document.getElementById('membroBox');
     var membroSelect = document.getElementById('membroSelect');
+    var equipeSolicitanteBox = document.getElementById('equipeSolicitanteBox');
+    var equipeSolicitanteInput = document.getElementById('equipeSolicitanteInput');
 
     function atualizarMembro() {
         var ehAvaliador = perfilSelect.value === 'AVALIADOR';
         membroBox.style.display = ehAvaliador ? '' : 'none';
         membroSelect.required = ehAvaliador;
+
+        var ehSolicitante = perfilSelect.value === 'SOLICITANTE';
+        equipeSolicitanteBox.style.display = ehSolicitante ? '' : 'none';
+        equipeSolicitanteInput.required = ehSolicitante;
     }
 
     perfilSelect.addEventListener('change', atualizarMembro);

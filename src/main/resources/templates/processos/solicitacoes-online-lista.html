@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Solicitacoes online')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4">
+    <h1 class="h3 mb-3"><i class="bi bi-inbox-fill"></i> Solicitacoes online — triagem</h1>
+    <div class="alert alert-info py-2">
+        <i class="bi bi-info-circle"></i>
+        Modulo experimental (Portal do Solicitante). Pedidos enviados diretamente pela equipe
+        solicitante, aguardando triagem. Ao converter, voce revisa os dados no formulario normal
+        de cadastro e escolhe os 3 medicos avaliadores.
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Paciente</th>
+                        <th>RGCT</th>
+                        <th>Equipe solicitante</th>
+                        <th>Enviada em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="s : ${solicitacoes}">
+                        <td th:text="${s.pacienteNome}">Paciente</td>
+                        <td th:text="${s.pacienteRgct}">RGCT</td>
+                        <td th:text="${s.solicitanteEquipe}">Equipe</td>
+                        <td class="small text-muted"
+                            th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</td>
+                        <td class="text-end">
+                            <a th:href="@{/processos/solicitacoes-online/{id}(id=${s.id})}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Ver
+                            </a>
+                        </td>
+                    </tr>
+                    <tr th:if="${solicitacoes.isEmpty()}">
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
+                            Nenhuma solicitacao aguardando triagem.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>

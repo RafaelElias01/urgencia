@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Solicitacao online')}"></head>
+<body>
+<nav th:replace="~{layout :: navbar}"></nav>
+<div th:replace="~{layout :: flash}"></div>
+
+<div class="container my-4" style="max-width: 760px;">
+    <h1 class="h3 mb-3" th:text="${solicitacao.pacienteNome}">Paciente</h1>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">RGCT / SNT</dt>
+                <dd class="col-sm-8" th:text="${solicitacao.pacienteRgct}"></dd>
+                <dt class="col-sm-4">Equipe solicitante</dt>
+                <dd class="col-sm-8" th:text="${solicitacao.solicitanteEquipe}"></dd>
+                <dt class="col-sm-4">E-mail do solicitante</dt>
+                <dd class="col-sm-8" th:text="${solicitacao.solicitanteEmail}"></dd>
+                <dt class="col-sm-4">Data da situacao especial</dt>
+                <dd class="col-sm-8"
+                    th:text="${#temporals.format(solicitacao.dataSituacaoEspecial, 'dd/MM/yyyy')}"></dd>
+                <dt class="col-sm-4">Enviada em</dt>
+                <dd class="col-sm-8"
+                    th:text="${#temporals.format(solicitacao.dataEnvio, 'dd/MM/yyyy HH:mm')}"></dd>
+                <dt class="col-sm-4">Justificativa clinica</dt>
+                <dd class="col-sm-8" th:text="${solicitacao.justificativaClinica}" style="white-space: pre-wrap;"></dd>
+            </dl>
+        </div>
+    </div>
+
+    <h2 class="h6 text-muted">Documentos anexados</h2>
+    <ul class="list-group mb-3">
+        <li class="list-group-item" th:each="a : ${solicitacao.anexos}" th:text="${a.nomeArquivo}"></li>
+        <li class="list-group-item text-muted" th:if="${solicitacao.anexos.isEmpty()}">
+            Nenhum documento anexado.
+        </li>
+    </ul>
+
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <a th:href="@{/processos/solicitacoes-online}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
+                    data-bs-target="#modalDevolver">
+                <i class="bi bi-arrow-return-left"></i> Devolver
+            </button>
+            <a th:href="@{/processos/solicitacoes-online/{id}/converter(id=${solicitacao.id})}"
+               class="btn btn-primary">
+                <i class="bi bi-arrow-right-circle"></i> Converter em processo
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDevolver" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form th:action="@{/processos/solicitacoes-online/{id}/devolver(id=${solicitacao.id})}" method="post"
+              class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Devolver solicitacao</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label">Motivo (visivel ao solicitante) *</label>
+                <textarea name="observacoes" class="form-control" rows="3" required></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Devolver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script th:replace="~{layout :: scripts}"></script>
+</body>
+</html>
