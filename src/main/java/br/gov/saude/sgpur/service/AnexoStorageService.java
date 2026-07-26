@@ -226,7 +226,13 @@ public class AnexoStorageService {
      * cobre ambos os casos - este metodo existe para clareza e eventual extensao.
      */
     public Path resolverArquivo(Anexo anexo) {
-        Path resolvido = raiz.resolve(anexo.getCaminhoArmazenado()).normalize();
+        // Normaliza \ para / ANTES de resolver: no Linux (producao) a barra
+        // invertida nao e separador de caminho, entao um valor gravado como
+        // ..\..\Windows\win.ini viraria so um nome de arquivo literal e nunca
+        // escaparia da raiz - a checagem abaixo so pega esse ataque em
+        // qualquer SO se a barra invertida for tratada como separador antes.
+        String caminho = anexo.getCaminhoArmazenado().replace('\\', '/');
+        Path resolvido = raiz.resolve(caminho).normalize();
         // Defesa em profundidade: garante que o caminho resolvido continua
         // dentro da raiz de anexos, mesmo que caminhoArmazenado seja corrompido
         // (nunca deveria escapar, pois e gravado pelo proprio sistema).

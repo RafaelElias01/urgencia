@@ -93,9 +93,18 @@ public class AnexoSolicitacaoOnlineStorageService {
         return repository.save(anexo);
     }
 
-    /** Resolve o arquivo fisico de um anexo, com defesa contra path traversal. */
+    /**
+     * Resolve o arquivo fisico de um anexo, com defesa contra path traversal.
+     * Normaliza {@code \} para {@code /} ANTES de resolver: no Linux (onde o
+     * app roda em producao) a barra invertida nao e separador de caminho,
+     * entao um valor gravado como {@code ..\..\Windows\win.ini} vira so um
+     * nome de arquivo literal e nunca escapa da raiz - a checagem abaixo so
+     * pega esse ataque de verdade em qualquer SO se a barra invertida for
+     * tratada como separador primeiro.
+     */
     public Path resolverArquivo(AnexoSolicitacaoOnline anexo) {
-        Path resolvido = raiz.resolve(anexo.getCaminhoArmazenado()).normalize();
+        String caminho = anexo.getCaminhoArmazenado().replace('\\', '/');
+        Path resolvido = raiz.resolve(caminho).normalize();
         if (!resolvido.startsWith(raiz)) {
             throw new IllegalArgumentException("Caminho de anexo invalido (fora da area de armazenamento).");
         }
