@@ -9,14 +9,26 @@ function mostrarToast(mensagem, tipo) {
         container = document.createElement('div');
         container.id = 'toastContainer';
         container.className = 'toast-container-sgpur';
+        container.setAttribute('role', 'status');
+        container.setAttribute('aria-live', 'polite');
         document.body.appendChild(container);
     }
     var icones = {success: 'bi-check-circle-fill text-success', error: 'bi-exclamation-triangle-fill text-danger', info: 'bi-info-circle-fill text-primary'};
     var toast = document.createElement('div');
     toast.className = 'toast-sgpur toast-' + tipo;
-    toast.innerHTML = '<i class="bi toast-icon ' + (icones[tipo] || icones.info) + '"></i>' +
-        '<div class="toast-body">' + mensagem + '</div>' +
-        '<button class="toast-close" onclick="this.parentElement.remove()">&times;</button>';
+    var icone = document.createElement('i');
+    icone.className = 'bi toast-icon ' + (icones[tipo] || icones.info);
+    var corpo = document.createElement('div');
+    corpo.className = 'toast-body';
+    corpo.textContent = mensagem;
+    var fechar = document.createElement('button');
+    fechar.className = 'toast-close';
+    fechar.setAttribute('aria-label', 'Fechar');
+    fechar.textContent = '×';
+    fechar.addEventListener('click', function () { toast.remove(); });
+    toast.appendChild(icone);
+    toast.appendChild(corpo);
+    toast.appendChild(fechar);
     container.appendChild(toast);
     setTimeout(function () {
         toast.style.opacity = '0';
@@ -348,8 +360,10 @@ if (wizardWrapper) {
     }
     checkScroll();
     window.addEventListener('resize', checkScroll);
-    wizard.addEventListener('scroll', function () {
-        var atEnd = wizard.scrollLeft + wizard.clientWidth >= wizard.scrollWidth - 2;
-        if (atEnd) wizardWrapper.classList.remove('can-scroll');
-    });
+    if (wizard) {
+        wizard.addEventListener('scroll', function () {
+            var atEnd = wizard.scrollLeft + wizard.clientWidth >= wizard.scrollWidth - 2;
+            if (atEnd) wizardWrapper.classList.remove('can-scroll');
+        });
+    }
 }
