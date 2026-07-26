@@ -631,7 +631,11 @@ tr.linha-inativa > td:first-child {
     letter-spacing: .04em;
     margin-top: .25rem;
     line-height: 1.5;
-    min-height: 2.25em;
+    /* rem, nao em: em seria relativo ao proprio font-size (.75rem) deste
+       elemento, dando 1.6875rem - menor que a altura real de 2 linhas
+       (2 * 1.5 * .75rem = 2.25rem) e nao resolveria a inconsistencia entre
+       cards com rotulo curto x longo. */
+    min-height: 2.25rem;
 }
 
 /* === Secao de wizard content com fade === */
