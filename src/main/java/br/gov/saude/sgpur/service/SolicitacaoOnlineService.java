@@ -97,7 +97,7 @@ public class SolicitacaoOnlineService {
      * retomou a analise entre a tela abrir e o solicitante enviar.
      */
     @Transactional
-    public void enviarInformacaoComplementar(SolicitacaoOnline s, List<MultipartFile> arquivos) throws IOException {
+    public void enviarInformacaoComplementar(SolicitacaoOnline s, List<MultipartFile> arquivos) {
         if (!precisaInformacaoComplementar(s)) {
             throw new IllegalStateException(
                 "Este pedido nao esta aguardando informacao complementar no momento.");
@@ -110,9 +110,18 @@ public class SolicitacaoOnlineService {
             if (arquivo == null || arquivo.isEmpty()) {
                 continue;
             }
-            anexoStorageProcesso.salvar(s.getProcessoGerado(), TipoAnexo.INFO_COMPLEMENTAR,
-                "Resposta com informacoes complementares enviada pelo solicitante via Portal do Solicitante",
-                arquivo);
+            try {
+                anexoStorageProcesso.salvar(s.getProcessoGerado(), TipoAnexo.INFO_COMPLEMENTAR,
+                    "Resposta com informacoes complementares enviada pelo solicitante via Portal do Solicitante",
+                    arquivo);
+            } catch (IOException e) {
+                // IOException e checked - sem envolver numa RuntimeException, o Spring
+                // NAO faz rollback (so reverte @Transactional em RuntimeException/Error
+                // por padrao) e os anexos ja salvos neste loop ficariam commitados
+                // mesmo com a falha. Mesmo padrao ja usado em criar() (acima).
+                throw new IllegalStateException(
+                    "Falha ao salvar arquivo enviado: " + e.getMessage(), e);
+            }
         }
     }
 

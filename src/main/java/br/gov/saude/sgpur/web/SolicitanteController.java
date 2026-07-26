@@ -179,8 +179,6 @@ public class SolicitanteController {
                 "Informacoes enviadas. A equipe de Urgencia Renal vai retomar a analise em breve.");
         } catch (IllegalArgumentException | IllegalStateException e) {
             ra.addFlashAttribute("erro", e.getMessage());
-        } catch (java.io.IOException e) {
-            ra.addFlashAttribute("erro", "Falha ao salvar o(s) arquivo(s) enviado(s): " + e.getMessage());
         }
         return "redirect:/solicitante/" + id;
     }

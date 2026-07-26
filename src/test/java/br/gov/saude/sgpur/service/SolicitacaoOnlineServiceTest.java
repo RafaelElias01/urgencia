@@ -315,4 +315,30 @@ class SolicitacaoOnlineServiceTest {
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("nao esta aguardando informacao complementar");
     }
+
+    /**
+     * Regressao do achado do ultrareview no PR #1: IOException (checked) do
+     * storage propagando sem wrap faria o Spring COMMITAR a transacao mesmo
+     * com falha (rollback default so cobre RuntimeException/Error) -
+     * anexos ja gravados em iteracoes anteriores do loop ficariam
+     * commitados. Precisa virar RuntimeException para garantir rollback,
+     * mesmo padrao ja usado em criar() (acima, no mesmo arquivo).
+     */
+    @Test
+    void enviarInformacaoComplementarEnvolveIOExceptionEmIllegalStateException() throws Exception {
+        SolicitacaoOnline s = comStatus(27L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.SOLICITA_INFORMACAO));
+        org.springframework.mock.web.MockMultipartFile arquivo =
+            new org.springframework.mock.web.MockMultipartFile("arquivos", "resposta.pdf",
+                "application/pdf", "conteudo".getBytes());
+        org.mockito.Mockito.when(anexoStorageProcesso.salvar(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(TipoAnexo.INFO_COMPLEMENTAR),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(arquivo)))
+            .thenThrow(new java.io.IOException("Disco cheio"));
+
+        assertThatThrownBy(() -> service.enviarInformacaoComplementar(s, java.util.List.of(arquivo)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Falha ao salvar arquivo enviado")
+            .hasCauseInstanceOf(java.io.IOException.class);
+    }
 }
