@@ -225,6 +225,10 @@ public class ProcessoDetalheController {
     public String detalhe(@PathVariable Long id, Model model) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);
+        // Nome da pasta que o operador vera ao descompactar o dossie
+        // (botao "Baixar processo completo (ZIP)" no card de Atalhos).
+        model.addAttribute("nomePastaExportacao",
+            br.gov.saude.sgpur.service.ExportacaoProcessoService.nomePasta(p));
         var etapas = fluxoService.montarEtapas(p);
         model.addAttribute("etapas", etapas);
         long concluidas = etapas.stream().filter(e -> e.estado().name().equals("CONCLUIDA")).count();

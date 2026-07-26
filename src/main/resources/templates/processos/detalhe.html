@@ -110,6 +110,15 @@
                            class="btn btn-outline-warning btn-sm text-start">
                             <i class="bi bi-file-earmark-text me-2"></i> Oficio de Indeferimento
                         </a>
+                        <a th:href="@{/processos/{id}/exportar(id=${processo.id})}"
+                           class="btn btn-outline-success btn-sm text-start">
+                            <i class="bi bi-file-earmark-zip me-2"></i> Baixar processo completo (ZIP)
+                        </a>
+                        <p class="text-muted small mb-0">
+                            Ao descompactar, cria a pasta
+                            <strong th:text="${nomePastaExportacao}">Paciente - Processo CET-RS NN-AAAA</strong>
+                            com o relatorio final, o resumo da movimentacao e todos os anexos.
+                        </p>
                         <a th:href="@{/processos/{id}/editar(id=${processo.id})}"
                            class="btn btn-outline-primary btn-sm text-start">
                             <i class="bi bi-pencil me-2"></i> Editar processo
