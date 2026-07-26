@@ -68,7 +68,61 @@ public class SolicitacaoOnlineService {
     }
 
     public List<SolicitacaoOnline> listarMinhas(Long usuarioSolicitanteId) {
-        return repository.findByUsuarioSolicitanteIdOrderByDataEnvioDesc(usuarioSolicitanteId);
+        return repository.findMinhasParaLista(usuarioSolicitanteId);
+    }
+
+    /**
+     * Verdadeiro quando o pedido ja virou {@link Processo} e esse processo
+     * esta pausado aguardando informacao complementar de um avaliador
+     * (ver regra "Solicita informacao (PAUSA)" no CLAUDE.md). Usado para
+     * decidir se o Portal do Solicitante mostra o formulario de upload
+     * direto de informacao complementar.
+     */
+    public boolean precisaInformacaoComplementar(SolicitacaoOnline s) {
+        return s.getStatus() == StatusSolicitacaoOnline.CONVERTIDA
+            && s.getProcessoGerado() != null
+            && s.getProcessoGerado().getStatus() == StatusProcesso.SOLICITA_INFORMACAO;
+    }
+
+    /**
+     * Recebe o(s) arquivo(s) de informacao complementar enviados pelo
+     * SOLICITANTE diretamente no portal, como alternativa ao e-mail externo.
+     * So grava o anexo {@code TipoAnexo.INFO_COMPLEMENTAR} no {@link Processo}
+     * - quem decide retomar a analise continua sendo exclusivamente o
+     * OPERADOR via {@code ProcessoService.retomarAposInformacao}
+     * (este metodo NUNCA muda o status do processo).
+     *
+     * Revalida o estado aqui dentro (defesa em profundidade, mesmo padrao de
+     * {@code ProcessoService.decidir}): cobre a corrida em que o operador ja
+     * retomou a analise entre a tela abrir e o solicitante enviar.
+     */
+    @Transactional
+    public void enviarInformacaoComplementar(SolicitacaoOnline s, List<MultipartFile> arquivos) {
+        if (!precisaInformacaoComplementar(s)) {
+            throw new IllegalStateException(
+                "Este pedido nao esta aguardando informacao complementar no momento.");
+        }
+        boolean algumArquivo = arquivos != null && arquivos.stream().anyMatch(a -> a != null && !a.isEmpty());
+        if (!algumArquivo) {
+            throw new IllegalArgumentException("Anexe pelo menos um arquivo.");
+        }
+        for (MultipartFile arquivo : arquivos) {
+            if (arquivo == null || arquivo.isEmpty()) {
+                continue;
+            }
+            try {
+                anexoStorageProcesso.salvar(s.getProcessoGerado(), TipoAnexo.INFO_COMPLEMENTAR,
+                    "Resposta com informacoes complementares enviada pelo solicitante via Portal do Solicitante",
+                    arquivo);
+            } catch (IOException e) {
+                // IOException e checked - sem envolver numa RuntimeException, o Spring
+                // NAO faz rollback (so reverte @Transactional em RuntimeException/Error
+                // por padrao) e os anexos ja salvos neste loop ficariam commitados
+                // mesmo com a falha. Mesmo padrao ja usado em criar() (acima).
+                throw new IllegalStateException(
+                    "Falha ao salvar arquivo enviado: " + e.getMessage(), e);
+            }
+        }
     }
 
     public List<SolicitacaoOnline> listarPendentesTriagem() {

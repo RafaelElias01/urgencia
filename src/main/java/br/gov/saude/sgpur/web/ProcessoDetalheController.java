@@ -285,6 +285,13 @@ public class ProcessoDetalheController {
         // decisao e a finalizacao ficam bloqueadas ate o operador retomar a analise.
         boolean aguardandoInfo = p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO;
         model.addAttribute("aguardandoInfo", aguardandoInfo);
+        // Anexos de informacao complementar ja recebidos (via e-mail lancado pelo
+        // operador OU enviados diretamente pelo solicitante no Portal do Solicitante).
+        model.addAttribute("anexosInfoComplementar",
+            p.getAnexos().stream()
+                .filter(a -> a.getTipo() == TipoAnexo.INFO_COMPLEMENTAR)
+                .sorted(java.util.Comparator.comparing(Anexo::getDataUpload))
+                .toList());
 
         // Anexos da aba Finalizacao
         Optional<Anexo> oficioAnexo = p.getAnexos().stream()

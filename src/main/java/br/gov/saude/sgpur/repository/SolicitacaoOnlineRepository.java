@@ -39,6 +39,20 @@ public interface SolicitacaoOnlineRepository extends JpaRepository<SolicitacaoOn
 
     List<SolicitacaoOnline> findByUsuarioSolicitanteIdOrderByDataEnvioDesc(Long usuarioSolicitanteId);
 
+    /**
+     * Versao para a tela "Minhas solicitacoes", que agora precisa checar
+     * {@code processoGerado.status} (para saber se aguarda informacao
+     * complementar) sem estourar N+1 - o fetch join carrega o processo de
+     * cada linha na mesma query. Mesmo raciocinio de {@link #findParaDetalhe}.
+     */
+    @Query("""
+        select s from SolicitacaoOnline s
+        left join fetch s.processoGerado
+        where s.usuarioSolicitante.id = :usuarioId
+        order by s.dataEnvio desc
+        """)
+    List<SolicitacaoOnline> findMinhasParaLista(@Param("usuarioId") Long usuarioId);
+
     List<SolicitacaoOnline> findByStatusOrderByDataEnvioAsc(StatusSolicitacaoOnline status);
 
     List<SolicitacaoOnline> findAllByOrderByDataEnvioDesc();

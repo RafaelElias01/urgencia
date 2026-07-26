@@ -259,4 +259,64 @@ class SolicitanteControllerTest {
             .andExpect(view().name("solicitante/nova"))
             .andExpect(model().attributeExists("erro"));
     }
+
+    @Test
+    @WithMockUser(username = "solicitante2", roles = "SOLICITANTE")
+    void enviarInformacaoComplementarExibe403ParaSolicitacaoDeOutroUsuario() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante2")).thenReturn(Optional.of(outroUsuario));
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivos", "resposta.pdf",
+            MediaType.APPLICATION_PDF_VALUE, "conteudo".getBytes());
+
+        mvc.perform(multipart("/solicitante/50/informacao-complementar").file(arquivo).with(csrf()))
+            .andExpect(status().isForbidden());
+
+        verify(solicitacaoService, never()).enviarInformacaoComplementar(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void enviarInformacaoComplementarFluxoFelizRedirecionaComMensagemDeSucesso() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        br.gov.saude.sgpur.domain.Processo processo = new br.gov.saude.sgpur.domain.Processo();
+        processo.setId(200L);
+        processo.setNumero("05/2026");
+        solicitacaoDoDono.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivos", "resposta.pdf",
+            MediaType.APPLICATION_PDF_VALUE, "conteudo".getBytes());
+
+        mvc.perform(multipart("/solicitante/50/informacao-complementar").file(arquivo).with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/solicitante/50"))
+            .andExpect(flash().attributeExists("msg"));
+
+        verify(solicitacaoService).enviarInformacaoComplementar(eq(solicitacaoDoDono), any());
+        verify(auditoria).registrar(eq("INFO_COMPLEMENTAR_RECEBIDA_PORTAL"), any());
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void enviarInformacaoComplementarComEstadoErradoVoltaComFlashDeErroSemQuebrar() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        br.gov.saude.sgpur.domain.Processo processo = new br.gov.saude.sgpur.domain.Processo();
+        processo.setId(200L);
+        processo.setNumero("05/2026");
+        solicitacaoDoDono.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+        doThrow(new IllegalStateException("Este pedido nao esta aguardando informacao complementar no momento."))
+            .when(solicitacaoService).enviarInformacaoComplementar(eq(solicitacaoDoDono), any());
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivos", "resposta.pdf",
+            MediaType.APPLICATION_PDF_VALUE, "conteudo".getBytes());
+
+        mvc.perform(multipart("/solicitante/50/informacao-complementar").file(arquivo).with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/solicitante/50"))
+            .andExpect(flash().attributeExists("erro"));
+    }
 }
