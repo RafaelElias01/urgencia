@@ -144,6 +144,13 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   `ProcessoService.retomarAposInformacao`): o processo **volta para `Enviado`**,
   os pareceres marcados como *Solicita informação* são **reabertos** (resultado
   limpo) para o voto definitivo, e o fluxo de Respostas/Decisão é liberado.
+  Além do e-mail externo, quando o pedido veio pelo **Portal do Solicitante**
+  (`SolicitacaoOnline` já `CONVERTIDA`), o próprio solicitante pode enviar o(s)
+  arquivo(s) direto pelo portal (`POST /solicitante/{id}/informacao-complementar`,
+  `SolicitacaoOnlineService.enviarInformacaoComplementar`) — vira o mesmo anexo
+  `TipoAnexo.INFO_COMPLEMENTAR` no `Processo`, visível ao operador no card de
+  Respostas. O solicitante só ENVIA; retomar a análise continua exclusivo do
+  OPERADOR via `retomarAposInformacao`.
 - **Fluxo em 6 passos** (checklist `FluxoProcessoService` + abas na tela):
   **1 Recebimento · 2 Envio · 3 Respostas · 4 Decisão · 5 Ofício/Comprovante ·
   6 Resposta ao solicitante**. Cada etapa só fica **CONCLUIDA (verde)** na

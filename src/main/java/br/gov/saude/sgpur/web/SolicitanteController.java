@@ -97,12 +97,17 @@ public class SolicitanteController {
         // Dias de espera so faz sentido para quem ainda aguarda triagem (ENVIADA);
         // reaproveita o mesmo calculo/formatacao ja usado na fila do operador.
         Map<Long, SolicitacaoOnlineService.DiasEspera> diasEspera = new LinkedHashMap<>();
+        // Se true, o processo gerado esta pausado aguardando informacao complementar
+        // do solicitante - a lista destaca com um badge de "Acao necessaria".
+        Map<Long, Boolean> acaoNecessaria = new LinkedHashMap<>();
         for (SolicitacaoOnline s : minhas) {
             if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
                 diasEspera.put(s.getId(), solicitacaoService.diasEspera(s));
             }
+            acaoNecessaria.put(s.getId(), solicitacaoService.precisaInformacaoComplementar(s));
         }
         model.addAttribute("diasEspera", diasEspera);
+        model.addAttribute("acaoNecessaria", acaoNecessaria);
         model.addAttribute("equipe", usuario.getEquipeSolicitante());
         return "solicitante/lista";
     }
@@ -150,7 +155,34 @@ public class SolicitanteController {
         // Tempo decorrido desde o envio, sempre (independente do status) - contexto
         // util pro solicitante entender ha quanto tempo o pedido esta parado/foi resolvido.
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
+        model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
         return "solicitante/detalhe";
+    }
+
+    /**
+     * Upload direto, pelo solicitante, dos documentos/dados pedidos por um
+     * avaliador quando o processo esta pausado (SOLICITA_INFORMACAO). O
+     * solicitante SO ENVIA - quem decide retomar a analise continua sendo o
+     * OPERADOR (POST /processos/{id}/retomar-analise), nunca este endpoint.
+     */
+    @PostMapping("/{id}/informacao-complementar")
+    public String enviarInformacaoComplementar(@PathVariable Long id,
+            @RequestParam(value = "arquivos", required = false) List<MultipartFile> arquivos,
+            Principal principal, RedirectAttributes ra) {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
+        try {
+            solicitacaoService.enviarInformacaoComplementar(s, arquivos);
+            auditoria.registrar("INFO_COMPLEMENTAR_RECEBIDA_PORTAL",
+                "Solicitacao " + id + " - processo " + s.getProcessoGerado().getNumero());
+            ra.addFlashAttribute("msg",
+                "Informacoes enviadas. A equipe de Urgencia Renal vai retomar a analise em breve.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+        } catch (java.io.IOException e) {
+            ra.addFlashAttribute("erro", "Falha ao salvar o(s) arquivo(s) enviado(s): " + e.getMessage());
+        }
+        return "redirect:/solicitante/" + id;
     }
 
     @PostMapping("/{id}/cancelar")

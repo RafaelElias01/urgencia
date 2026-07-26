@@ -131,7 +131,19 @@ que segue o mesmo padrão de `AnexoStorageService` já existente.
   verdade em ambiente de teste).
 - `GET /solicitante/{id}` — detalhe/status só do próprio pedido; se
   `CONVERTIDA`, mostra o número do processo gerado (sem link para
-  `/processos/**`, que é área restrita a ADMIN/OPERADOR).
+  `/processos/**`, que é área restrita a ADMIN/OPERADOR). **Exceção:**
+  quando o processo gerado está pausado em `SOLICITA_INFORMACAO` (um
+  avaliador pediu mais informações — ver regra "Solicita informação (PAUSA)"
+  no `CLAUDE.md`), a tela troca o aviso de sucesso por um alerta explicando
+  que a análise está pausada e exibe um formulário de upload
+  (`POST /solicitante/{id}/informacao-complementar`) para o solicitante
+  enviar os documentos/dados pedidos diretamente pelo portal — alternativa ao
+  e-mail externo. O solicitante só ENVIA o arquivo; quem decide retomar a
+  análise continua sendo exclusivamente o OPERADOR
+  (`ProcessoService.retomarAposInformacao`). O upload vira um anexo
+  `TipoAnexo.INFO_COMPLEMENTAR` no `Processo`, sem tocar em `Parecer` nem
+  expor voto/justificativa/nome de avaliador ao solicitante
+  (`SolicitacaoOnlineService.enviarInformacaoComplementar`).
 - `POST /solicitante/{id}/cancelar` — só enquanto `ENVIADA` (antes da
   triagem).
 

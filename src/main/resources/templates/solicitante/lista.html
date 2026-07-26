@@ -93,7 +93,13 @@
                                   th:title="'Dias corridos desde o envio'">0d</span>
                         </td>
                         <td>
-                            <span class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
+                            <a th:if="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
+                               th:href="@{/solicitante/{id}(id=${s.id})}"
+                               class="badge rounded-pill bg-warning text-dark text-decoration-none">
+                                <i class="bi bi-exclamation-triangle-fill"></i> Acao necessaria
+                            </a>
+                            <span th:unless="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
+                                  class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
                                 <i class="bi" th:classappend="${'bi-' + s.status.badgeIcone}"></i>
                                 <span th:text="${s.status.descricao}">Status</span>
                             </span>

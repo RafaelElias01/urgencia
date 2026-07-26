@@ -235,4 +235,84 @@ class SolicitacaoOnlineServiceTest {
         assertThat(resumo.devolvidas()).isZero();
         assertThat(resumo.canceladas()).isZero();
     }
+
+    private Processo processoComStatus(StatusProcesso status) {
+        Processo p = new Processo();
+        p.setId(100L);
+        p.setNumero("01/2026");
+        p.setStatus(status);
+        return p;
+    }
+
+    @Test
+    void precisaInformacaoComplementarQuandoConvertidaEProcessoPausado() {
+        SolicitacaoOnline s = comStatus(20L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.SOLICITA_INFORMACAO));
+
+        assertThat(service.precisaInformacaoComplementar(s)).isTrue();
+    }
+
+    @Test
+    void precisaInformacaoComplementarFalsoQuandoAindaEnviada() {
+        SolicitacaoOnline s = comStatus(21L, StatusSolicitacaoOnline.ENVIADA);
+
+        assertThat(service.precisaInformacaoComplementar(s)).isFalse();
+    }
+
+    @Test
+    void precisaInformacaoComplementarFalsoQuandoConvertidaMasProcessoNaoPausado() {
+        SolicitacaoOnline s = comStatus(22L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.ENVIADO));
+
+        assertThat(service.precisaInformacaoComplementar(s)).isFalse();
+    }
+
+    @Test
+    void precisaInformacaoComplementarFalsoQuandoProcessoGeradoNulo() {
+        SolicitacaoOnline s = comStatus(23L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(null);
+
+        assertThat(service.precisaInformacaoComplementar(s)).isFalse();
+    }
+
+    @Test
+    void enviarInformacaoComplementarGravaAnexoQuandoEstadoCorreto() throws Exception {
+        SolicitacaoOnline s = comStatus(24L, StatusSolicitacaoOnline.CONVERTIDA);
+        Processo processo = processoComStatus(StatusProcesso.SOLICITA_INFORMACAO);
+        s.setProcessoGerado(processo);
+        org.springframework.mock.web.MockMultipartFile arquivo =
+            new org.springframework.mock.web.MockMultipartFile("arquivos", "resposta.pdf",
+                "application/pdf", "conteudo".getBytes());
+
+        service.enviarInformacaoComplementar(s, java.util.List.of(arquivo));
+
+        org.mockito.Mockito.verify(anexoStorageProcesso).salvar(
+            org.mockito.ArgumentMatchers.eq(processo),
+            org.mockito.ArgumentMatchers.eq(TipoAnexo.INFO_COMPLEMENTAR),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.eq(arquivo));
+    }
+
+    @Test
+    void enviarInformacaoComplementarSemArquivoLancaExcecao() {
+        SolicitacaoOnline s = comStatus(25L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.SOLICITA_INFORMACAO));
+
+        assertThatThrownBy(() -> service.enviarInformacaoComplementar(s, java.util.List.of()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Anexe pelo menos um arquivo");
+    }
+
+    @Test
+    void enviarInformacaoComplementarComEstadoErradoLancaExcecao() {
+        SolicitacaoOnline s = comStatus(26L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.ENVIADO));
+        org.springframework.mock.web.MockMultipartFile arquivo =
+            new org.springframework.mock.web.MockMultipartFile("arquivos", "resposta.pdf",
+                "application/pdf", "conteudo".getBytes());
+
+        assertThatThrownBy(() -> service.enviarInformacaoComplementar(s, java.util.List.of(arquivo)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("nao esta aguardando informacao complementar");
+    }
 }

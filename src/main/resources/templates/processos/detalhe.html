@@ -509,6 +509,20 @@
                         registre o reenvio e, quando a resposta chegar, retome a analise.
                     </p>
 
+                    <!-- Anexos de informacao complementar ja recebidos (por e-mail lancado pelo
+                         operador OU enviados diretamente pelo solicitante no Portal do Solicitante) -->
+                    <div th:if="${!anexosInfoComplementar.isEmpty()}" class="mb-3">
+                        <h6 class="small fw-semibold mb-2">Informacoes complementares recebidas</h6>
+                        <div th:each="a : ${anexosInfoComplementar}" class="alert alert-success py-2 mb-2">
+                            <span th:replace="~{layout :: status(true)}"></span>
+                            <a th:href="@{/processos/anexos/{id}/download(id=${a.id})}"
+                               th:text="${a.nomeArquivo}">arquivo</a>
+                            <span class="text-muted small ms-2" th:text="${a.descricao}"></span>
+                            <span class="text-muted small ms-2"
+                                  th:text="${#temporals.format(a.dataUpload,'dd/MM/yyyy HH:mm')}"></span>
+                        </div>
+                    </div>
+
                     <!-- 1) Registrar o reenvio ao solicitante (anexo opcional: copia do e-mail) -->
                     <form th:unless="${processo.status.finalizado}"
                           th:action="@{/processos/{id}/solicitar-info(id=${processo.id})}" method="post"
