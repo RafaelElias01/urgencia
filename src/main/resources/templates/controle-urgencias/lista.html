@@ -88,7 +88,7 @@
                         </td>
                         <td class="text-end text-nowrap">
                             <a th:href="@{/controle-urgencias/{id}/editar(id=${r.id})}"
-                               class="btn btn-sm btn-outline-secondary" title="Editar">
+                               class="btn btn-sm btn-outline-secondary" title="Editar" aria-label="Editar urgencia">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             <form th:if="${r.situacao.name() == 'ATIVA' or r.situacao.name() == 'RENOVADA'}"
@@ -102,7 +102,7 @@
                                   th:action="@{/controle-urgencias/{id}/cancelar(id=${r.id})}"
                                   method="post" class="d-inline"
                                   data-confirm-msg="Cancelar esta urgencia?">
-                                <button class="btn btn-sm btn-outline-danger" title="Cancelar">
+                                <button class="btn btn-sm btn-outline-danger" title="Cancelar" aria-label="Cancelar urgencia">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </form>

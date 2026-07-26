@@ -23,7 +23,7 @@
         modal = (typeof bootstrap !== 'undefined' && modalEl)
             ? new bootstrap.Modal(modalEl) : null;
 
-        if (btnConfirmar) {
+        if (btnConfirmar && modal) {
             btnConfirmar.addEventListener('click', function () {
                 modal.hide();
                 if (resolverPendente) {

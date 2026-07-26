@@ -308,8 +308,12 @@ public class ProcessoDetalheController {
     }
 
     @GetMapping("/{id}/editar")
-    public String editar(@PathVariable Long id, Model model) {
-        model.addAttribute("processo", processoService.buscar(id));
+    public String editar(@PathVariable Long id, Model model, RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id;
+        }
+        model.addAttribute("processo", p);
         return "processos/editar";
     }
 

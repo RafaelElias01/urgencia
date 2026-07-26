@@ -383,6 +383,17 @@ class ProcessoDetalheControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
+    void editarBloqueadoQuandoProcessoEncerrado() throws Exception {
+        when(processoService.edicaoBloqueada(processo)).thenReturn(true);
+
+        mvc.perform(get("/processos/1/editar"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/1"))
+            .andExpect(flash().attribute("erro", ProcessoValidator.MSG_ENCERRADO));
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
     void atualizarComErroDeValidacaoVoltaParaOFormulario() throws Exception {
         mvc.perform(post("/processos/1/editar").with(csrf()))
             .andExpect(status().isOk())
