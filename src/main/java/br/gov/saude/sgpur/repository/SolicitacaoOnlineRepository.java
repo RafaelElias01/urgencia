@@ -70,6 +70,16 @@ public interface SolicitacaoOnlineRepository extends JpaRepository<SolicitacaoOn
     boolean existsByProcessoGeradoId(Long processoId);
 
     /**
+     * A {@code SolicitacaoOnline} que gerou o processo, se houver. Usado por
+     * {@code ProcessoService#excluir} para desvincular o processo antes de
+     * apagar - {@code SolicitacaoOnline.processoGerado} e um
+     * {@code @ManyToOne} sem cascade/orphanRemoval configurado a partir do
+     * {@code Processo}, entao um DELETE direto do processo estoura violacao
+     * de FK enquanto essa linha ainda apontar pra ele.
+     */
+    Optional<SolicitacaoOnline> findByProcessoGeradoId(Long processoId);
+
+    /**
      * Id da {@code SolicitacaoOnline} que gerou o processo, se houver. Usado
      * para linkar de volta a triagem original (ver
      * {@code SolicitacaoOnlineTriagemController}) na tela de detalhe do

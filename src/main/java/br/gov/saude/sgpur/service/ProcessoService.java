@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,15 +35,18 @@ public class ProcessoService {
     private final MembroUrgenciaRenalRepository membroRepository;
     private final ProcessoValidator validator;
     private final ParecerRepository parecerRepository;
+    private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
 
     public ProcessoService(ProcessoRepository processoRepository,
                            MembroUrgenciaRenalRepository membroRepository,
                            ProcessoValidator validator,
-                           ParecerRepository parecerRepository) {
+                           ParecerRepository parecerRepository,
+                           SolicitacaoOnlineRepository solicitacaoOnlineRepository) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
         this.validator = validator;
         this.parecerRepository = parecerRepository;
+        this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
     }
 
     public List<Processo> listarTodos() {
@@ -294,6 +298,19 @@ public class ProcessoService {
         if (validator.edicaoBloqueada(p)) {
             throw new IllegalStateException(ProcessoValidator.MSG_ENCERRADO);
         }
+        // Se o processo foi originado de uma SolicitacaoOnline (Portal do
+        // Solicitante), essa linha ainda aponta pra ele via processo_gerado_id
+        // (ManyToOne sem cascade/orphanRemoval a partir do Processo). Sem
+        // desvincular primeiro, o DELETE do processo estoura violacao de FK.
+        // A SolicitacaoOnline em si NAO e apagada - continua no historico do
+        // portal, so perde o vinculo com o processo excluido; o status
+        // (provavelmente CONVERTIDA) e mantido como esta, nao existe um valor
+        // de StatusSolicitacaoOnline que reflita "processo excluido" e nao e
+        // o caso de criar um agora.
+        solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
+            s.setProcessoGerado(null);
+            solicitacaoOnlineRepository.save(s);
+        });
         processoRepository.delete(p);
     }
 

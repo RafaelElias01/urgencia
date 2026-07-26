@@ -4,6 +4,8 @@ import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
+import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,13 +26,15 @@ class ProcessoServiceTest {
     MembroUrgenciaRenalRepository membroRepository;
     @Mock
     ParecerRepository parecerRepository;
+    @Mock
+    SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     ProcessoService service;
 
     // Usa o ProcessoValidator real (funcoes puras): as regras de negocio vivem
     // nele, e o servico apenas delega.
     @BeforeEach
     void setUp() {
-        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository);
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
     }
 
     private Parecer parecer(ResultadoParecer r) {
@@ -697,5 +701,65 @@ class ProcessoServiceTest {
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("encerrados");
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+    }
+
+    // Hotfix 2026-07-26: excluir um processo nascido do Portal do Solicitante
+    // (SolicitacaoOnline.processoGerado) estourava DataIntegrityViolationException
+    // (violacao de FK) porque essa referencia ManyToOne nao tem cascade/orphan
+    // removal a partir do Processo. O fix desvincula a SolicitacaoOnline (sem
+    // apagar) antes do delete.
+    @Test
+    void excluirDesvinculaSolicitacaoOnlineQuandoProcessoVeioDoPortal() {
+        org.springframework.security.core.context.SecurityContext context =
+            org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            "admin", "senha",
+            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+        try {
+            Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
+            p.setId(99L);
+            p.setStatus(StatusProcesso.SOLICITADO);
+            when(processoRepository.findById(99L)).thenReturn(java.util.Optional.of(p));
+
+            SolicitacaoOnline s = new SolicitacaoOnline();
+            s.setId(7L);
+            s.setProcessoGerado(p);
+            s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+            when(solicitacaoOnlineRepository.findByProcessoGeradoId(99L)).thenReturn(java.util.Optional.of(s));
+
+            service.excluir(99L);
+
+            assertThat(s.getProcessoGerado()).isNull();
+            assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
+            org.mockito.Mockito.verify(solicitacaoOnlineRepository).save(s);
+            org.mockito.Mockito.verify(processoRepository).delete(p);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void excluirNaoTocaSolicitacaoOnlineQuandoProcessoForTradicional() {
+        org.springframework.security.core.context.SecurityContext context =
+            org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            "admin", "senha",
+            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+        try {
+            Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
+            p.setId(100L);
+            p.setStatus(StatusProcesso.SOLICITADO);
+            when(processoRepository.findById(100L)).thenReturn(java.util.Optional.of(p));
+            when(solicitacaoOnlineRepository.findByProcessoGeradoId(100L)).thenReturn(java.util.Optional.empty());
+
+            service.excluir(100L);
+
+            org.mockito.Mockito.verify(solicitacaoOnlineRepository, org.mockito.Mockito.never()).save(any());
+            org.mockito.Mockito.verify(processoRepository).delete(p);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }
