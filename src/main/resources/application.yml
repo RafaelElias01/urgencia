@@ -58,6 +58,15 @@ server:
     encoding:
       charset: UTF-8
       force: true
+  # O Tomcat embutido tem um limite proprio para o corpo de requisicoes
+  # POST/multipart, aplicado pelo conector ANTES do Spring MVC processar o
+  # request - independente de spring.servlet.multipart.max-*. O default e
+  # so 2MB; sem isso, qualquer anexo (ex.: scan de comprovante de parecer)
+  # acima de 2MB dava 413 mesmo com os 25MB/30MB do Spring ja configurados
+  # (causa raiz do erro 413 reportado em 2026-07-09, so agora diagnosticada).
+  tomcat:
+    max-http-form-post-size: 30MB
+    max-swallow-size: 30MB
 
 app:
   # Diretorio de armazenamento dos anexos
