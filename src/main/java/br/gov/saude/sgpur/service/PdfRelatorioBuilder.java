@@ -200,7 +200,7 @@ class PdfRelatorioBuilder {
             adicionarLinhaCapa(tDados, "E-mail do solicitante:", nvl(p.getSolicitanteEmail()), fRotulo, fValor);
             String dataSit = p.getDataSituacaoEspecial() != null
                 ? p.getDataSituacaoEspecial().format(DATA) : "-";
-            adicionarLinhaCapa(tDados, "Data da situacao especial:", dataSit, fRotulo, fValor);
+            adicionarLinhaCapa(tDados, "Data de solicitacao da urgencia renal:", dataSit, fRotulo, fValor);
         }
 
         // Fallback: processo ja finalizado sem dataDecisao (dado legado/

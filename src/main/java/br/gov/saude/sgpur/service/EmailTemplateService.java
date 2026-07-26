@@ -89,7 +89,7 @@ public class EmailTemplateService {
             Solicita informacao).
 
             Processo: %s
-            Data da situacao especial: %s
+            Data de solicitacao da urgencia renal: %s
 
             (O nome do paciente foi omitido para preservar a imparcialidade do
             julgamento; identificado apenas pelas iniciais. Em caso de necessidade
@@ -126,7 +126,7 @@ public class EmailTemplateService {
             sem necessidade de responder por e-mail.
 
             Processo: %s
-            Data da situacao especial: %s
+            Data de solicitacao da urgencia renal: %s
 
             Para emitir seu parecer, acesse o Portal do Avaliador com suas credenciais:
             %s
@@ -205,7 +205,7 @@ public class EmailTemplateService {
             e podem registrar o parecer diretamente no sistema (sem responder por e-mail).
 
             Processo: %s
-            Data da situacao especial: %s
+            Data de solicitacao da urgencia renal: %s
 
             Avaliadores designados:
             %s

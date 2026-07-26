@@ -257,7 +257,7 @@ public class SolicitacaoAvaliadorService {
         linha(t, "Identificacao do paciente (iniciais)",
             Iniciais.de(p.getPacienteNome()) + "  [nome omitido - julgamento imparcial]");
         linha(t, "Equipe solicitante", nvl(p.getSolicitanteEquipe()));
-        linha(t, "Data da situacao especial",
+        linha(t, "Data de solicitacao da urgencia renal",
             p.getDataSituacaoEspecial() != null ? p.getDataSituacaoEspecial().format(DATA) : "-");
         linha(t, "Data de cadastro do processo",
             p.getDataCadastro() != null ? p.getDataCadastro().format(DATA_HORA) : "-");

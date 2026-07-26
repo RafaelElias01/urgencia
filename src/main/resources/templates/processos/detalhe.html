@@ -214,7 +214,7 @@
                         <dd class="col-sm-8" th:text="${processo.solicitanteEquipe}"></dd>
                         <dt class="col-sm-4">E-mail solicitante</dt>
                         <dd class="col-sm-8" th:text="${processo.solicitanteEmail} ?: '-'"></dd>
-                        <dt class="col-sm-4">Data situacao especial</dt>
+                        <dt class="col-sm-4">Data de solicitacao da urgencia renal</dt>
                         <dd class="col-sm-8" th:text="${#temporals.format(processo.dataSituacaoEspecial, 'dd/MM/yyyy')}"></dd>
                         <dt class="col-sm-4" th:if="${processo.observacoes}">Observacoes</dt>
                         <dd class="col-sm-8" th:if="${processo.observacoes}" th:text="${processo.observacoes}"></dd>

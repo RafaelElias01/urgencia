@@ -232,7 +232,7 @@ public class ExportacaoProcessoService {
         sb.append('\n');
 
         linhaTitulo(sb, "3. DATAS");
-        campo(sb, "Data da situacao especial", data(p.getDataSituacaoEspecial()));
+        campo(sb, "Data de solicitacao da urgencia renal", data(p.getDataSituacaoEspecial()));
         campo(sb, "Data de cadastro no sistema", dataHora(p.getDataCadastro()));
         campo(sb, "Data da decisao", dataHora(p.getDataDecisao()));
         campo(sb, "Data de emissao do oficio", data(p.getDataEmissaoOficio()));

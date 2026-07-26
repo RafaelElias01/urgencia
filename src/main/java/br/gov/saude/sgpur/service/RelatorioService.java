@@ -128,7 +128,7 @@ public class RelatorioService {
         pdfBuilder.linha(t1, "RGCT / SNT", PdfRelatorioBuilder.nvl(p.getPacienteRgct()));
         pdfBuilder.linha(t1, "Equipe solicitante", p.getSolicitanteEquipe());
         pdfBuilder.linha(t1, "E-mail do solicitante", PdfRelatorioBuilder.nvl(p.getSolicitanteEmail()));
-        pdfBuilder.linha(t1, "Data da situacao especial",
+        pdfBuilder.linha(t1, "Data de solicitacao da urgencia renal",
             p.getDataSituacaoEspecial() != null ? p.getDataSituacaoEspecial().format(DATA) : "-");
         pdfBuilder.linha(t1, "Data de cadastro",
             p.getDataCadastro() != null ? p.getDataCadastro().format(DATA_HORA) : "-");
