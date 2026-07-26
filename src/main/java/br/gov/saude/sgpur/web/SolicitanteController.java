@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -49,6 +50,22 @@ public class SolicitanteController {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
+    }
+
+    /**
+     * Allowlist explicita dos campos que o solicitante pode preencher no
+     * formulario de nova solicitacao. Sem isso, o binding de
+     * {@code @ModelAttribute("solicitacao") SolicitacaoOnline} aceitaria
+     * QUALQUER campo da entidade presente no request (mass assignment) -
+     * incluindo {@code id}, {@code status}, {@code usuarioSolicitante},
+     * {@code processoGerado} etc, que {@link SolicitacaoOnlineService#criar}
+     * ja reseta explicitamente, mas e mais seguro nunca deixar o bind tocar
+     * neles em primeiro lugar (defesa em profundidade).
+     */
+    @InitBinder("solicitacao")
+    public void initBinderSolicitacao(WebDataBinder binder) {
+        binder.setAllowedFields(
+            "pacienteNome", "pacienteRgct", "dataSituacaoEspecial", "justificativaClinica");
     }
 
     @GetMapping

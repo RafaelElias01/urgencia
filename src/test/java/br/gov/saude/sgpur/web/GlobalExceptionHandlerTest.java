@@ -1,5 +1,6 @@
 package br.gov.saude.sgpur.web;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -8,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.ui.Model;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -17,6 +19,7 @@ import java.io.IOException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Testes unitarios do GlobalExceptionHandler (chamando os metodos
@@ -36,6 +39,8 @@ class GlobalExceptionHandlerTest {
     private Model model;
     @Mock
     private HttpServletResponse response;
+    @Mock
+    private HttpServletRequest request;
 
     @Test
     void handleResponseStatusRelancaAExcecaoSemCapturar() {
@@ -47,9 +52,11 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleNotFoundRedirecionaParaProcessosComFlashDeErro() {
+        when(request.getRequestURI()).thenReturn("/processos/99");
+        when(request.getContextPath()).thenReturn("");
         IllegalArgumentException ex = new IllegalArgumentException("id 99 nao existe");
 
-        String view = handler.handleNotFound(ex, redirectAttributes);
+        String view = handler.handleNotFound(ex, request, redirectAttributes);
 
         assertThat(view).isEqualTo("redirect:/processos");
         verify(redirectAttributes).addFlashAttribute("erro", "Registro nao encontrado: id 99 nao existe");
@@ -57,13 +64,50 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleBusinessRuleRedirecionaParaProcessosComAMensagemOriginal() {
+        when(request.getRequestURI()).thenReturn("/processos/1/decidir");
+        when(request.getContextPath()).thenReturn("");
         IllegalStateException ex = new IllegalStateException("Decisao bloqueada: aguardando informacao complementar");
 
-        String view = handler.handleBusinessRule(ex, redirectAttributes);
+        String view = handler.handleBusinessRule(ex, request, redirectAttributes);
 
         assertThat(view).isEqualTo("redirect:/processos");
         verify(redirectAttributes).addFlashAttribute("erro",
             "Decisao bloqueada: aguardando informacao complementar");
+    }
+
+    @Test
+    void handleNotFoundRedirecionaParaSolicitanteQuandoRotaEDoPortalDoSolicitante() {
+        when(request.getRequestURI()).thenReturn("/solicitante/99");
+        when(request.getContextPath()).thenReturn("");
+        IllegalArgumentException ex = new IllegalArgumentException("Solicitacao online nao encontrada: 99");
+
+        String view = handler.handleNotFound(ex, request, redirectAttributes);
+
+        assertThat(view).isEqualTo("redirect:/solicitante");
+    }
+
+    @Test
+    void handleBusinessRuleRedirecionaParaSolicitanteQuandoRotaEDoPortalDoSolicitante() {
+        when(request.getRequestURI()).thenReturn("/solicitante/1/cancelar");
+        when(request.getContextPath()).thenReturn("");
+        IllegalStateException ex = new IllegalStateException("Voce so pode cancelar as suas proprias solicitacoes.");
+
+        String view = handler.handleBusinessRule(ex, request, redirectAttributes);
+
+        assertThat(view).isEqualTo("redirect:/solicitante");
+    }
+
+    @Test
+    void handleUploadTooLargeRedirecionaComFlashAmigavel() {
+        when(request.getRequestURI()).thenReturn("/processos/1/anexos");
+        when(request.getContextPath()).thenReturn("");
+        MaxUploadSizeExceededException ex = new MaxUploadSizeExceededException(10_000_000L);
+
+        String view = handler.handleUploadTooLarge(ex, request, redirectAttributes);
+
+        assertThat(view).isEqualTo("redirect:/processos");
+        verify(redirectAttributes).addFlashAttribute("erro",
+            "Arquivo(s) excedem o limite de upload permitido. Reduza o tamanho e tente novamente.");
     }
 
     @Test

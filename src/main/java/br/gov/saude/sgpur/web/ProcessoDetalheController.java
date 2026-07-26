@@ -13,6 +13,7 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
@@ -43,6 +44,7 @@ public class ProcessoDetalheController {
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
     private final RelatorioService relatorioService;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
+    private final boolean solicitanteHabilitado;
 
     public ProcessoDetalheController(ProcessoService processoService,
                                      FluxoProcessoService fluxoService,
@@ -53,7 +55,8 @@ public class ProcessoDetalheController {
                                      GeminiService geminiService,
                                      ConflitoEquipeMatcher conflitoEquipeMatcher,
                                      RelatorioService relatorioService,
-                                     SolicitacaoOnlineService solicitacaoOnlineService) {
+                                     SolicitacaoOnlineService solicitacaoOnlineService,
+                                     @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
         this.emailTemplateService = emailTemplateService;
@@ -64,6 +67,7 @@ public class ProcessoDetalheController {
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
         this.relatorioService = relatorioService;
         this.solicitacaoOnlineService = solicitacaoOnlineService;
+        this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
     /**
@@ -96,6 +100,13 @@ public class ProcessoDetalheController {
 
     @GetMapping("/novo")
     public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model) {
+        // Kill-switch do modulo experimental (ver docs/PLANO-SOLICITANTE.md): se
+        // desligado, ignora silenciosamente o parametro - o controller de triagem
+        // nem esta registrado nesse caso, mas um link/favorito antigo ainda pode
+        // chegar aqui com o parametro na URL.
+        if (!solicitanteHabilitado) {
+            origemSolicitacaoOnlineId = null;
+        }
         Processo p = new Processo();
         p.setDataSituacaoEspecial(LocalDate.now());
         // Modulo experimental "Solicitacao Online" (ver docs/PLANO-SOLICITANTE.md):
@@ -131,6 +142,11 @@ public class ProcessoDetalheController {
                          @RequestParam(value = "medicoIds", required = false) java.util.List<Long> medicoIds,
                          @RequestParam(required = false) Long origemSolicitacaoOnlineId,
                          Model model, RedirectAttributes ra) {
+        // Kill-switch do modulo experimental: ignora o parametro se desligado
+        // (ver mesma checagem em novo()).
+        if (!solicitanteHabilitado) {
+            origemSolicitacaoOnlineId = null;
+        }
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();
         boolean automatica = processoService.isNumeracaoAutomatica(ano);

@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -82,6 +83,10 @@ public class SolicitacaoOnlineService {
         solicitacao.setStatus(StatusSolicitacaoOnline.ENVIADA);
         solicitacao.setProcessoGerado(null);
         solicitacao.setObservacoesTriagem(null);
+        // Nunca confia no dataEnvio vindo do formulario (o binding do @ModelAttribute
+        // poderia receber um valor forjado) - a fila de triagem ordena por esta data,
+        // entao ela precisa refletir o momento real do envio.
+        solicitacao.setDataEnvio(LocalDateTime.now());
         SolicitacaoOnline salva = repository.save(solicitacao);
 
         if (documentos != null) {

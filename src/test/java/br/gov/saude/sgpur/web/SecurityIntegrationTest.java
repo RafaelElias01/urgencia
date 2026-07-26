@@ -150,4 +150,71 @@ class SecurityIntegrationTest {
         mvc.perform(post("/processos/1/excluir").with(csrf()))
             .andExpect(status().is3xxRedirection());
     }
+
+    // --- Portal do Solicitante (modulo experimental) ---
+
+    @Test
+    @WithMockUser(roles = "SOLICITANTE")
+    void solicitanteAcessaOProprioPortal() throws Exception {
+        // O controller lanca ResponseStatusException(UNAUTHORIZED) ao nao encontrar
+        // o usuario "user" (ficticio do @WithMockUser) no banco - o ponto testado
+        // aqui e que a rota NAO retorna 403 (proibido por role), mesmo padrao ja
+        // usado para avaliadorAcessaPortalProprio() acima.
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminNaoAcessaPortalDoSolicitante() throws Exception {
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void operadorNaoAcessaPortalDoSolicitante() throws Exception {
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "AVALIADOR")
+    void avaliadorNaoAcessaPortalDoSolicitante() throws Exception {
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SOLICITANTE")
+    void solicitanteNaoAcessaAreaOperacionalDeProcessos() throws Exception {
+        mvc.perform(get("/processos")).andExpect(status().isForbidden());
+        mvc.perform(get("/")).andExpect(status().isForbidden());
+    }
+
+    // --- Fila de triagem de Solicitacao Online (dentro de /processos/**) ---
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminAcessaFilaDeTriagemDeSolicitacoesOnline() throws Exception {
+        mvc.perform(get("/processos/solicitacoes-online")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void operadorAcessaFilaDeTriagemDeSolicitacoesOnline() throws Exception {
+        mvc.perform(get("/processos/solicitacoes-online")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "AVALIADOR")
+    void avaliadorNaoAcessaFilaDeTriagemDeSolicitacoesOnline() throws Exception {
+        mvc.perform(get("/processos/solicitacoes-online")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SOLICITANTE")
+    void solicitanteNaoAcessaFilaDeTriagemDeSolicitacoesOnline() throws Exception {
+        mvc.perform(get("/processos/solicitacoes-online")).andExpect(status().isForbidden());
+    }
 }

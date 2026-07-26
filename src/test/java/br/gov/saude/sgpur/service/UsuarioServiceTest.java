@@ -269,4 +269,88 @@ class UsuarioServiceTest {
         verify(repo).save(op);
         assertThat(op.isAtivo()).isFalse();
     }
+
+    // ---- Perfil SOLICITANTE: equipe obrigatoria + limpeza de vinculo ao trocar de perfil ----
+
+    private Usuario formSolicitante(String equipe) {
+        Usuario u = new Usuario();
+        u.setUsername("solicitante1");
+        u.setNome("Solicitante Um");
+        u.setPerfil(br.gov.saude.sgpur.domain.Perfil.SOLICITANTE);
+        u.setEquipeSolicitante(equipe);
+        return u;
+    }
+
+    @Test
+    void criarComPerfilSolicitanteSemEquipeLancaExcecao() {
+        when(repo.existsByUsername("solicitante1")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.criar(formSolicitante(null), "senha123"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("equipe/hospital solicitante");
+    }
+
+    @Test
+    void criarComPerfilSolicitanteComEquipeEmBrancoLancaExcecao() {
+        when(repo.existsByUsername("solicitante1")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.criar(formSolicitante("   "), "senha123"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("equipe/hospital solicitante");
+    }
+
+    @Test
+    void criarComPerfilSolicitanteComEquipePreenchidaSalvaComSucesso() {
+        when(repo.existsByUsername("solicitante1")).thenReturn(false);
+        when(encoder.encode(any())).thenReturn("hash-fake");
+        when(repo.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Usuario salvo = service.criar(formSolicitante("  HCPA  "), "senha123");
+
+        // Equipe e sempre trim()ada antes de salvar.
+        assertThat(salvo.getEquipeSolicitante()).isEqualTo("HCPA");
+    }
+
+    @Test
+    void trocaDeAvaliadorParaSolicitanteLimpaOVinculoDeMembroAntigo() {
+        Usuario existente = new Usuario();
+        existente.setId(5L);
+        existente.setUsername("usuario5");
+        existente.setPerfil(br.gov.saude.sgpur.domain.Perfil.AVALIADOR);
+        br.gov.saude.sgpur.domain.MembroUrgenciaRenal membro =
+            new br.gov.saude.sgpur.domain.MembroUrgenciaRenal("HCPA", "Dr. Fulano", "fulano@hcpa.edu.br");
+        membro.setId(1L);
+        existente.setMembro(membro);
+        when(repo.findById(5L)).thenReturn(Optional.of(existente));
+        when(repo.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Usuario form = formSolicitante("HNSC");
+        form.setUsername("usuario5"); // mesmo username - nao dispara checagem de duplicidade
+
+        Usuario atualizado = service.atualizar(5L, form, null, null, "HNSC");
+
+        assertThat(atualizado.getMembro()).isNull();
+        assertThat(atualizado.getEquipeSolicitante()).isEqualTo("HNSC");
+    }
+
+    @Test
+    void trocaDeSolicitanteParaOutroPerfilLimpaAEquipeSolicitante() {
+        Usuario existente = new Usuario();
+        existente.setId(6L);
+        existente.setUsername("usuario6");
+        existente.setPerfil(br.gov.saude.sgpur.domain.Perfil.SOLICITANTE);
+        existente.setEquipeSolicitante("HCPA");
+        when(repo.findById(6L)).thenReturn(Optional.of(existente));
+        when(repo.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Usuario form = new Usuario();
+        form.setUsername("usuario6");
+        form.setNome("Operador Seis");
+        form.setPerfil(br.gov.saude.sgpur.domain.Perfil.OPERADOR);
+
+        Usuario atualizado = service.atualizar(6L, form, null, null, null);
+
+        assertThat(atualizado.getEquipeSolicitante()).isNull();
+        assertThat(atualizado.getMembro()).isNull();
+    }
 }

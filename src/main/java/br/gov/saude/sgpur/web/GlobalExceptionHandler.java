@@ -6,9 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
@@ -37,14 +39,29 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Rota "segura" de volta para o usuario apos um erro, baseada na URI da
+     * requisicao que falhou. ROLE_SOLICITANTE nao acessa {@code /processos/**}
+     * (403) - redirecionar sempre para la produziria um 403 confuso em cima do
+     * erro original. Demais rotas mantem o comportamento historico
+     * (redirect:/processos).
+     */
+    private String rotaDeRetorno(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri != null && uri.startsWith(request.getContextPath() + "/solicitante")) {
+            return "redirect:/solicitante";
+        }
+        return "redirect:/processos";
+    }
+
+    /**
      * Entidade nao encontrada (id invalido, registro excluido).
      * Ex.: Processo.buscar(id) lança IllegalArgumentException.
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public String handleNotFound(IllegalArgumentException ex, RedirectAttributes ra) {
+    public String handleNotFound(IllegalArgumentException ex, HttpServletRequest request, RedirectAttributes ra) {
         log.warn("Recurso nao encontrado: {}", ex.getMessage());
         ra.addFlashAttribute("erro", "Registro nao encontrado: " + ex.getMessage());
-        return "redirect:/processos";
+        return rotaDeRetorno(request);
     }
 
     /**
@@ -52,10 +69,25 @@ public class GlobalExceptionHandler {
      * Ex.: ProcessoService.decidir() lança IllegalStateException.
      */
     @ExceptionHandler(IllegalStateException.class)
-    public String handleBusinessRule(IllegalStateException ex, RedirectAttributes ra) {
+    public String handleBusinessRule(IllegalStateException ex, HttpServletRequest request, RedirectAttributes ra) {
         log.warn("Regra de negocio violada: {}", ex.getMessage());
         ra.addFlashAttribute("erro", ex.getMessage());
-        return "redirect:/processos";
+        return rotaDeRetorno(request);
+    }
+
+    /**
+     * Upload maior que o limite configurado (multipart max-file-size/max-request-size,
+     * ver application.yml/application-prod.yml). Sem este handler o usuario via um
+     * "Erro interno do servidor" generico (413 mapeado para Exception.class) em vez
+     * de uma mensagem amigavel explicando o motivo.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public String handleUploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request,
+                                        RedirectAttributes ra) {
+        log.warn("Upload excedeu o limite permitido: {}", ex.getMessage());
+        ra.addFlashAttribute("erro", "Arquivo(s) excedem o limite de upload permitido. "
+            + "Reduza o tamanho e tente novamente.");
+        return rotaDeRetorno(request);
     }
 
     /**

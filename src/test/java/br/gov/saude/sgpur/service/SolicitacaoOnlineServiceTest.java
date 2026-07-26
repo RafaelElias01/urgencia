@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -79,6 +80,24 @@ class SolicitacaoOnlineServiceTest {
         assertThat(salva.getSolicitanteEmail()).isEqualTo("hcpa@example.com");
         assertThat(salva.getUsuarioSolicitante()).isSameAs(usuario);
         assertThat(salva.getStatus()).isEqualTo(StatusSolicitacaoOnline.ENVIADA);
+    }
+
+    @Test
+    void criarSobrescreveDataEnvioForjadaNoFormularioComOMomentoRealDoEnvio() {
+        when(repository.save(any(SolicitacaoOnline.class))).thenAnswer(inv -> inv.getArgument(0));
+        Usuario usuario = usuarioSolicitante(1L);
+        SolicitacaoOnline pedido = solicitacaoPedido();
+        // Tentativa de forjar uma data de envio antiga (ex.: para furar a fila
+        // de triagem, que ordena por dataEnvio ASC) - deve ser sobrescrita.
+        LocalDateTime dataForjada = LocalDateTime.now().minusYears(1);
+        pedido.setDataEnvio(dataForjada);
+
+        LocalDateTime antes = LocalDateTime.now();
+        SolicitacaoOnline salva = service.criar(pedido, usuario, null);
+        LocalDateTime depois = LocalDateTime.now();
+
+        assertThat(salva.getDataEnvio()).isNotEqualTo(dataForjada);
+        assertThat(salva.getDataEnvio()).isBetween(antes, depois);
     }
 
     @Test
