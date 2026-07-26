@@ -103,13 +103,27 @@ class ProcessoDetalheControllerTest {
 
     // ----- novo -----
 
+    /** Solicitacao online minima usada para pre-preencher o form em novo(). */
+    private static br.gov.saude.sgpur.domain.SolicitacaoOnline solicitacaoOnline(Long id) {
+        var s = new br.gov.saude.sgpur.domain.SolicitacaoOnline();
+        s.setId(id);
+        s.setPacienteNome("Maria Silva");
+        s.setPacienteRgct("RGCT123");
+        s.setSolicitanteEquipe("Equipe A");
+        s.setSolicitanteEmail("equipe@ex.com");
+        s.setDataSituacaoEspecial(LocalDate.of(2026, 7, 1));
+        s.setJustificativaClinica("Justificativa clinica");
+        return s;
+    }
+
     @Test
     @WithMockUser(roles = "OPERADOR")
     void novoComNumeracaoAutomaticaNaoSugereNumero() throws Exception {
         int ano = Year.now().getValue();
         when(processoService.isNumeracaoAutomatica(ano)).thenReturn(true);
+        when(solicitacaoOnlineService.buscar(50L)).thenReturn(solicitacaoOnline(50L));
 
-        mvc.perform(get("/processos/novo"))
+        mvc.perform(get("/processos/novo").param("origemSolicitacaoOnlineId", "50"))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"))
             .andExpect(model().attribute("numeracaoAutomatica", true));
@@ -123,12 +137,30 @@ class ProcessoDetalheControllerTest {
         int ano = Year.now().getValue();
         when(processoService.isNumeracaoAutomatica(ano)).thenReturn(false);
         when(processoService.proximoNumero(ano)).thenReturn("05/" + ano);
+        when(solicitacaoOnlineService.buscar(50L)).thenReturn(solicitacaoOnline(50L));
 
-        mvc.perform(get("/processos/novo"))
+        mvc.perform(get("/processos/novo").param("origemSolicitacaoOnlineId", "50"))
             .andExpect(status().isOk())
             .andExpect(model().attribute("numeracaoAutomatica", false));
 
         verify(processoService).proximoNumero(ano);
+    }
+
+    /**
+     * Regra de negocio (2026-07-26): abertura de Processo novo so pode
+     * acontecer via conversao de uma SolicitacaoOnline - nao existe mais
+     * cadastro manual do zero. Sem o id de origem, GET /processos/novo
+     * recusa e manda o operador para a fila de triagem.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void novoSemOrigemDeSolicitacaoOnlineEhRecusadoERedirecionaParaTriagem() throws Exception {
+        mvc.perform(get("/processos/novo"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/solicitacoes-online"))
+            .andExpect(flash().attributeExists("erro"));
+
+        verify(solicitacaoOnlineService, never()).buscar(any());
     }
 
     // ----- salvar -----
@@ -141,6 +173,7 @@ class ProcessoDetalheControllerTest {
             .param("solicitanteEmail", "equipe@ex.com")
             .param("dataSituacaoEspecial", "2026-07-01")
             .param("medicoIds", "1", "2", "3")
+            .param("origemSolicitacaoOnlineId", "50")
             .with(csrf());
     }
 
@@ -197,6 +230,7 @@ class ProcessoDetalheControllerTest {
                 .param("solicitanteEmail", "equipe@ex.com")
                 .param("dataSituacaoEspecial", "2026-07-01")
                 .param("medicoIds", "1", "2")
+                .param("origemSolicitacaoOnlineId", "50")
                 .with(csrf()))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"));
@@ -213,9 +247,34 @@ class ProcessoDetalheControllerTest {
         mvc.perform(post("/processos")
                 .param("dataSituacaoEspecial", "2026-07-01")
                 .param("medicoIds", "1", "2", "3")
+                .param("origemSolicitacaoOnlineId", "50")
                 .with(csrf()))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"));
+
+        verify(processoService, never()).cadastrar(any(), any());
+    }
+
+    /**
+     * Regra de negocio (2026-07-26): POST /processos sem id de origem tambem
+     * e recusado, mesmo que o resto do form esteja valido - reforca no
+     * service o mesmo bloqueio do GET /novo (defesa contra POST manual sem
+     * passar pelo formulario pre-preenchido).
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void salvarSemOrigemDeSolicitacaoOnlineEhRecusadoERedirecionaParaTriagem() throws Exception {
+        mvc.perform(post("/processos")
+                .param("pacienteNome", "Maria Silva")
+                .param("pacienteRgct", "RGCT123")
+                .param("solicitanteEquipe", "Equipe A")
+                .param("solicitanteEmail", "equipe@ex.com")
+                .param("dataSituacaoEspecial", "2026-07-01")
+                .param("medicoIds", "1", "2", "3")
+                .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/solicitacoes-online"))
+            .andExpect(flash().attributeExists("erro"));
 
         verify(processoService, never()).cadastrar(any(), any());
     }

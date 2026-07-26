@@ -108,14 +108,38 @@ public class ProcessoDetalheController {
         return geminiService.isDisponivel();
     }
 
+    /**
+     * Mensagem padrao quando alguem tenta abrir um processo novo fora da
+     * conversao de uma SolicitacaoOnline - regra de negocio vigente desde
+     * 2026-07-26 (ver CLAUDE.md): a abertura de Processo so pode nascer da
+     * conversao de um pedido ja enviado pelo Portal do Solicitante. NAO afeta
+     * processos ja persistidos sem origem de portal (criados antes da regra),
+     * que continuam funcionando normalmente - essa checagem so vale para
+     * a CRIACAO de um Processo novo.
+     */
+    static final String MSG_CRIACAO_MANUAL_BLOQUEADA =
+        "Processos novos so podem ser abertos a partir da conversao de uma "
+            + "solicitacao enviada pelo Portal do Solicitante. Va em "
+            + "\"Solicitacoes online\" e converta um pedido pendente.";
+
     @GetMapping("/novo")
-    public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model) {
+    public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model,
+                        RedirectAttributes ra) {
         // Kill-switch do modulo experimental (ver docs/PLANO-SOLICITANTE.md): se
         // desligado, ignora silenciosamente o parametro - o controller de triagem
         // nem esta registrado nesse caso, mas um link/favorito antigo ainda pode
         // chegar aqui com o parametro na URL.
         if (!solicitanteHabilitado) {
             origemSolicitacaoOnlineId = null;
+        }
+        // Regra de negocio (2026-07-26): nao existe mais cadastro manual de
+        // Processo do zero - só a conversao de uma SolicitacaoOnline abre um
+        // Processo novo. Sem o id de origem, recusa e manda o operador para a
+        // fila de triagem (ou para a lista de processos, se o modulo do
+        // Portal estiver desligado).
+        if (origemSolicitacaoOnlineId == null) {
+            ra.addFlashAttribute("erro", MSG_CRIACAO_MANUAL_BLOQUEADA);
+            return solicitanteHabilitado ? "redirect:/processos/solicitacoes-online" : "redirect:/processos";
         }
         Processo p = new Processo();
         p.setDataSituacaoEspecial(LocalDate.now());
@@ -156,6 +180,14 @@ public class ProcessoDetalheController {
         // (ver mesma checagem em novo()).
         if (!solicitanteHabilitado) {
             origemSolicitacaoOnlineId = null;
+        }
+        // Regra de negocio (2026-07-26): reforca no POST a mesma checagem do
+        // GET /novo - sem id de origem nao ha cadastro. Mesmo que alguem monte
+        // o POST manualmente (sem passar pelo formulario pre-preenchido), o
+        // servico de cadastro nunca chega a ser chamado.
+        if (origemSolicitacaoOnlineId == null) {
+            ra.addFlashAttribute("erro", MSG_CRIACAO_MANUAL_BLOQUEADA);
+            return solicitanteHabilitado ? "redirect:/processos/solicitacoes-online" : "redirect:/processos";
         }
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();

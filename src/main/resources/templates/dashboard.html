@@ -14,9 +14,9 @@
                 (<span th:text="${anoCorrente}">2026</span>): acompanhe para quais medicos cada
                 solicitacao foi enviada e a situacao de cada parecer.</p>
         </div>
-        <a th:href="@{/processos/novo}"
+        <a th:if="${solicitanteHabilitado}" th:href="@{/processos/solicitacoes-online}"
            class="btn btn-primary rounded-pill shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i> Novo processo
+            <i class="bi bi-inbox me-1"></i> Solicitacoes online
         </a>
     </div>
 

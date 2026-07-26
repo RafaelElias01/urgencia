@@ -11,8 +11,9 @@
             <h1 class="h4 fw-bold mb-1">Processos</h1>
             <p class="text-muted small mb-0">Gerencie as solicitacoes de urgencia renal</p>
         </div>
-        <a th:href="@{/processos/novo}" class="btn btn-primary rounded-pill px-4 shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i> Novo processo
+        <a th:if="${solicitanteHabilitado}" th:href="@{/processos/solicitacoes-online}"
+           class="btn btn-primary rounded-pill px-4 shadow-sm">
+            <i class="bi bi-inbox me-1"></i> Solicitacoes online
         </a>
     </div>
 
