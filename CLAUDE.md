@@ -5,7 +5,9 @@ Excel da equipe de Urgência Renal da Secretaria de Saúde.
 
 ## Stack
 Java 21 · Spring Boot 3.5.16 (web, data-jpa, thymeleaf, security, validation) ·
-PostgreSQL/Neon (prod) e H2 (dev) · Thymeleaf + Bootstrap · OpenPDF · Maven.
+PostgreSQL (prod — rodando na própria VM Oracle desde 2026-07-25, ver seção
+Deploy; usou Neon até essa data) e H2 (dev) · Thymeleaf + Bootstrap ·
+OpenPDF · Maven.
 Pacote base `br.gov.saude.sgpur` e env vars `SGPUR_*` (mantidos por enquanto,
 não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 `target/saur-0.0.1-SNAPSHOT.jar`).
@@ -17,7 +19,7 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 ## Como rodar / testar
 ```powershell
 .\start.ps1            # dev (H2) — sandbox de teste
-.\start.ps1 prod       # prod (Neon) — usa application-local.yml (gitignored)
+.\start.ps1 prod       # prod (Postgres) — usa application-local.yml (gitignored)
 ```
 - App em http://localhost:3000 (porta trocada de 8080 para 3000 no commit
   `93debdf`, 2026-07-21; `start.ps1` **não abre o navegador sozinho**, precisa
@@ -440,19 +442,21 @@ pendência**, já está no ar.
 ## Deploy
 Artefatos em `deploy/` (systemd, nginx, env de exemplo, guia). Host alvo:
 **Oracle Always Free (São Paulo)** — ver `deploy/README-deploy.md`.
-A **Vercel não hospeda o app Java** (só serve de banco).
+A **Vercel não hospeda o app Java** (histórico: só servia como front pro
+Neon, que nem é mais o banco de produção — ver status abaixo).
 
-**Status em produção (2026-07-10)**: SAUR está no ar em
-https://urgenciarenal.duckdns.org/, JAR atualizado (commit `a291a41` —
-exclusão de processo restrita a ADMIN, `open-in-view=false`, correção do
-overlay de cabeçalho em PDF, reordenação de upload de anexos, entre outros da
-vistoria de 09/07), banco Neon e envio de e-mail (SMTP Gmail) funcionando.
+**Status em produção (2026-07-26)**: SAUR está no ar em
+https://urgenciarenal.duckdns.org/, envio de e-mail (SMTP Gmail) funcionando.
 HTTPS confirmado ativo via certbot (nginx redireciona 80→443, cert válido até
-2026-10-05). Pendência conhecida: `SGPUR_BASE_URL` ainda não definida no
-`sgpur.env` da VM — os links do Portal do Avaliador nos e-mails de convite
-apontam para `localhost:3000` em vez do domínio real; corrigir adicionando
-`SGPUR_BASE_URL=https://urgenciarenal.duckdns.org` ao `/opt/sgpur/sgpur.env` e
-reiniciando o serviço.
+2026-10-05). Banco: **Postgres local na própria VM** (`localhost:5432`, db
+`sgpur`, usuário `sgpur`) — migrado do Neon em 2026-07-25 depois que o Neon
+estourou a cota gratuita e o app caiu (ver memória do projeto
+`incidente-neon-cota-migracao-postgres-vm-2026-07-25`); não usar mais o Neon
+SQL Console para nada de produção atual, é histórico. `SGPUR_BASE_URL` já
+está corretamente configurada em `/opt/sgpur/sgpur.env`
+(`https://urgenciarenal.duckdns.org`) — a pendência antiga sobre isso (abaixo,
+descrita como aberta em versões anteriores deste arquivo) **já foi
+resolvida**, confirmado em 2026-07-26.
 `deploy/README-deploy.md` ganhou 2 seções novas: acesso via Oracle Cloud
 Shell quando SSH direto é bloqueado por proxy corporativo, e troubleshooting
 de "Authentication failed" no SMTP (causa raiz encontrada: o `sgpur.env` da
