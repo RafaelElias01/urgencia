@@ -88,14 +88,14 @@ public class SolicitacaoAvaliadorService {
             doc.open();
             boolean algumaPaginaAdicionada = false;
             for (byte[] pdf : validos) {
-                PdfReader reader = new PdfReader(pdf);
-                int paginas = reader.getNumberOfPages();
-                for (int i = 1; i <= paginas; i++) {
-                    copy.addPage(copy.getImportedPage(reader, i));
-                    algumaPaginaAdicionada = true;
+                try (PdfReader reader = new PdfReader(pdf)) {
+                    int paginas = reader.getNumberOfPages();
+                    for (int i = 1; i <= paginas; i++) {
+                        copy.addPage(copy.getImportedPage(reader, i));
+                        algumaPaginaAdicionada = true;
+                    }
+                    copy.freeReader(reader);
                 }
-                copy.freeReader(reader);
-                reader.close();
             }
             if (!algumaPaginaAdicionada) {
                 doc.close();

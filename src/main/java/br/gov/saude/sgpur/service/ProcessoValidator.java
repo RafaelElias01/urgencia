@@ -208,6 +208,31 @@ public class ProcessoValidator {
     }
 
     /**
+     * Espelha no servico a mesma checagem que ja existia no controller HTTP
+     * antes de registrar o envio (defesa em profundidade): mesmo que
+     * {@code ProcessoService.registrarEnvio} venha a ser chamado de outro
+     * lugar no futuro (outro controller, job, teste), o processo nunca vira
+     * ENVIADO sem essas duas garantias minimas.
+     */
+    public Optional<String> validarRegistroEnvio(Processo processo) {
+        boolean temComprovanteEnvio = processo.getAnexos().stream()
+            .anyMatch(a -> a.getTipo() == TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
+        if (!temComprovanteEnvio) {
+            return Optional.of(
+                "Anexe o comprovante de envio (PDF, EML ou MSG) aos avaliadores antes de registrar o envio.");
+        }
+        boolean temDocumentoClinicoPdf = processo.getAnexos().stream()
+            .anyMatch(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR
+                && a.getContentType() != null
+                && a.getContentType().toLowerCase().contains("application/pdf"));
+        if (!temDocumentoClinicoPdf) {
+            return Optional.of(
+                "Anexe ao menos um documento clinico (PDF) antes de registrar o envio.");
+        }
+        return Optional.empty();
+    }
+
+    /**
      * Bloqueio da confirmacao da resposta ao solicitante: Deferido exige o
      * comprovante SNT anexado; Indeferido exige o oficio de indeferimento
      * (simetria entre as duas decisoes finais).

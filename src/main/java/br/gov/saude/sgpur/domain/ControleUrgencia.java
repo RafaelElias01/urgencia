@@ -49,7 +49,13 @@ public class ControleUrgencia {
     /** Data da ultima renovacao (null se nunca foi renovada). */
     private LocalDate dataUltimaRenovacao;
 
-    /** Link opcional para o Processo de origem (quando o deferimento gerou este controle). */
+    /**
+     * Link opcional para o Processo de origem. Coluna e getter/setter existem
+     * no schema, mas hoje NAO ha nenhum vinculo automatico implementado (um
+     * deferimento nao preenche este campo sozinho) - fica nulo a menos que o
+     * operador o preencha manualmente via formulario, se quiser relacionar
+     * este registro a um Processo existente.
+     */
     private Long processoId;
 
     /** Registro ativo (visivel) ou nao. */

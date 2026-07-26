@@ -277,6 +277,84 @@ public class FluxoProcessoService {
             .orElse(true);
     }
 
+    /**
+     * Gating das abas do wizard (1..5) na tela de detalhe: ate qual passo o
+     * operador pode navegar/agir. Extraido de
+     * {@code ProcessoDetalheController.detalhe} (vistoria arquitetural
+     * 2026-07-25) para ficar num lugar testavel/reaproveitavel, em vez de
+     * calculado inline no controller. Mesma logica de antes, sem mudanca de
+     * comportamento.
+     */
+    public record GatingAbas(boolean liberadoRecebimento, boolean liberadoEnvio,
+                              boolean liberadoRespostas, boolean liberadoDecisao,
+                              boolean liberadoFinalizacao) {
+    }
+
+    public GatingAbas calcularGating(Processo p) {
+        // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
+        boolean recebimentoFeito = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA)
+            && temAnexo(p, TipoAnexo.CAPA_PROCESSO);
+        boolean envioFeito = !p.getPareceres().isEmpty()
+            && p.getPareceres().get(0).getDataEnvio() != null;
+        long respondidos = processoService.contarRespondidos(p);
+        int totalMedicos = p.getPareceres().size();
+        boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
+        // Maioria simples (2 de 3): assim que ha >=2 favoraveis OU >=2 desfavoraveis
+        // o resultado ja esta definido e nao e preciso aguardar o 3o parecer.
+        boolean maioriaFormada = processoService.sugerirDecisao(p).isPresent();
+        boolean semAnexoPendente = processoService.pareceresRecebidosSemAnexo(p).isEmpty();
+        // A decisao libera quando: (a) maioria ja formada, OU (b) todas as
+        // respostas chegaram. Em ambos os casos os pareceres recebidos precisam
+        // dos seus anexos (decidir exige RESPOSTA_AVALIADOR de todo parecer recebido).
+        boolean respostasOk = (maioriaFormada || todasRespondidas) && semAnexoPendente;
+        boolean decidido = p.getStatus().isFinalizado();
+        // PAUSA: enquanto aguarda informacao complementar do solicitante, a
+        // decisao e a finalizacao ficam bloqueadas ate o operador retomar a analise.
+        boolean aguardandoInfo = p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO;
+
+        boolean liberadoRecebimento = true;
+        boolean liberadoEnvio = recebimentoFeito;
+        boolean liberadoRespostas = recebimentoFeito && envioFeito;
+        boolean liberadoDecisao = liberadoRespostas && respostasOk && !aguardandoInfo;
+        boolean liberadoFinalizacao = decidido;
+        return new GatingAbas(liberadoRecebimento, liberadoEnvio, liberadoRespostas,
+            liberadoDecisao, liberadoFinalizacao);
+    }
+
+    /**
+     * Sub-rotulo dinamico ao lado do status na tela de detalhe (ex.: "Maioria
+     * formada - pronto para decidir (Deferido)"). Extraido de
+     * {@code ProcessoDetalheController.detalhe} (vistoria arquitetural
+     * 2026-07-25). Por MAIORIA SIMPLES (2 de 3), assim que ha 2 votos do mesmo
+     * tipo o resultado ja esta definido: nao mostra mais "Aguardando parecer",
+     * e sim "pronto para decidir". So mostra "Aguardando parecer (x/total)"
+     * quando ainda NAO ha maioria. Retorna {@code null} quando nao ha
+     * sub-rotulo a mostrar (mesmo comportamento anterior).
+     */
+    public String calcularSubrotuloStatus(Processo p) {
+        if (p.getStatus() != StatusProcesso.ENVIADO && p.getStatus() != StatusProcesso.EM_ANALISE) {
+            return null;
+        }
+        boolean envioFeito = !p.getPareceres().isEmpty()
+            && p.getPareceres().get(0).getDataEnvio() != null;
+        long respondidos = processoService.contarRespondidos(p);
+        int totalMedicos = p.getPareceres().size();
+        var sugestao = processoService.sugerirDecisao(p);
+        boolean maioriaFormada = sugestao.isPresent();
+        boolean semAnexoPendente = processoService.pareceresRecebidosSemAnexo(p).isEmpty();
+        boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
+        boolean respostasOk = (maioriaFormada || todasRespondidas) && semAnexoPendente;
+
+        if (envioFeito && maioriaFormada) {
+            return "Maioria formada - pronto para decidir (" + sugestao.get().getDescricao() + ")";
+        } else if (envioFeito && totalMedicos > 0 && respondidos < totalMedicos) {
+            return "Aguardando parecer (" + respondidos + "/" + totalMedicos + ")";
+        } else if (envioFeito && respostasOk) {
+            return "Pareceres recebidos - aguardando decisao";
+        }
+        return null;
+    }
+
     /** Mensagem curta de "o que falta" para o processo (etapa atual pendente). */
     public String resumoPendencia(Processo p) {
         for (EtapaFluxo e : montarEtapas(p)) {

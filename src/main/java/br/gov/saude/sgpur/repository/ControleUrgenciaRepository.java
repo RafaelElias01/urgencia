@@ -10,10 +10,6 @@ import java.util.List;
 
 public interface ControleUrgenciaRepository extends JpaRepository<ControleUrgencia, Long> {
 
-    List<ControleUrgencia> findByAtivoTrueOrderByDataVencimentoAsc();
-
-    List<ControleUrgencia> findBySituacaoOrderByDataVencimentoAsc(SituacaoUrgencia situacao);
-
     long countBySituacao(SituacaoUrgencia situacao);
 
     /** Urgencias ativas que vencem ate a data informada. */

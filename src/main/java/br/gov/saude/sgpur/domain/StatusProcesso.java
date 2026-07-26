@@ -49,24 +49,6 @@ public enum StatusProcesso {
         return !isFinalizado();
     }
 
-    /**
-     * Classes Tailwind (fundo/texto/anel) do badge do status no painel.
-     * Cores: SOLICITADO=slate, ENVIADO=azul, EM_ANALISE=ambar,
-     * SOLICITA_INFORMACAO=violeta, DEFERIDO=verde, INDEFERIDO=vermelho,
-     * CANCELADO=cinza escuro.
-     */
-    public String getBadgeClasse() {
-        return switch (this) {
-            case SOLICITADO -> "bg-slate-100 text-slate-700 ring-slate-200";
-            case ENVIADO -> "bg-blue-50 text-blue-700 ring-blue-200";
-            case EM_ANALISE -> "bg-amber-50 text-amber-700 ring-amber-200";
-            case SOLICITA_INFORMACAO -> "bg-violet-50 text-violet-700 ring-violet-200";
-            case DEFERIDO -> "bg-emerald-50 text-emerald-700 ring-emerald-200";
-            case INDEFERIDO -> "bg-rose-50 text-rose-700 ring-rose-200";
-            case CANCELADO -> "bg-slate-700 text-slate-100 ring-slate-600";
-        };
-    }
-
     /** Bootstrap-icon (sem o prefixo "bi-") usado no badge do status. */
     public String getBadgeIcone() {
         return switch (this) {

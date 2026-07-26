@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,13 +22,15 @@ class ProcessoServiceTest {
     ProcessoRepository processoRepository;
     @Mock
     MembroUrgenciaRenalRepository membroRepository;
+    @Mock
+    ParecerRepository parecerRepository;
     ProcessoService service;
 
     // Usa o ProcessoValidator real (funcoes puras): as regras de negocio vivem
     // nele, e o servico apenas delega.
     @BeforeEach
     void setUp() {
-        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator());
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository);
     }
 
     private Parecer parecer(ResultadoParecer r) {
@@ -217,10 +220,56 @@ class ProcessoServiceTest {
     @Test
     void registrarEnvioMudaParaEnviado() {
         Processo p = new Processo();
+        anexarComprovanteEnvioEDocumentoClinicoPdf(p);
         when(processoRepository.findById(1L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.registrarEnvio(1L);
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+    }
+
+    /**
+     * Defesa em profundidade: registrarEnvio() espelha, no servico, a mesma
+     * regra ja imposta no controller (comprovante de envio + documento
+     * clinico PDF), para que o metodo nunca marque ENVIADO sem essas
+     * garantias, mesmo chamado de outro lugar sem passar pelo controller.
+     */
+    @Test
+    void registrarEnvioRejeitaSemComprovanteDeEnvio() {
+        Processo p = new Processo();
+        Anexo doc = new Anexo();
+        doc.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        doc.setContentType("application/pdf");
+        p.addAnexo(doc);
+        when(processoRepository.findById(2L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.registrarEnvio(2L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("comprovante de envio");
+        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.ENVIADO);
+    }
+
+    @Test
+    void registrarEnvioRejeitaSemDocumentoClinicoPdf() {
+        Processo p = new Processo();
+        Anexo comprovante = new Anexo();
+        comprovante.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
+        p.addAnexo(comprovante);
+        when(processoRepository.findById(3L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.registrarEnvio(3L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("documento clinico");
+        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.ENVIADO);
+    }
+
+    private void anexarComprovanteEnvioEDocumentoClinicoPdf(Processo p) {
+        Anexo comprovante = new Anexo();
+        comprovante.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
+        p.addAnexo(comprovante);
+        Anexo doc = new Anexo();
+        doc.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        doc.setContentType("application/pdf");
+        p.addAnexo(doc);
     }
 
     @Test

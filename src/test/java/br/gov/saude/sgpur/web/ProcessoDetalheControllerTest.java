@@ -71,6 +71,13 @@ class ProcessoDetalheControllerTest {
         when(fluxoService.montarEtapas(any())).thenReturn(List.of());
         when(fluxoService.montarPassosWizard(any())).thenReturn(List.of(
             new PassoWizard(1, "Recebimento", "recebimento", PassoWizard.Estado.ATUAL, "")));
+        // Gating/subrotulo agora vem de FluxoProcessoService (extraido do
+        // controller) - como o service e mockado aqui, o default e "nada
+        // liberado alem do recebimento" e sem subrotulo; cada teste que
+        // precisa de outro cenario sobrescreve com o stub especifico.
+        when(fluxoService.calcularGating(any())).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, false, false, false, false));
+        when(fluxoService.calcularSubrotuloStatus(any())).thenReturn(null);
     }
 
     private static MembroUrgenciaRenal membro(Long id, String instituicao, String nome) {
@@ -251,6 +258,8 @@ class ProcessoDetalheControllerTest {
         capa.setTipo(TipoAnexo.CAPA_PROCESSO);
         processo.getAnexos().add(solicitacao);
         processo.getAnexos().add(capa);
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, true, false, false, false));
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
@@ -271,6 +280,9 @@ class ProcessoDetalheControllerTest {
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarRespondidos(processo)).thenReturn(1L);
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
+        when(fluxoService.calcularSubrotuloStatus(processo)).thenReturn("Aguardando parecer (1/3)");
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, false, false, false, false));
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
@@ -301,6 +313,10 @@ class ProcessoDetalheControllerTest {
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.of(StatusProcesso.DEFERIDO));
         when(processoService.contarRespondidos(processo)).thenReturn(2L);
         when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
+        when(fluxoService.calcularSubrotuloStatus(processo)).thenReturn(
+            "Maioria formada - pronto para decidir (Deferido)");
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, true, true, true, false));
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())

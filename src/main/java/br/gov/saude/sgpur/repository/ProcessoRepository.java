@@ -16,20 +16,6 @@ public interface ProcessoRepository extends JpaRepository<Processo, Long> {
     List<Processo> findAllByOrderByAnoDescSequencialDesc();
 
     /**
-     * Carrega os processos ja com os pareceres e os respectivos membros
-     * (fetch join) para montar a "planilha" do painel sem incorrer em N+1.
-     */
-    @Query("""
-        select distinct p from Processo p
-        left join fetch p.pareceres par
-        left join fetch par.membro
-        order by p.ano desc, p.sequencial desc
-        """)
-    List<Processo> findAllComPareceres();
-
-    List<Processo> findByStatusOrderByAnoDescSequencialDesc(StatusProcesso status);
-
-    /**
      * Processos encerrados (arquivo): recebe a colecao de status finais
      * (DEFERIDO/INDEFERIDO/CANCELADO), mais recentes primeiro.
      */

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -65,6 +66,49 @@ class SolicitacaoAvaliadorServiceTest {
         assertTrue(texto.contains("M.R.M"), "iniciais do paciente ausentes no cabecalho");
         // NUNCA o nome completo
         assertFalse(texto.contains("Mariana"), "nome completo NAO pode aparecer aos avaliadores");
+    }
+
+    /**
+     * Contrato formal de imparcialidade: trava regressao futura (ex.: alguem
+     * trocar {@code Iniciais.de(...)} por {@code p.getPacienteNome()} num
+     * refactor). Usa um nome bem distintivo para que qualquer vazamento de
+     * qualquer parte do nome completo (nome, meio ou sobrenome) seja
+     * detectado, tanto no PDF carimbado quanto no nome do arquivo oficial.
+     */
+    @Test
+    void contratoDeImparcialidadeNuncaExpoeNomeCompletoAosAvaliadores() throws Exception {
+        Processo p = new Processo();
+        p.setNumero("01/2026");
+        p.setPacienteNome("Zorglubovicz Alencar Bittencourt");
+
+        byte[] base = pdfSimples("Conteudo clinico original do documento.");
+        byte[] carimbado = service.carimbarCabecalho(base, p);
+
+        PdfReader reader = new PdfReader(carimbado);
+        String textoExtraido = new PdfTextExtractor(reader).getTextFromPage(1);
+        reader.close();
+
+        assertThat(textoExtraido)
+            .doesNotContain("Zorglubovicz")
+            .doesNotContain("Alencar")
+            .doesNotContain("Bittencourt")
+            .contains("Z.A.B");
+
+        String nomeArquivo = SolicitacaoAvaliadorService.nomeArquivoOficial(p);
+        assertThat(nomeArquivo)
+            .doesNotContain("Zorglubovicz")
+            .doesNotContain("Alencar")
+            .doesNotContain("Bittencourt")
+            .contains("Z.A.B");
+    }
+
+    @Test
+    void consolidarLancaExcecaoQuandoHaPdfCorrompidoNaLista() {
+        byte[] valido = pdfSimples("Documento clinico valido.");
+        byte[] corrompido = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+        assertThrows(IllegalStateException.class,
+            () -> service.consolidar(List.of(valido, corrompido)));
     }
 
     @Test

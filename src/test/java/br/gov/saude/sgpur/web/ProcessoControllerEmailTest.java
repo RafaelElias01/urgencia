@@ -43,15 +43,18 @@ class ProcessoControllerEmailTest {
     @MockitoBean private EmailTemplateService emailTemplateService;
     @MockitoBean private RelatorioService relatorioService;
     @MockitoBean private OficioService oficioService;
-    @MockitoBean private SolicitacaoAvaliadorService solicitacaoAvaliadorService;
+    @MockitoBean private RegistroEnvioService registroEnvioService;
     @MockitoBean private MembroUrgenciaRenalRepository membroRepository;
-    @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private AnexoStorageService anexoStorage;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private DecisaoFinalService decisaoFinalService;
     @MockitoBean private GeminiService geminiService;
     @MockitoBean private EmailSenderService emailSenderService;
+    // GlobalModelAdvice (@ControllerAdvice global) precisa deste bean pro
+    // contexto do @WebMvcTest subir, mesmo o controller nao usando mais
+    // ParecerRepository diretamente (movido para ProcessoService.buscarParecer).
+    @MockitoBean private ParecerRepository parecerRepository;
 
     private Processo processo;
     private MembroUrgenciaRenal membro;
@@ -83,7 +86,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void lembreteAvaliadorEnviaEAuditaQuandoParecerPendente() throws Exception {
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
             .thenReturn(new EmailTemplate("lembrete-avaliador", "titulo", "bell",
                 "Assunto lembrete", "Corpo do lembrete", false));
@@ -104,7 +107,7 @@ class ProcessoControllerEmailTest {
     @WithMockUser(roles = "OPERADOR")
     void lembreteAvaliadorFalhaQuandoParecerJaRespondido() throws Exception {
         parecerPendente.setResultado(ResultadoParecer.FAVORAVEL);
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
 
         mvc.perform(post("/processos/1/lembrete-avaliador")
                 .param("parecerId", "100")
@@ -124,7 +127,7 @@ class ProcessoControllerEmailTest {
         parecerSemEmail.setId(101L);
         parecerSemEmail.setProcesso(processo);
         parecerSemEmail.setDataEnvio(LocalDate.now());
-        when(parecerRepository.findById(101L)).thenReturn(Optional.of(parecerSemEmail));
+        when(processoService.buscarParecer(1L, 101L)).thenReturn(Optional.of(parecerSemEmail));
 
         mvc.perform(post("/processos/1/lembrete-avaliador")
                 .param("parecerId", "101")
@@ -139,7 +142,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void lembreteAvaliadorNuncaExpoeNomeCompletoDoPaciente() throws Exception {
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
             .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell",
                 "Processo 07/2026 CET-RS - Paciente M.R.M.",
@@ -163,7 +166,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void lembretePendentesEnviaParaTodosOsPendentesComEmail() throws Exception {
-        when(parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(1L))
+        when(processoService.pareceresPendentesComEmail(1L))
             .thenReturn(List.of(parecerPendente));
         when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
             .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell", "Assunto", "Corpo", false));
@@ -179,7 +182,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void lembretePendentesFalhaQuandoNaoHaPendentes() throws Exception {
-        when(parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(1L))
+        when(processoService.pareceresPendentesComEmail(1L))
             .thenReturn(List.of());
 
         mvc.perform(post("/processos/1/lembrete-pendentes").with(csrf()))
@@ -296,7 +299,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void previewLembreteAvaliadorDevolveDestinatarioEConteudo() throws Exception {
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
             .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell",
                 "Assunto lembrete", "Corpo do lembrete", false));
@@ -316,7 +319,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void previewLembretePendentesUmaMensagemPorAvaliador() throws Exception {
-        when(parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(1L))
+        when(processoService.pareceresPendentesComEmail(1L))
             .thenReturn(List.of(parecerPendente));
         when(emailTemplateService.emailLembreteAvaliador(eq(processo), eq(membro)))
             .thenReturn(new EmailTemplate("lembrete-avaliador", "t", "bell", "Assunto", "Corpo", false));
@@ -362,58 +365,51 @@ class ProcessoControllerEmailTest {
         verifyNoInteractions(emailSenderService);
     }
 
-    // ===== Bloqueio de registrar-envio sem documento clinico PDF =====
+    // ===== registrar-envio: o controller so mapeia o RegistroEnvioResultado =====
+    //
+    // A logica de negocio (documento clinico PDF obrigatorio, comprovante de
+    // envio obrigatorio, consolidacao/carimbo do PDF) foi extraida para
+    // RegistroEnvioService (RegistroEnvioServiceTest cobre esses casos em
+    // detalhe). Aqui o controller e mockado por tras dessa fronteira: so
+    // confere que o resultado de erro/sucesso e mapeado para o flash certo.
 
     /**
-     * Regra de negocio: sem nenhum documento clinico (PDF) anexado nao ha o que
-     * consolidar no PDF enviado aos avaliadores - o registro do envio deve ser
-     * bloqueado (flash de erro, sem efetivar). Confere tambem que nenhum efeito
-     * colateral ocorre: nem o envio e registrado (pareceres/status), nem o PDF
-     * SOLICITACAO_AVALIADOR e gerado/persistido.
+     * Erro do RegistroEnvioService (ex.: sem documento clinico PDF valido) vira
+     * flash "erro" e nao efetiva nenhum efeito colateral adicional no controller.
      */
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void registrarEnvioBloqueadoSemNenhumDocumentoClinico() throws Exception {
-        Anexo comprovanteEnvio = new Anexo();
-        comprovanteEnvio.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        processo.getAnexos().add(comprovanteEnvio);
+    void registrarEnvioMapeiaErroDoRegistroEnvioServicoParaFlash() throws Exception {
+        when(registroEnvioService.registrar(1L)).thenReturn(
+            RegistroEnvioService.RegistroEnvioResultado.erro(
+                "Anexe ao menos um documento clinico (PDF) antes de registrar o envio."));
 
         mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
             .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attributeExists("erro"));
+            .andExpect(flash().attribute("erro",
+                "Anexe ao menos um documento clinico (PDF) antes de registrar o envio."));
 
-        verify(processoService, never()).registrarEnvio(anyLong());
-        verify(anexoStorage, never()).salvarBytes(any(), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
-            anyString(), anyString(), anyString(), any(byte[].class));
-        verifyNoInteractions(solicitacaoAvaliadorService);
+        verify(registroEnvioService).registrar(1L);
     }
 
     /**
-     * Mesma regra, mas com um documento clinico anexado que NAO e PDF (ex.:
-     * imagem/Word) - tambem deve bloquear, pois nao ha PDF valido para
-     * consolidar. Nenhum efeito colateral deve ocorrer.
+     * Sucesso do RegistroEnvioService vira flash "msg" e, quando ha avisos
+     * (documentos ignorados na consolidacao), tambem flash "aviso".
      */
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void registrarEnvioBloqueadoQuandoDocumentoClinicoNaoEhPdf() throws Exception {
-        Anexo comprovanteEnvio = new Anexo();
-        comprovanteEnvio.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        processo.getAnexos().add(comprovanteEnvio);
-
-        Anexo docNaoPdf = new Anexo();
-        docNaoPdf.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
-        docNaoPdf.setNomeArquivo("exame.jpg");
-        docNaoPdf.setContentType("image/jpeg");
-        processo.getAnexos().add(docNaoPdf);
+    void registrarEnvioMapeiaSucessoEAvisosDoRegistroEnvioServicoParaFlash() throws Exception {
+        when(registroEnvioService.registrar(1L)).thenReturn(
+            RegistroEnvioService.RegistroEnvioResultado.sucesso(
+                "Envio aos avaliadores registrado em 25/07/2026.",
+                List.of("exame.jpg")));
 
         mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
             .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attributeExists("erro"));
+            .andExpect(flash().attribute("msg", "Envio aos avaliadores registrado em 25/07/2026."))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("exame.jpg")));
 
-        verify(processoService, never()).registrarEnvio(anyLong());
-        verify(anexoStorage, never()).salvarBytes(any(), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
-            anyString(), anyString(), anyString(), any(byte[].class));
-        verifyNoInteractions(solicitacaoAvaliadorService);
+        verify(registroEnvioService).registrar(1L);
     }
 
     // ===== Bug: anexar resposta sem selecionar o parecer (resposta-avaliador) =====
@@ -427,7 +423,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaAvaliadorRejeitaSemResultadoQuandoParecerAindaPendente() throws Exception {
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         org.springframework.mock.web.MockMultipartFile arquivo =
             new org.springframework.mock.web.MockMultipartFile("arquivo", "resposta.pdf",
                 "application/pdf", "conteudo".getBytes());
@@ -446,7 +442,7 @@ class ProcessoControllerEmailTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaAvaliadorSalvaAnexoEParecerQuandoResultadoInformado() throws Exception {
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
         org.springframework.mock.web.MockMultipartFile arquivo =
@@ -477,7 +473,7 @@ class ProcessoControllerEmailTest {
         respostaExistente.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
         respostaExistente.setParecer(parecerPendente);
         processo.getAnexos().add(respostaExistente);
-        when(parecerRepository.findById(100L)).thenReturn(Optional.of(parecerPendente));
+        when(processoService.buscarParecer(1L, 100L)).thenReturn(Optional.of(parecerPendente));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
 

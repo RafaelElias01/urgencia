@@ -1,7 +1,6 @@
 package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
-import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.DecisaoFinalService;
@@ -11,7 +10,8 @@ import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
-import br.gov.saude.sgpur.service.SolicitacaoAvaliadorService;
+import br.gov.saude.sgpur.service.RegistroEnvioService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -36,10 +36,9 @@ public class ProcessoDecisaoController {
     private final ProcessoService processoService;
     private final ProcessoValidator validator;
     private final DecisaoFinalService decisaoFinalService;
-    private final SolicitacaoAvaliadorService solicitacaoAvaliadorService;
+    private final RegistroEnvioService registroEnvioService;
     private final EmailTemplateService emailTemplateService;
     private final EmailSenderService emailSenderService;
-    private final ParecerRepository parecerRepository;
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
     private final GeminiService geminiService;
@@ -47,20 +46,18 @@ public class ProcessoDecisaoController {
     public ProcessoDecisaoController(ProcessoService processoService,
                                      ProcessoValidator validator,
                                      DecisaoFinalService decisaoFinalService,
-                                     SolicitacaoAvaliadorService solicitacaoAvaliadorService,
+                                     RegistroEnvioService registroEnvioService,
                                      EmailTemplateService emailTemplateService,
                                      EmailSenderService emailSenderService,
-                                     ParecerRepository parecerRepository,
                                      AnexoStorageService anexoStorage,
                                      AuditoriaService auditoria,
                                      GeminiService geminiService) {
         this.processoService = processoService;
         this.validator = validator;
         this.decisaoFinalService = decisaoFinalService;
-        this.solicitacaoAvaliadorService = solicitacaoAvaliadorService;
+        this.registroEnvioService = registroEnvioService;
         this.emailTemplateService = emailTemplateService;
         this.emailSenderService = emailSenderService;
-        this.parecerRepository = parecerRepository;
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
         this.geminiService = geminiService;
@@ -245,124 +242,17 @@ public class ProcessoDecisaoController {
         if (bloqueadoPorEncerrado(p, ra)) {
             return "redirect:/processos/" + id + "#envio";
         }
-        LocalDate hoje = LocalDate.now();
-
-        boolean temComprovanteEnvio = p.getAnexos().stream()
-            .anyMatch(a -> a.getTipo() == TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        if (!temComprovanteEnvio) {
-            ra.addFlashAttribute("erro",
-                "Anexe o comprovante de envio (PDF, EML ou MSG) aos avaliadores antes de registrar o envio.");
+        RegistroEnvioService.RegistroEnvioResultado resultado = registroEnvioService.registrar(id);
+        if (!resultado.ok()) {
+            ra.addFlashAttribute("erro", resultado.mensagemErro());
             return "redirect:/processos/" + id + "#envio";
         }
-
-        // O PDF dos avaliadores agora e montado SO com os documentos clinicos
-        // anonimizados (PDF) anexados pelo operador: funde-os em um unico PDF e
-        // carimba, em cada pagina, um cabecalho com nº do processo + INICIAIS do
-        // paciente (NUNCA o nome completo - imparcialidade do julgamento). Sem a
-        // folha-rosto gerada pelo sistema. A solicitacao ORIGINAL recebida (nome
-        // completo) NUNCA entra aqui. Sem nenhum documento clinico PDF nao ha o
-        // que enviar: bloqueia o envio.
-        java.util.List<byte[]> partes = new java.util.ArrayList<>();
-        java.util.List<String> partesNomes = new java.util.ArrayList<>();
-        java.util.List<String> ignorados = new java.util.ArrayList<>();
-        try {
-            for (Anexo doc : p.getAnexos()) {
-                if (doc.getTipo() != TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR) {
-                    continue;
-                }
-                boolean ehPdf = doc.getContentType() != null
-                    && doc.getContentType().toLowerCase().contains("application/pdf");
-                if (!ehPdf) {
-                    ignorados.add(doc.getNomeArquivo());
-                    continue;
-                }
-                partes.add(java.nio.file.Files.readAllBytes(anexoStorage.resolverArquivo(doc)));
-                partesNomes.add(doc.getNomeArquivo());
-            }
-        } catch (IOException e) {
-            ra.addFlashAttribute("erro", "Falha ao ler os documentos clinicos: " + e.getMessage());
-            return "redirect:/processos/" + id + "#envio";
+        if (!resultado.avisos().isEmpty()) {
+            ra.addFlashAttribute("aviso",
+                "Estes documentos clinicos ficaram de fora do PDF consolidado: "
+                    + String.join(", ", resultado.avisos()) + ".");
         }
-
-        if (partes.isEmpty()) {
-            String detalhe = ignorados.isEmpty()
-                ? "Anexe ao menos um documento clinico (PDF) antes de registrar o envio."
-                : "Os documentos anexados nao sao PDF e nao podem ser consolidados ("
-                    + String.join(", ", ignorados) + "). Anexe ao menos um documento clinico em PDF.";
-            ra.addFlashAttribute("erro", detalhe);
-            return "redirect:/processos/" + id + "#envio";
-        }
-
-        // Valida se os PDFs tem paginas antes de consolidar. Um PDF corrompido
-        // ou protegido por senha e descartado da consolidacao, mas o nome vai
-        // para "ignorados" (mesmo aviso dos anexos nao-PDF) - o operador precisa
-        // saber que um documento clinico ficou de fora, em vez de o envio
-        // seguir silenciosamente incompleto.
-        java.util.List<byte[]> validos = new java.util.ArrayList<>();
-        for (int i = 0; i < partes.size(); i++) {
-            byte[] bytes = partes.get(i);
-            String nome = partesNomes.get(i);
-            try {
-                com.lowagie.text.pdf.PdfReader chk = new com.lowagie.text.pdf.PdfReader(bytes);
-                if (chk.getNumberOfPages() > 0) {
-                    validos.add(bytes);
-                } else {
-                    ignorados.add(nome + " (PDF sem paginas)");
-                }
-                chk.close();
-            } catch (Exception e) {
-                ignorados.add(nome + " (PDF corrompido ou protegido por senha)");
-            }
-        }
-        if (validos.isEmpty()) {
-            ra.addFlashAttribute("erro",
-                "Nenhum dos documentos clinicos anexados e um PDF valido com paginas. "
-                + "Remova-os e anexe novamente os documentos originais.");
-            return "redirect:/processos/" + id + "#envio";
-        }
-        partes = validos;
-
-        // PRIMEIRO: gera o PDF consolidado com cabecalho carimbado, em memoria,
-        // e SALVA o novo anexo. SO DEPOIS de o novo anexo estar gravado com
-        // sucesso (arquivo em disco + registro no banco) e que o(s) anexo(s)
-        // antigo(s) sao removidos - assim, se consolidar/carimbar/salvar
-        // falhar em qualquer ponto, o processo NAO fica sem nenhum PDF de
-        // solicitacao aos avaliadores (evita perder um anexo bom por causa de
-        // uma tentativa de reenvio que falhou no meio do caminho).
-        try {
-            byte[] consolidado = solicitacaoAvaliadorService.consolidar(partes);
-            byte[] pdfSolicitacao = solicitacaoAvaliadorService.carimbarCabecalho(consolidado, p);
-            String nomeSolicitacao = SolicitacaoAvaliadorService.nomeArquivoOficial(p);
-
-            Anexo novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.SOLICITACAO_AVALIADOR,
-                "Copia da solicitacao para envio as equipes (documentos clinicos anonimizados com cabecalho; nome completo suprimido)",
-                nomeSolicitacao, "application/pdf", pdfSolicitacao);
-            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.SOLICITACAO_AVALIADOR, novoAnexo.getId());
-
-            // SO depois de o novo anexo estar seguro, efetiva o envio.
-            p.getPareceres().forEach(par -> par.setDataEnvio(hoje));
-            processoService.salvar(p);
-            processoService.registrarEnvio(id);
-
-            auditoria.registrar("ANEXO_ADICIONADO",
-                "Processo " + p.getNumero() + " - Solicitacao PDF consolidada (cabecalho carimbado) gerada automaticamente");
-
-            if (!ignorados.isEmpty()) {
-                ra.addFlashAttribute("aviso",
-                    "Estes documentos clinicos ficaram de fora do PDF consolidado: "
-                        + String.join(", ", ignorados) + ".");
-            }
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger(ProcessoDecisaoController.class)
-                .error("Erro ao registrar envio do processo {}", id, e);
-            ra.addFlashAttribute("erro",
-                "Nao foi possivel gerar o PDF de envio. Verifique os documentos clinicos "
-                + "anexados (devem ser PDFs validos, nao corrompidos e sem senha) e tente novamente.");
-            return "redirect:/processos/" + id + "#envio";
-        }
-
-        auditoria.registrar("ENVIO_AVALIADORES_REGISTRADO", "Processo " + p.getNumero());
-        ra.addFlashAttribute("msg", "Envio aos avaliadores registrado em " + hoje.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ".");
+        ra.addFlashAttribute("msg", resultado.mensagemSucesso());
         return "redirect:/processos/" + id + "#envio";
     }
 
@@ -430,6 +320,7 @@ public class ProcessoDecisaoController {
     public String decidir(@PathVariable Long id,
                           @RequestParam StatusProcesso decisao,
                           @RequestParam(required = false) String motivoIndeferimento,
+                          HttpServletRequest request,
                           RedirectAttributes ra) {
         // So aceita decisoes reais; estados de andamento nao sao "decisoes".
         if (decisao != StatusProcesso.DEFERIDO
@@ -469,7 +360,8 @@ public class ProcessoDecisaoController {
         try { decisaoFinalService.gerarDocumentos(p); }
         catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
         auditoria.registrar("PROCESSO_DECIDIDO",
-            "Processo " + p.getNumero() + " - " + decisao.getDescricao());
+            "Processo " + p.getNumero() + " - " + decisao.getDescricao(),
+            request.getRemoteAddr());
         ra.addFlashAttribute("msg", "Decisao registrada: " + decisao.getDescricao());
         return "redirect:/processos/" + id;
     }
@@ -523,8 +415,7 @@ public class ProcessoDecisaoController {
         if (bloqueadoPorEncerrado(p, ra)) {
             return "redirect:/processos/" + id + "#respostas";
         }
-        Parecer parecer = parecerRepository.findById(parecerId)
-            .filter(par -> par.getProcesso().getId().equals(id))
+        Parecer parecer = processoService.buscarParecer(id, parecerId)
             .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado neste processo: " + parecerId));
         if (parecer.getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
             ra.addFlashAttribute("erro",
@@ -617,9 +508,7 @@ public class ProcessoDecisaoController {
         if (validator.edicaoBloqueada(p)) {
             return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
         }
-        Parecer parecer = parecerRepository.findById(parecerId)
-            .filter(par -> par.getProcesso().getId().equals(id))
-            .orElse(null);
+        Parecer parecer = processoService.buscarParecer(id, parecerId).orElse(null);
         if (parecer == null) {
             return AcaoResponse.erro("Parecer nao encontrado neste processo.");
         }
@@ -655,7 +544,7 @@ public class ProcessoDecisaoController {
         if (validator.edicaoBloqueada(p)) {
             return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
         }
-        var pendentes = parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(id);
+        var pendentes = processoService.pareceresPendentesComEmail(id);
         if (pendentes.isEmpty()) {
             return AcaoResponse.erro("Nao ha avaliadores com parecer pendente neste processo.");
         }
@@ -787,9 +676,7 @@ public class ProcessoDecisaoController {
                 if (parecerId == null) {
                     return EmailPreviewResponse.erro("Parecer nao encontrado neste processo.");
                 }
-                Parecer parecer = parecerRepository.findById(parecerId)
-                    .filter(par -> par.getProcesso().getId().equals(id))
-                    .orElse(null);
+                Parecer parecer = processoService.buscarParecer(id, parecerId).orElse(null);
                 if (parecer == null) {
                     return EmailPreviewResponse.erro("Parecer nao encontrado neste processo.");
                 }
@@ -805,7 +692,7 @@ public class ProcessoDecisaoController {
                     new EmailPreviewResponse.Mensagem(membro.getEmail(), template.assunto(), template.corpo())));
             }
             case "lembrete-pendentes" -> {
-                var pendentes = parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(id);
+                var pendentes = processoService.pareceresPendentesComEmail(id);
                 List<EmailPreviewResponse.Mensagem> mensagens = new ArrayList<>();
                 for (Parecer parecer : pendentes) {
                     MembroUrgenciaRenal membro = parecer.getMembro();

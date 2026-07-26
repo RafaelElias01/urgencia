@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,9 +21,11 @@ class FluxoProcessoServiceTest {
     ProcessoRepository processoRepository;
     @Mock
     MembroUrgenciaRenalRepository membroRepository;
+    @Mock
+    ParecerRepository parecerRepository;
 
     private FluxoProcessoService fluxo() {
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator());
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository);
         return new FluxoProcessoService(ps);
     }
 
@@ -492,7 +495,7 @@ class FluxoProcessoServiceTest {
 
         // Retoma: ProcessoService.retomarAposInformacao volta o status para
         // ENVIADO e limpa (reabre) apenas o parecer que pediu informacao.
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator());
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository);
         org.mockito.Mockito.when(processoRepository.findById(org.mockito.ArgumentMatchers.anyLong()))
             .thenReturn(java.util.Optional.of(p));
         org.mockito.Mockito.when(processoRepository.save(org.mockito.ArgumentMatchers.any()))

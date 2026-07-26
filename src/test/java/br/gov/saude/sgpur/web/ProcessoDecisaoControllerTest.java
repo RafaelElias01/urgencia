@@ -37,14 +37,17 @@ class ProcessoDecisaoControllerTest {
     @MockitoBean private ProcessoService processoService;
     @MockitoBean private ProcessoValidator validator;
     @MockitoBean private DecisaoFinalService decisaoFinalService;
-    @MockitoBean private SolicitacaoAvaliadorService solicitacaoAvaliadorService;
+    @MockitoBean private RegistroEnvioService registroEnvioService;
     @MockitoBean private EmailTemplateService emailTemplateService;
     @MockitoBean private EmailSenderService emailSenderService;
-    @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private AnexoStorageService anexoStorage;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private GeminiService geminiService;
     @MockitoBean private UsuarioRepository usuarioRepository;
+    // GlobalModelAdvice (@ControllerAdvice global) precisa deste bean pro
+    // contexto do @WebMvcTest subir, mesmo o controller nao usando mais
+    // ParecerRepository diretamente (movido para ProcessoService.buscarParecer).
+    @MockitoBean private ParecerRepository parecerRepository;
 
     private Processo processo;
 
@@ -169,7 +172,8 @@ class ProcessoDecisaoControllerTest {
 
         verify(processoService).decidir(1L, StatusProcesso.DEFERIDO, null);
         verify(decisaoFinalService).gerarDocumentos(decidido);
-        verify(auditoria).registrar(eq("PROCESSO_DECIDIDO"), any());
+        // Acao sensivel: auditoria com IP (mesmo padrao do voto do avaliador).
+        verify(auditoria).registrar(eq("PROCESSO_DECIDIDO"), any(), any());
     }
 
     @Test

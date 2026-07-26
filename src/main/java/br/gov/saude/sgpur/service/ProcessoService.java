@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
+import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -32,13 +33,16 @@ public class ProcessoService {
     private final ProcessoRepository processoRepository;
     private final MembroUrgenciaRenalRepository membroRepository;
     private final ProcessoValidator validator;
+    private final ParecerRepository parecerRepository;
 
     public ProcessoService(ProcessoRepository processoRepository,
                            MembroUrgenciaRenalRepository membroRepository,
-                           ProcessoValidator validator) {
+                           ProcessoValidator validator,
+                           ParecerRepository parecerRepository) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
         this.validator = validator;
+        this.parecerRepository = parecerRepository;
     }
 
     public List<Processo> listarTodos() {
@@ -135,6 +139,13 @@ public class ProcessoService {
     @Transactional
     public Processo registrarEnvio(Long id) {
         Processo p = buscar(id);
+        // Defesa em profundidade: mesma checagem ja feita na camada web
+        // (comprovante de envio + documento clinico PDF), imposta aqui para
+        // que o metodo nunca marque ENVIADO sem essas garantias minimas,
+        // mesmo se chamado de outro lugar no futuro (outro controller, job,
+        // teste) sem passar pela validacao do controller HTTP.
+        validator.validarRegistroEnvio(p)
+            .ifPresent(msg -> { throw new IllegalStateException(msg); });
         if (p.getStatus().isEmAndamento()) {
             p.setStatus(StatusProcesso.ENVIADO);
         }
@@ -313,6 +324,26 @@ public class ProcessoService {
 
     public List<Parecer> pareceresRecebidosSemAnexo(Processo processo) {
         return validator.pareceresRecebidosSemAnexo(processo);
+    }
+
+    /**
+     * Localiza o parecer de um processo especifico, garantindo que ele
+     * pertence de fato a esse processo (evita um parecerId de outro processo
+     * vazar por engano). Encapsula o acesso a {@link ParecerRepository} para
+     * que os controllers nao precisem injeta-lo diretamente.
+     */
+    public Optional<Parecer> buscarParecer(Long processoId, Long parecerId) {
+        return parecerRepository.findById(parecerId)
+            .filter(par -> par.getProcesso().getId().equals(processoId));
+    }
+
+    /**
+     * Pareceres pendentes (resultado nulo, envio ja registrado) de um processo
+     * especifico - usado pelo lembrete manual de avaliacao pendente (individual
+     * e em lote).
+     */
+    public List<Parecer> pareceresPendentesComEmail(Long processoId) {
+        return parecerRepository.findByProcessoIdAndResultadoIsNullAndDataEnvioIsNotNull(processoId);
     }
 
     /** True se o processo esta encerrado e, portanto, com a edicao travada. */

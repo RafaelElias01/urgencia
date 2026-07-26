@@ -217,35 +217,11 @@ public class ProcessoDetalheController {
             .collect(java.util.stream.Collectors.toList());
         model.addAttribute("medicosMesmaEquipe", medicosMesmaEquipe);
 
-        // --- Gating das abas (passo 1..5) e sub-rotulo de status ---
-        // Calcula ate qual passo o operador pode navegar. Um passo so libera
-        // quando o passo anterior esta concluido (mesma logica do checklist).
-        boolean recebimentoFeito = p.getAnexos().stream()
-                .anyMatch(a -> a.getTipo() == TipoAnexo.SOLICITACAO_RECEBIDA)
-            && p.getAnexos().stream()
-                .anyMatch(a -> a.getTipo() == TipoAnexo.CAPA_PROCESSO);
-        boolean envioFeito = !p.getPareceres().isEmpty()
-            && p.getPareceres().get(0).getDataEnvio() != null;
-        long respondidos = processoService.contarRespondidos(p);
-        int totalMedicos = p.getPareceres().size();
-        boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
-        // Maioria simples (2 de 3): assim que ha >=2 favoraveis OU >=2 desfavoraveis
-        // o resultado ja esta definido e nao e preciso aguardar o 3o parecer.
-        // (sugestao ja foi calculada acima via processoService.sugerirDecisao)
-        boolean maioriaFormada = sugestao.isPresent();
-        boolean semAnexoPendente = processoService.pareceresRecebidosSemAnexo(p).isEmpty();
-        // A decisao libera quando: (a) maioria ja formada, OU (b) todas as
-        // respostas chegaram. Em ambos os casos os pareceres recebidos precisam
-        // dos seus anexos (decidir exige RESPOSTA_AVALIADOR de todo parecer recebido).
-        boolean respostasOk = (maioriaFormada || todasRespondidas) && semAnexoPendente;
-        boolean decidido = p.getStatus().isFinalizado();
         // PAUSA: enquanto aguarda informacao complementar do solicitante, a
         // decisao e a finalizacao ficam bloqueadas ate o operador retomar a analise.
         boolean aguardandoInfo = p.getStatus() == StatusProcesso.SOLICITA_INFORMACAO;
         model.addAttribute("aguardandoInfo", aguardandoInfo);
 
-        // passoLiberado[i] = true se a aba do passo (1..5) pode ser aberta.
-        // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
         // Anexos da aba Finalizacao
         Optional<Anexo> oficioAnexo = p.getAnexos().stream()
             .filter(a -> a.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO)
@@ -264,16 +240,16 @@ public class ProcessoDetalheController {
             .findFirst();
         model.addAttribute("comprovanteEnvioAvaliadores", comprovanteEnvioAvaliadores.orElse(null));
 
-        boolean liberadoRecebimento = true;
-        boolean liberadoEnvio = recebimentoFeito;
-        boolean liberadoRespostas = recebimentoFeito && envioFeito;
-        boolean liberadoDecisao = liberadoRespostas && respostasOk && !aguardandoInfo;
-        boolean liberadoFinalizacao = decidido;
-        model.addAttribute("liberadoRecebimento", liberadoRecebimento);
-        model.addAttribute("liberadoEnvio", liberadoEnvio);
-        model.addAttribute("liberadoRespostas", liberadoRespostas);
-        model.addAttribute("liberadoDecisao", liberadoDecisao);
-        model.addAttribute("liberadoFinalizacao", liberadoFinalizacao);
+        // Gating das abas (passo 1..5): ate qual passo o operador pode
+        // navegar/agir. Calculo centralizado em FluxoProcessoService (mesma
+        // fonte de verdade do checklist/wizard), fonte unica para nao
+        // divergir da timeline.
+        var gating = fluxoService.calcularGating(p);
+        model.addAttribute("liberadoRecebimento", gating.liberadoRecebimento());
+        model.addAttribute("liberadoEnvio", gating.liberadoEnvio());
+        model.addAttribute("liberadoRespostas", gating.liberadoRespostas());
+        model.addAttribute("liberadoDecisao", gating.liberadoDecisao());
+        model.addAttribute("liberadoFinalizacao", gating.liberadoFinalizacao());
 
         // Wizard horizontal: mesma fonte de verdade da timeline vertical
         // (FluxoProcessoService), para as duas linhas nunca divergirem.
@@ -286,23 +262,9 @@ public class ProcessoDetalheController {
             .orElse(passosWizard.get(passosWizard.size() - 1).paneId());
         model.addAttribute("abaAtivaPaneId", abaAtivaPaneId);
 
-        // Sub-rotulo dinamico ao lado do status. Por MAIORIA SIMPLES (2 de 3),
-        // assim que ha 2 votos do mesmo tipo o resultado ja esta definido: nao
-        // mostra mais "Aguardando parecer", e sim "pronto para decidir". So
-        // mostra "Aguardando parecer (x/total)" quando ainda NAO ha maioria.
-        String statusSubrotulo = null;
-        if (p.getStatus() == StatusProcesso.ENVIADO
-                || p.getStatus() == StatusProcesso.EM_ANALISE) {
-            if (envioFeito && maioriaFormada) {
-                statusSubrotulo = "Maioria formada - pronto para decidir ("
-                    + sugestao.get().getDescricao() + ")";
-            } else if (envioFeito && totalMedicos > 0 && respondidos < totalMedicos) {
-                statusSubrotulo = "Aguardando parecer (" + respondidos + "/" + totalMedicos + ")";
-            } else if (envioFeito && respostasOk) {
-                statusSubrotulo = "Pareceres recebidos - aguardando decisao";
-            }
-        }
-        model.addAttribute("statusSubrotulo", statusSubrotulo);
+        // Sub-rotulo dinamico ao lado do status (ex.: "Maioria formada -
+        // pronto para decidir"). Calculo centralizado em FluxoProcessoService.
+        model.addAttribute("statusSubrotulo", fluxoService.calcularSubrotuloStatus(p));
 
         return "processos/detalhe";
     }

@@ -205,6 +205,22 @@ class RelatorioServiceTest {
             .contains("Em andamento");
     }
 
+    @Test
+    void gerarCapaProcessoContemNomeCompletoDoPaciente() throws Exception {
+        // Regressao simetrica ao contrato de imparcialidade dos avaliadores
+        // (ver SolicitacaoAvaliadorServiceTest): a capa do processo e um
+        // documento INTERNO de arquivamento, nao enviado aos avaliadores, e
+        // por isso deve conter o nome completo do paciente (nao as iniciais).
+        Processo p = processoBase(StatusProcesso.ENVIADO);
+
+        byte[] pdf = novoService().gerarCapaProcesso(p);
+
+        PdfReader reader = new PdfReader(pdf);
+        String texto = new PdfTextExtractor(reader).getTextFromPage(1);
+        reader.close();
+        assertThat(texto).contains("Joao da Silva");
+    }
+
     /** PDF minimo valido contendo o texto informado, para simular um anexo real no disco. */
     private static byte[] pdfMinimoComTexto(String texto) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
