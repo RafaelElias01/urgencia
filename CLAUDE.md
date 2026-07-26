@@ -19,9 +19,11 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 .\start.ps1            # dev (H2) — sandbox de teste
 .\start.ps1 prod       # prod (Neon) — usa application-local.yml (gitignored)
 ```
-- App em http://localhost:8080 · login inicial `admin` / `admin123` (criado
-  automaticamente por `AdminBootstrap` só quando a tabela `usuario` está
-  vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
+- App em http://localhost:3000 (porta trocada de 8080 para 3000 no commit
+  `93debdf`, 2026-07-21; `start.ps1` **não abre o navegador sozinho**, precisa
+  acessar manualmente após o boot) · login inicial `admin` / `admin123`
+  (criado automaticamente por `AdminBootstrap` só quando a tabela `usuario`
+  está vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
 - Testes: `.\test.ps1` (ou `mvn test`) — **144 testes**, sempre com **JDK 21**.
   Build: `mvn -DskipTests package` (gera o JAR).
 - **Teste E2E de navegador (Playwright):** `.\e2e.ps1` sobe o SAUR real (porta
@@ -259,7 +261,7 @@ autenticado do próprio médico no sistema.
 ### E-mail
 - `EmailTemplateService.emailConviteAvaliador(p, membro)` — gera texto com
   iniciais e link `{app.base-url}/avaliador` para copiar/colar.
-- `app.base-url` configurável em `application.yml` (default `http://localhost:8080`,
+- `app.base-url` configurável em `application.yml` (default `http://localhost:3000`,
   variável de ambiente `SGPUR_BASE_URL` em prod).
 - Template "convite-portal" incluído em `gerar(p)` quando status ENVIADO/EM_ANALISE.
 
@@ -435,7 +437,7 @@ vistoria de 09/07), banco Neon e envio de e-mail (SMTP Gmail) funcionando.
 HTTPS confirmado ativo via certbot (nginx redireciona 80→443, cert válido até
 2026-10-05). Pendência conhecida: `SGPUR_BASE_URL` ainda não definida no
 `sgpur.env` da VM — os links do Portal do Avaliador nos e-mails de convite
-apontam para `localhost:8080` em vez do domínio real; corrigir adicionando
+apontam para `localhost:3000` em vez do domínio real; corrigir adicionando
 `SGPUR_BASE_URL=https://urgenciarenal.duckdns.org` ao `/opt/sgpur/sgpur.env` e
 reiniciando o serviço.
 `deploy/README-deploy.md` ganhou 2 seções novas: acesso via Oracle Cloud
