@@ -87,16 +87,6 @@ public class ProcessoDetalheController {
         };
     }
 
-    @ModelAttribute("resultadoValores")
-    public java.util.List<ResultadoParecer> resultadoValores() {
-        // Apenas os votos que um avaliador pode de fato submeter (SEM_RESPOSTA
-        // existe so para relatorio/estado interno e sempre seria rejeitado no
-        // POST). Mesmo criterio de AvaliadorController.votar.
-        return java.util.Arrays.stream(ResultadoParecer.values())
-            .filter(ResultadoParecer::isVotoValido)
-            .toList();
-    }
-
     @ModelAttribute("tipoAnexoValores")
     public TipoAnexo[] tipoAnexoValores() {
         return TipoAnexo.values();
@@ -268,12 +258,6 @@ public class ProcessoDetalheController {
         model.addAttribute("favoraveis", processoService.contarFavoraveis(p));
         model.addAttribute("deferidoPeloCoordenador", processoService.deferidoPeloCoordenador(p));
         model.addAttribute("emails", emailTemplateService.gerar(p));
-        // IDs dos pareceres que ja possuem e-mail de resposta anexado
-        java.util.Set<Long> pareceresComResposta = p.getAnexos().stream()
-            .filter(a -> a.getParecer() != null)
-            .map(a -> a.getParecer().getId())
-            .collect(java.util.stream.Collectors.toSet());
-        model.addAttribute("pareceresComResposta", pareceresComResposta);
         // IDs dos pareceres votados diretamente pelo avaliador autenticado no portal.
         // Esses pareceres sao IMUTAVEIS pelo operador: o campo de resultado fica
         // bloqueado (disabled) e o anexo de resposta nao pode ser excluido nem substituido.

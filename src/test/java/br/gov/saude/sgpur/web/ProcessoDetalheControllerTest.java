@@ -393,23 +393,6 @@ class ProcessoDetalheControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void resultadoValoresNaoIncluiSemResposta() throws Exception {
-        // SEM_RESPOSTA nao e um voto submetivel (isVotoValido() == false) e
-        // sempre seria rejeitado no POST - nao deve aparecer no dropdown.
-        mvc.perform(get("/processos/1"))
-            .andExpect(status().isOk())
-            .andExpect(model().attribute("resultadoValores",
-                org.hamcrest.Matchers.contains(
-                    ResultadoParecer.FAVORAVEL,
-                    ResultadoParecer.NAO_FAVORAVEL,
-                    ResultadoParecer.SOLICITA_INFORMACAO)))
-            .andExpect(model().attribute("resultadoValores",
-                org.hamcrest.Matchers.not(
-                    org.hamcrest.Matchers.hasItem(ResultadoParecer.SEM_RESPOSTA))));
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
     void detalheExpoeProcessoVeioDoPortalFalseNoFluxoTradicional() throws Exception {
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
