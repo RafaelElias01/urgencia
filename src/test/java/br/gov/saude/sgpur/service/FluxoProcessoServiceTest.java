@@ -5,9 +5,6 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
-import br.gov.saude.sgpur.service.AnexoStorageService;
-import br.gov.saude.sgpur.service.EmailSenderService;
-import br.gov.saude.sgpur.service.EmailTemplateService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -39,7 +36,9 @@ class FluxoProcessoServiceTest {
     AnexoStorageService anexoStorageService;
 
     private FluxoProcessoService fluxo() {
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService, anexoStorageService);
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(),
+                parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService,
+                anexoStorageService);
         // Por padrao nenhum processo veio do Portal do Solicitante nesses
         // testes (comportamento identico ao existente antes da excecao do
         // Portal); testes especificos sobrescrevem esse stub. Note que desde
@@ -57,7 +56,10 @@ class FluxoProcessoServiceTest {
         return p;
     }
 
-    /** Etapa 2 (Envio) concluida: doc clinico PDF anexado + dataEnvio nos 3 pareceres. */
+    /**
+     * Etapa 2 (Envio) concluida: doc clinico PDF anexado + dataEnvio nos 3
+     * pareceres.
+     */
     private void registrarEnvioCompleto(Processo p) {
         Anexo doc = new Anexo();
         doc.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
@@ -73,7 +75,8 @@ class FluxoProcessoServiceTest {
     private void registrarMaioria(Processo p, ResultadoParecer resultado) {
         long id = 1;
         for (Parecer par : p.getPareceres()) {
-            if (par.getId() == null) par.setId(id++);
+            if (par.getId() == null)
+                par.setId(id++);
         }
         for (int i = 0; i < 2; i++) {
             Parecer par = p.getPareceres().get(i);
@@ -85,7 +88,10 @@ class FluxoProcessoServiceTest {
         }
     }
 
-    /** Monta um processo com as etapas 1-3 completas, pronto para a Decisao (favoravel). */
+    /**
+     * Monta um processo com as etapas 1-3 completas, pronto para a Decisao
+     * (favoravel).
+     */
     private Processo processoProntoParaDecisao() {
         Processo p = processoComTresPareceres();
         p.setStatus(StatusProcesso.ENVIADO);
@@ -111,7 +117,7 @@ class FluxoProcessoServiceTest {
         Processo p = processoComTresPareceres();
         p.getPareceres().forEach(par -> par.setDataEnvio(LocalDate.now()));
         EtapaFluxo envio = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().startsWith("Envio")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().startsWith("Envio")).findFirst().orElseThrow();
         assertThat(envio.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
     }
 
@@ -120,13 +126,13 @@ class FluxoProcessoServiceTest {
         Processo p = processoComTresPareceres();
         p.setStatus(StatusProcesso.INDEFERIDO);
         boolean temOficio = fluxo().montarEtapas(p).stream()
-            .anyMatch(e -> e.titulo().toLowerCase().contains("oficio"));
+                .anyMatch(e -> e.titulo().toLowerCase().contains("oficio"));
         assertThat(temOficio).isTrue();
 
         Processo p2 = processoComTresPareceres();
         p2.setStatus(StatusProcesso.DEFERIDO);
         boolean temOficio2 = fluxo().montarEtapas(p2).stream()
-            .anyMatch(e -> e.titulo().toLowerCase().contains("oficio"));
+                .anyMatch(e -> e.titulo().toLowerCase().contains("oficio"));
         assertThat(temOficio2).isFalse();
     }
 
@@ -145,12 +151,13 @@ class FluxoProcessoServiceTest {
         List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
 
         EtapaFluxo info = etapas.stream()
-            .filter(e -> e.titulo().equals("Informacao complementar")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Informacao complementar")).findFirst().orElseThrow();
         assertThat(info.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
 
-        // a decisao fica bloqueada (nunca CONCLUIDA, e nem ATUAL, pois a info pausa o fluxo)
+        // a decisao fica bloqueada (nunca CONCLUIDA, e nem ATUAL, pois a info pausa o
+        // fluxo)
         EtapaFluxo decisao = etapas.stream()
-            .filter(e -> e.titulo().equals("Decisao final")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Decisao final")).findFirst().orElseThrow();
         assertThat(decisao.estado()).isEqualTo(EtapaFluxo.Estado.PENDENTE);
     }
 
@@ -159,7 +166,7 @@ class FluxoProcessoServiceTest {
         Processo p = processoComTresPareceres();
         p.setStatus(StatusProcesso.ENVIADO);
         boolean tem = fluxo().montarEtapas(p).stream()
-            .anyMatch(e -> e.titulo().equals("Informacao complementar"));
+                .anyMatch(e -> e.titulo().equals("Informacao complementar"));
         assertThat(tem).isFalse();
     }
 
@@ -172,14 +179,14 @@ class FluxoProcessoServiceTest {
         // terceiro parecer continua sem resposta
 
         EtapaFluxo respostas = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().equals("Respostas dos medicos")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Respostas dos medicos")).findFirst().orElseThrow();
         assertThat(respostas.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
         assertThat(respostas.detalhe()).doesNotContain("Faltam");
         assertThat(respostas.detalhe()).contains("Maioria formada");
 
         // e a Decisao final fica como etapa ATUAL (liberada), nao PENDENTE.
         EtapaFluxo decisao = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().equals("Decisao final")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Decisao final")).findFirst().orElseThrow();
         assertThat(decisao.estado()).isEqualTo(EtapaFluxo.Estado.ATUAL);
     }
 
@@ -188,13 +195,13 @@ class FluxoProcessoServiceTest {
         Processo def = processoComTresPareceres();
         def.setStatus(StatusProcesso.DEFERIDO);
         boolean temSnt = fluxo().montarEtapas(def).stream()
-            .anyMatch(e -> e.titulo().equals("Comprovante SNT"));
+                .anyMatch(e -> e.titulo().equals("Comprovante SNT"));
         assertThat(temSnt).isTrue();
 
         Processo ind = processoComTresPareceres();
         ind.setStatus(StatusProcesso.INDEFERIDO);
         boolean temSnt2 = fluxo().montarEtapas(ind).stream()
-            .anyMatch(e -> e.titulo().equals("Comprovante SNT"));
+                .anyMatch(e -> e.titulo().equals("Comprovante SNT"));
         assertThat(temSnt2).isFalse();
     }
 
@@ -204,7 +211,7 @@ class FluxoProcessoServiceTest {
         p.setStatus(StatusProcesso.DEFERIDO);
 
         EtapaFluxo sntSem = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
         assertThat(sntSem.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
 
         Anexo comprovante = new Anexo();
@@ -212,7 +219,7 @@ class FluxoProcessoServiceTest {
         p.addAnexo(comprovante);
 
         EtapaFluxo sntCom = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
         assertThat(sntCom.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
     }
 
@@ -235,11 +242,11 @@ class FluxoProcessoServiceTest {
         List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
 
         EtapaFluxo snt = etapas.stream()
-            .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Comprovante SNT")).findFirst().orElseThrow();
         assertThat(snt.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
 
         EtapaFluxo resposta = etapas.stream()
-            .filter(e -> e.titulo().equals("Resposta ao solicitante")).findFirst().orElseThrow();
+                .filter(e -> e.titulo().equals("Resposta ao solicitante")).findFirst().orElseThrow();
         assertThat(resposta.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
         assertThat(resposta.estado()).isEqualTo(EtapaFluxo.Estado.PENDENTE);
     }
@@ -301,8 +308,7 @@ class FluxoProcessoServiceTest {
         comprovanteEnvio.setTipo(TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE);
         p.addAnexo(comprovanteEnvio);
         List<EtapaFluxo> eFinal = fluxo().montarEtapas(p);
-        assertThat(eFinal).allSatisfy(e ->
-            assertThat(e.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA));
+        assertThat(eFinal).allSatisfy(e -> assertThat(e.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA));
         assertThat(fluxo().resumoPendencia(p)).isEqualTo("Processo concluido.");
     }
 
@@ -450,11 +456,13 @@ class FluxoProcessoServiceTest {
 
         // Retoma: ProcessoService.retomarAposInformacao volta o status para
         // ENVIADO e limpa (reabre) apenas o parecer que pediu informacao.
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService, anexoStorageService);
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(),
+                parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService,
+                anexoStorageService);
         org.mockito.Mockito.when(processoRepository.findById(org.mockito.ArgumentMatchers.anyLong()))
-            .thenReturn(java.util.Optional.of(p));
+                .thenReturn(java.util.Optional.of(p));
         org.mockito.Mockito.when(processoRepository.save(org.mockito.ArgumentMatchers.any()))
-            .thenAnswer(inv -> inv.getArgument(0));
+                .thenAnswer(inv -> inv.getArgument(0));
         p.setId(1L);
         Processo retomado = ps.retomarAposInformacao(1L);
 
@@ -477,7 +485,8 @@ class FluxoProcessoServiceTest {
 
     @Test
     void wizardBloqueiaDecisaoQuandoSolicitaInformacaoComMaioriaJaFormada() {
-        // Mesmo cenario de solicitaInformacaoComMaioriaJaFormadaPausaDecisaoEDepoisRetoma:
+        // Mesmo cenario de
+        // solicitaInformacaoComMaioriaJaFormadaPausaDecisaoEDepoisRetoma:
         // maioria ja formada (Respostas = CONCLUIDA), mas o 3o medico pediu
         // informacao complementar, pausando o fluxo. A timeline vertical
         // bloqueia "Decisao final" (PENDENTE) - o wizard horizontal precisa
@@ -499,7 +508,7 @@ class FluxoProcessoServiceTest {
 
         List<PassoWizard> passos = fluxo().montarPassosWizard(p);
         PassoWizard passoDecisao = passos.stream()
-            .filter(passo -> passo.numero() == 4).findFirst().orElseThrow();
+                .filter(passo -> passo.numero() == 4).findFirst().orElseThrow();
         assertThat(passoDecisao.estado()).isEqualTo(PassoWizard.Estado.BLOQUEADA);
     }
 
@@ -519,7 +528,7 @@ class FluxoProcessoServiceTest {
 
         List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
         long concluidasEsperadas = etapas.stream()
-            .filter(e -> e.estado() == EtapaFluxo.Estado.CONCLUIDA).count();
+                .filter(e -> e.estado() == EtapaFluxo.Estado.CONCLUIDA).count();
 
         // Recebimento, Envio, Respostas, Decisao, Comprovante SNT = 5 concluidas;
         // Resposta ao solicitante fica ATUAL (nao concluida). Total de etapas = 6
@@ -591,9 +600,9 @@ class FluxoProcessoServiceTest {
 
     private EtapaFluxo.Estado estado(List<EtapaFluxo> etapas, String titulo) {
         return etapas.stream()
-            .filter(e -> e.titulo().equals(titulo))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError("Etapa nao encontrada: " + titulo))
-            .estado();
+                .filter(e -> e.titulo().equals(titulo))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Etapa nao encontrada: " + titulo))
+                .estado();
     }
 }

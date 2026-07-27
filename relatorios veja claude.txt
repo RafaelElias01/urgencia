@@ -1,0 +1,11 @@
+ solicitação inicial ao invés de vir por email.Vamos gerar um modulo experimental onde a pessoa fara pelo sistema.
+Lembre-se de todas regras negócios estão vigente.
+E teremos uma nova classe de usuário solicitante. Não irá enviar para avaliação. Não irá escolher quem serão os membros para avaliçaão. Não gerara o relatório anonimizado para envio a equipe, isso ficara a cargo do operador
+
+ESSE NOVO MODULO INICIAL DO SOLICITANTE, PODE OU NAO SER UTILIZADO. 
+O processo pode inicar com a solicitação vindo por aqui ou como esta atualemente.
+
+A DIFERENÇA SERA QUE QUANDO ENVIADO PELO SOLICITANTE NO NOVO MODULO, O OPERADOR PODERA UTILIZAR OS DADOS JÁ ENVIADOS POR ELE E PROSSEGUIR NO PROCESS
+
+
+O
