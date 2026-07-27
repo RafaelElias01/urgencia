@@ -34,6 +34,8 @@ public class SolicitacaoOnlineService {
     private final AnexoStorageService anexoStorageProcesso;
     private final UsuarioRepository usuarioRepository;
     private final EmailSenderService emailSenderService;
+    private final ProcessoService processoService;
+    private final DecisaoFinalService decisaoFinalService;
     private final String baseUrl;
 
     public SolicitacaoOnlineService(SolicitacaoOnlineRepository repository,
@@ -41,12 +43,16 @@ public class SolicitacaoOnlineService {
                                     AnexoStorageService anexoStorageProcesso,
                                     UsuarioRepository usuarioRepository,
                                     EmailSenderService emailSenderService,
+                                    ProcessoService processoService,
+                                    DecisaoFinalService decisaoFinalService,
                                     @Value("${app.base-url:http://localhost:3000}") String baseUrl) {
         this.repository = repository;
         this.anexoStorage = anexoStorage;
         this.anexoStorageProcesso = anexoStorageProcesso;
         this.usuarioRepository = usuarioRepository;
         this.emailSenderService = emailSenderService;
+        this.processoService = processoService;
+        this.decisaoFinalService = decisaoFinalService;
         this.baseUrl = baseUrl;
     }
 
@@ -259,8 +265,35 @@ public class SolicitacaoOnlineService {
     }
 
     /**
-     * Cancela a propria solicitacao, apenas enquanto ainda nao foi triada
-     * (status ENVIADA). Verifica posse (o dono precisa ser quem cancela).
+     * Verdadeiro quando o solicitante ainda pode cancelar este pedido:
+     * - ENVIADA (fluxo original, ainda sem processo criado); ou
+     * - CONVERTIDA com o {@link Processo} vinculado ainda sem decisao final
+     *   (Deferido/Indeferido) - cancelar aqui cancela tambem o processo.
+     * DEVOLVIDA/CANCELADA e CONVERTIDA ja Deferida/Indeferida nunca podem
+     * ser canceladas pelo portal.
+     */
+    public boolean podeCancelar(SolicitacaoOnline s) {
+        if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
+            return true;
+        }
+        if (s.getStatus() == StatusSolicitacaoOnline.CONVERTIDA && s.getProcessoGerado() != null) {
+            StatusProcesso status = s.getProcessoGerado().getStatus();
+            return status != StatusProcesso.DEFERIDO && status != StatusProcesso.INDEFERIDO;
+        }
+        return false;
+    }
+
+    /**
+     * Cancela a propria solicitacao. Verifica posse (o dono precisa ser quem
+     * cancela). Duas situacoes sao aceitas:
+     * - ENVIADA: ainda nao foi triada, so a solicitacao muda de status (fluxo
+     *   original, sem processo ainda).
+     * - CONVERTIDA: ja existe um {@link Processo} vinculado. So e permitido
+     *   enquanto o processo ainda nao tem decisao final (Deferido/Indeferido) -
+     *   nesse caso o processo tambem e marcado como {@code StatusProcesso.
+     *   CANCELADO}, reaproveitando {@code ProcessoService.decidir} (mesmo
+     *   metodo usado pelo operador em {@code POST /processos/{id}/decidir})
+     *   para nao duplicar a logica de transicao de status.
      */
     @Transactional
     public void cancelar(Long id, Long usuarioLogadoId) {
@@ -268,12 +301,40 @@ public class SolicitacaoOnlineService {
         if (!s.getUsuarioSolicitante().getId().equals(usuarioLogadoId)) {
             throw new IllegalStateException("Voce so pode cancelar as suas proprias solicitacoes.");
         }
-        if (s.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
-            throw new IllegalStateException(
-                "So e possivel cancelar solicitacoes que ainda nao foram triadas pelo operador.");
+        if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
+            s.setStatus(StatusSolicitacaoOnline.CANCELADA);
+            repository.save(s);
+            return;
         }
-        s.setStatus(StatusSolicitacaoOnline.CANCELADA);
-        repository.save(s);
+        if (s.getStatus() == StatusSolicitacaoOnline.CONVERTIDA) {
+            Processo processo = s.getProcessoGerado();
+            if (processo == null) {
+                throw new IllegalStateException(
+                    "Esta solicitacao foi convertida, mas nao tem processo vinculado. Contate o administrador.");
+            }
+            if (processo.getStatus() == StatusProcesso.DEFERIDO || processo.getStatus() == StatusProcesso.INDEFERIDO) {
+                throw new IllegalStateException(
+                    "Nao e possivel cancelar: o processo " + processo.getNumero()
+                        + " ja tem uma decisao final registrada (" + processo.getStatus().getDescricao() + ").");
+            }
+            // Reaproveita a mesma transicao de status usada pelo operador
+            // (POST /processos/{id}/decidir com decisao=CANCELADO) - decidir()
+            // ja impoe a defesa em profundidade de processo encerrado
+            // (edicaoBloqueada) como ultima linha de garantia.
+            Processo cancelado = processoService.decidir(processo.getId(), StatusProcesso.CANCELADO, null);
+            try {
+                decisaoFinalService.gerarDocumentos(cancelado);
+            } catch (IllegalStateException e) {
+                log.warn("Falha ao gerar o relatorio final ao cancelar o processo {} pelo Portal do Solicitante: {}",
+                    cancelado.getNumero(), e.getMessage());
+            }
+            s.setStatus(StatusSolicitacaoOnline.CANCELADA);
+            repository.save(s);
+            return;
+        }
+        throw new IllegalStateException(
+            "So e possivel cancelar solicitacoes que ainda nao foram triadas, "
+                + "ou processos convertidos que ainda nao tem decisao final.");
     }
 
     /**

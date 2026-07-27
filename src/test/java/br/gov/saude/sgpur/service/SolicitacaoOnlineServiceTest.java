@@ -37,13 +37,18 @@ class SolicitacaoOnlineServiceTest {
     UsuarioRepository usuarioRepository;
     @Mock
     EmailSenderService emailSenderService;
+    @Mock
+    ProcessoService processoService;
+    @Mock
+    DecisaoFinalService decisaoFinalService;
 
     SolicitacaoOnlineService service;
 
     @BeforeEach
     void setUp() {
         service = new SolicitacaoOnlineService(repository, anexoStorage, anexoStorageProcesso,
-            usuarioRepository, emailSenderService, "http://localhost:3000");
+            usuarioRepository, emailSenderService, processoService, decisaoFinalService,
+            "http://localhost:3000");
     }
 
     private Usuario usuarioSolicitante(Long id) {
@@ -124,14 +129,28 @@ class SolicitacaoOnlineServiceTest {
     }
 
     @Test
-    void cancelarSolicitacaoJaTriadaLancaExcecao() {
+    void cancelarSolicitacaoJaTriadaSemProcessoVinculadoLancaExcecao() {
         SolicitacaoOnline s = solicitacaoPedido();
         s.setId(11L);
         s.setUsuarioSolicitante(usuarioSolicitante(1L));
         s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(null);
         when(repository.findById(11L)).thenReturn(java.util.Optional.of(s));
 
         assertThatThrownBy(() -> service.cancelar(11L, 1L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("nao tem processo vinculado");
+    }
+
+    @Test
+    void cancelarSolicitacaoDevolvidaOuJaCanceladaLancaExcecao() {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(111L);
+        s.setUsuarioSolicitante(usuarioSolicitante(1L));
+        s.setStatus(StatusSolicitacaoOnline.DEVOLVIDA);
+        when(repository.findById(111L)).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.cancelar(111L, 1L))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("nao foram triadas");
     }
@@ -147,6 +166,104 @@ class SolicitacaoOnlineServiceTest {
         service.cancelar(12L, 1L);
 
         assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CANCELADA);
+    }
+
+    /**
+     * Regra nova: cancelar uma solicitacao ja CONVERTIDA, com o processo ainda
+     * em andamento (nao decidido), tambem cancela o Processo vinculado -
+     * reaproveitando ProcessoService.decidir (mesmo metodo usado pelo
+     * operador via POST /processos/{id}/decidir).
+     */
+    @Test
+    void cancelarSolicitacaoConvertidaComProcessoEmAndamentoTambemCancelaOProcesso() {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(30L);
+        s.setUsuarioSolicitante(usuarioSolicitante(1L));
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        Processo processo = processoComStatus(StatusProcesso.ENVIADO);
+        s.setProcessoGerado(processo);
+        when(repository.findById(30L)).thenReturn(java.util.Optional.of(s));
+        Processo cancelado = processoComStatus(StatusProcesso.CANCELADO);
+        when(processoService.decidir(processo.getId(), StatusProcesso.CANCELADO, null))
+            .thenReturn(cancelado);
+
+        service.cancelar(30L, 1L);
+
+        org.mockito.Mockito.verify(processoService)
+            .decidir(processo.getId(), StatusProcesso.CANCELADO, null);
+        org.mockito.Mockito.verify(decisaoFinalService).gerarDocumentos(cancelado);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CANCELADA);
+    }
+
+    /**
+     * Limite confirmado com o dono do produto: nao e permitido cancelar um
+     * pedido cujo processo ja teve decisao final (Deferido/Indeferido).
+     */
+    @Test
+    void cancelarSolicitacaoConvertidaComProcessoJaDeferidoLancaExcecao() {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(31L);
+        s.setUsuarioSolicitante(usuarioSolicitante(1L));
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.DEFERIDO));
+        when(repository.findById(31L)).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.cancelar(31L, 1L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("decisao final");
+        org.mockito.Mockito.verifyNoInteractions(processoService, decisaoFinalService);
+    }
+
+    @Test
+    void cancelarSolicitacaoConvertidaComProcessoJaIndeferidoLancaExcecao() {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(32L);
+        s.setUsuarioSolicitante(usuarioSolicitante(1L));
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.INDEFERIDO));
+        when(repository.findById(32L)).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.cancelar(32L, 1L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("decisao final");
+        org.mockito.Mockito.verifyNoInteractions(processoService, decisaoFinalService);
+    }
+
+    @Test
+    void podeCancelarVerdadeiroQuandoEnviada() {
+        SolicitacaoOnline s = comStatus(40L, StatusSolicitacaoOnline.ENVIADA);
+
+        assertThat(service.podeCancelar(s)).isTrue();
+    }
+
+    @Test
+    void podeCancelarVerdadeiroQuandoConvertidaEProcessoEmAndamento() {
+        SolicitacaoOnline s = comStatus(41L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.SOLICITA_INFORMACAO));
+
+        assertThat(service.podeCancelar(s)).isTrue();
+    }
+
+    @Test
+    void podeCancelarFalsoQuandoConvertidaEProcessoDeferido() {
+        SolicitacaoOnline s = comStatus(42L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.DEFERIDO));
+
+        assertThat(service.podeCancelar(s)).isFalse();
+    }
+
+    @Test
+    void podeCancelarFalsoQuandoConvertidaEProcessoIndeferido() {
+        SolicitacaoOnline s = comStatus(43L, StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(processoComStatus(StatusProcesso.INDEFERIDO));
+
+        assertThat(service.podeCancelar(s)).isFalse();
+    }
+
+    @Test
+    void podeCancelarFalsoQuandoDevolvidaOuCancelada() {
+        assertThat(service.podeCancelar(comStatus(44L, StatusSolicitacaoOnline.DEVOLVIDA))).isFalse();
+        assertThat(service.podeCancelar(comStatus(45L, StatusSolicitacaoOnline.CANCELADA))).isFalse();
     }
 
     @Test

@@ -154,9 +154,11 @@
         <a th:href="@{/solicitante}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Voltar
         </a>
-        <form th:if="${solicitacao.status.name() == 'ENVIADA'}"
+        <form th:if="${podeCancelar}"
               th:action="@{/solicitante/{id}/cancelar(id=${solicitacao.id})}" method="post"
-              data-confirm-msg="Cancelar esta solicitacao? Ela nao sera analisada.">
+              th:attr="data-confirm-msg=${solicitacao.status.name() == 'CONVERTIDA'
+                  ? 'Cancelar esta solicitacao? Isso tambem cancela o processo ' + solicitacao.processoGerado.numero + ' em andamento, que nao podera mais ser retomado.'
+                  : 'Cancelar esta solicitacao? Ela nao sera analisada.'}">
             <button type="submit" class="btn btn-outline-danger">
                 <i class="bi bi-x-circle"></i> Cancelar solicitacao
             </button>
