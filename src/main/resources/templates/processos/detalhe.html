@@ -571,7 +571,6 @@
                             <th>Medico</th>
                             <th>Parecer</th>
                             <th>Data resposta</th>
-                            <th>Origem</th>
                             <th>Acao</th>
                         </tr></thead>
                         <tbody>
@@ -591,16 +590,6 @@
                             </td>
                             <td class="small text-muted"
                                 th:text="${par.dataResposta != null} ? ${#temporals.format(par.dataResposta, 'dd/MM/yyyy')} : '-'">-</td>
-                            <td>
-                                <span th:if="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
-                                      class="badge bg-primary" title="Voto registrado pelo proprio avaliador autenticado no portal">
-                                    <i class="bi bi-person-check"></i> Portal
-                                </span>
-                                <span th:unless="${par.origem != null and par.origem.name() == 'AVALIADOR_SISTEMA'}"
-                                      class="badge bg-light text-dark border" title="Resultado lancado pelo operador apos receber por e-mail">
-                                    <i class="bi bi-envelope"></i> Operador
-                                </span>
-                            </td>
                             <td>
                                 <!-- Portal: voto imutavel, sem acao do operador -->
                                 <th:block th:if="${pareceresPortal.contains(par.id)}">
