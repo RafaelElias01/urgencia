@@ -13,6 +13,7 @@
             <span th:case="'CONVERTIDA'" class="badge bg-success fs-6">Convertida em processo</span>
             <span th:case="'DEVOLVIDA'" class="badge bg-danger fs-6">Devolvida</span>
             <span th:case="'CANCELADA'" class="badge bg-secondary fs-6">Cancelada</span>
+            <span th:case="'PROCESSO_EXCLUIDO'" class="badge bg-danger fs-6">Processo excluido</span>
         </span>
     </div>
 
@@ -53,12 +54,14 @@
                         <i th:case="'CONVERTIDA'" class="bi bi-check"></i>
                         <i th:case="'DEVOLVIDA'" class="bi bi-arrow-return-left"></i>
                         <i th:case="'CANCELADA'" class="bi bi-x-lg"></i>
+                        <i th:case="'PROCESSO_EXCLUIDO'" class="bi bi-exclamation-triangle-fill"></i>
                         <i th:case="*"></i>
                     </div>
                     <div class="timeline-title" th:switch="${solicitacao.status.name()}">
                         <span th:case="'CONVERTIDA'">Convertida em processo</span>
                         <span th:case="'DEVOLVIDA'">Devolvida para correcao</span>
                         <span th:case="'CANCELADA'">Cancelada por voce</span>
+                        <span th:case="'PROCESSO_EXCLUIDO'">Processo excluido</span>
                         <span th:case="*">Aguardando decisao</span>
                     </div>
                     <div class="timeline-desc" th:switch="${solicitacao.status.name()}">
@@ -69,6 +72,9 @@
                             Precisa de um ajuste antes de seguir — veja o motivo abaixo.
                         </span>
                         <span th:case="'CANCELADA'">Voce cancelou este pedido antes da triagem.</span>
+                        <span th:case="'PROCESSO_EXCLUIDO'">
+                            O processo gerado a partir deste pedido foi excluido pela equipe de Urgencia Renal.
+                        </span>
                         <span th:case="*">
                             Assim que a triagem terminar, o pedido vira um processo ou e devolvido
                             para correcao.
@@ -114,6 +120,12 @@
         <hr>
         <strong>O que fazer agora:</strong> envie uma <a th:href="@{/solicitante/nova}" class="alert-link">nova
         solicitacao</a> com os ajustes indicados acima. Esta aqui nao sera reanalisada.
+    </div>
+    <div th:if="${solicitacao.status.name() == 'PROCESSO_EXCLUIDO'}" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        Sua solicitacao foi removida pela equipe de Urgencia Renal (o processo gerado foi excluido).
+        Se ainda for necessario, envie uma <a th:href="@{/solicitante/nova}" class="alert-link">nova
+        solicitacao</a>.
     </div>
     <div th:if="${solicitacao.status.name() == 'ENVIADA'}" class="alert alert-info">
         <i class="bi bi-info-circle"></i>

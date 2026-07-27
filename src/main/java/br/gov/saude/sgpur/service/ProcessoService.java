@@ -303,12 +303,13 @@ public class ProcessoService {
         // (ManyToOne sem cascade/orphanRemoval a partir do Processo). Sem
         // desvincular primeiro, o DELETE do processo estoura violacao de FK.
         // A SolicitacaoOnline em si NAO e apagada - continua no historico do
-        // portal, so perde o vinculo com o processo excluido; o status
-        // (provavelmente CONVERTIDA) e mantido como esta, nao existe um valor
-        // de StatusSolicitacaoOnline que reflita "processo excluido" e nao e
-        // o caso de criar um agora.
+        // portal, so perde o vinculo com o processo excluido; o status passa
+        // a refletir isso via StatusSolicitacaoOnline.PROCESSO_EXCLUIDO, para
+        // nao deixar a tela do solicitante presa em "Convertida em processo"
+        // sem processo nenhum por tras.
         solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
             s.setProcessoGerado(null);
+            s.setStatus(StatusSolicitacaoOnline.PROCESSO_EXCLUIDO);
             solicitacaoOnlineRepository.save(s);
         });
         processoRepository.delete(p);

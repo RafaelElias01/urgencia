@@ -707,7 +707,9 @@ class ProcessoServiceTest {
     // (SolicitacaoOnline.processoGerado) estourava DataIntegrityViolationException
     // (violacao de FK) porque essa referencia ManyToOne nao tem cascade/orphan
     // removal a partir do Processo. O fix desvincula a SolicitacaoOnline (sem
-    // apagar) antes do delete.
+    // apagar) antes do delete. Hotfix seguinte (mesmo dia): o status ficava
+    // preso em CONVERTIDA mesmo sem processo, mostrando mensagem enganosa ao
+    // solicitante - agora tambem muda para PROCESSO_EXCLUIDO.
     @Test
     void excluirDesvinculaSolicitacaoOnlineQuandoProcessoVeioDoPortal() {
         org.springframework.security.core.context.SecurityContext context =
@@ -731,7 +733,7 @@ class ProcessoServiceTest {
             service.excluir(99L);
 
             assertThat(s.getProcessoGerado()).isNull();
-            assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
+            assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.PROCESSO_EXCLUIDO);
             org.mockito.Mockito.verify(solicitacaoOnlineRepository).save(s);
             org.mockito.Mockito.verify(processoRepository).delete(p);
         } finally {
