@@ -158,8 +158,8 @@
                                  th:text="${l.processo.solicitanteEquipe}"
                                  th:title="${l.processo.solicitanteEquipe}">Solicitante</div>
                         </td>
-                        <td class="align-top text-nowrap">
-                            <span class="badge rounded-pill"
+                        <td class="align-top" style="max-width:10rem;">
+                            <span class="badge rounded-pill text-wrap"
                                   th:classappend="${l.processo.status.bootstrapBadge}">
                                 <i class="bi" th:classappend="'bi-' + ${l.processo.status.badgeIcone}"></i>
                                 <span th:text="${l.processo.status.descricao}">status</span>
