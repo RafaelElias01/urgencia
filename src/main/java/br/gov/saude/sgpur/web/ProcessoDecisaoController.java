@@ -66,38 +66,6 @@ public class ProcessoDecisaoController {
     }
 
     /**
-     * Registra o REENVIO ao solicitante do pedido de informacao complementar
-     * (quando um avaliador pede mais dados). Opcionalmente anexa a copia do
-     * e-mail enviado (TipoAnexo.INFO_COMPLEMENTAR). Mantem o processo em
-     * SOLICITA_INFORMACAO (PAUSA) ate a resposta chegar e a analise ser retomada.
-     */
-    @PostMapping("/{id}/solicitar-info")
-    public String solicitarInfo(@PathVariable Long id,
-                                @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
-                                RedirectAttributes ra) {
-        Processo p = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(p, ra)) {
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        if (arquivo != null && !arquivo.isEmpty()) {
-            try {
-                anexoStorage.salvar(p, TipoAnexo.INFO_COMPLEMENTAR,
-                    "Copia do e-mail de pedido de informacao complementar ao solicitante", arquivo);
-                auditoria.registrar("ANEXO_ADICIONADO",
-                    "Processo " + p.getNumero() + " - Pedido de informacao complementar (enviado)");
-            } catch (IllegalArgumentException | IOException e) {
-                ra.addFlashAttribute("erro", "Falha ao anexar o pedido de informacao: " + e.getMessage());
-                return "redirect:/processos/" + id + "#respostas";
-            }
-        }
-        auditoria.registrar("INFO_COMPLEMENTAR_SOLICITADA", "Processo " + p.getNumero());
-        ra.addFlashAttribute("msg",
-            "Pedido de informacao complementar registrado. O processo permanece em pausa "
-            + "ate a resposta do solicitante.");
-        return "redirect:/processos/" + id + "#respostas";
-    }
-
-    /**
      * Registra o RECEBIMENTO da informacao complementar do solicitante e RETOMA
      * a analise: o processo volta de SOLICITA_INFORMACAO para ENVIADO (fluxo de
      * Respostas/Decisao). Opcionalmente anexa a resposta recebida.

@@ -440,9 +440,11 @@
                 <div class="card-body">
                     <p class="small text-muted mb-3">
                         Um(a) avaliador(a) pediu mais informacoes. O processo esta <strong>em pausa</strong>:
-                        a decisao fica bloqueada ate o solicitante responder. Use o e-mail pronto
-                        <em>"Pedido de informacao complementar ao solicitante"</em> (secao de e-mails abaixo),
-                        registre o reenvio e, quando a resposta chegar, retome a analise.
+                        a decisao fica bloqueada ate o solicitante responder. O solicitante envia a
+                        informacao complementar diretamente pelo <strong>Portal do Solicitante</strong>
+                        (ou, se preferir reforcar por e-mail, use o texto pronto
+                        <em>"Pedido de informacao complementar ao solicitante"</em> na secao de e-mails
+                        abaixo). Quando a resposta chegar, retome a analise.
                     </p>
 
                     <!-- Anexos de informacao complementar ja recebidos (por e-mail lancado pelo
@@ -459,24 +461,7 @@
                         </div>
                     </div>
 
-                    <!-- 1) Registrar o reenvio ao solicitante (anexo opcional: copia do e-mail) -->
-                    <form th:unless="${processo.status.finalizado}"
-                          th:action="@{/processos/{id}/solicitar-info(id=${processo.id})}" method="post"
-                          enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
-                        <div class="col-md-8">
-                            <label class="form-label small fw-semibold">Copia do e-mail de pedido ao solicitante (opcional)</label>
-                            <input type="file" name="arquivo" class="form-control form-control-sm" accept=".pdf,.eml,.msg">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button class="btn btn-outline-info btn-sm w-100">
-                                <i class="bi bi-send"></i> Registrar reenvio ao solicitante
-                            </button>
-                        </div>
-                    </form>
-
-                    <hr>
-
-                    <!-- 2) Registrar o recebimento da resposta e retomar a analise -->
+                    <!-- Registrar o recebimento da resposta e retomar a analise -->
                     <form th:action="@{/processos/{id}/retomar-analise(id=${processo.id})}" method="post"
                           enctype="multipart/form-data" class="row g-2 align-items-end"
                           data-confirm-msg="Confirmar o recebimento da informacao e retomar a analise? Os pareceres marcados como Solicita informacao serao reabertos.">
