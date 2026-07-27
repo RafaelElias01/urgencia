@@ -55,11 +55,11 @@
 
     <!-- Ja triada: revisar/converter e uma acao unica, nao pode repetir. -->
     <div th:if="${solicitacao.status.name() != 'ENVIADA'}" class="alert mt-3 mb-0"
-         th:classappend="${solicitacao.status.name() == 'CONVERTIDA'} ? 'alert-success' : 'alert-secondary'">
+         th:classappend="${solicitacao.status.name() == 'CONVERTIDA' or solicitacao.status.name() == 'APROVADA'} ? 'alert-success' : (${solicitacao.status.name() == 'REPROVADA'} ? 'alert-danger' : 'alert-secondary')">
         <i class="bi" th:classappend="${'bi-' + solicitacao.status.badgeIcone}"></i>
         Esta solicitacao ja foi triada
         (<span th:text="${solicitacao.status.descricao}">status</span>) e nao pode ser convertida novamente.
-        <a th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null}"
+        <a th:if="${(solicitacao.status.name() == 'CONVERTIDA' or solicitacao.status.name() == 'APROVADA' or solicitacao.status.name() == 'REPROVADA') and solicitacao.processoGerado != null}"
            th:href="@{/processos/{id}(id=${solicitacao.processoGerado.id})}">
             Ver processo <span th:text="${solicitacao.processoGerado.numero}"></span>
         </a>

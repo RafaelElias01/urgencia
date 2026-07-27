@@ -418,7 +418,15 @@ public class ProcessoService {
         if (decisao == StatusProcesso.INDEFERIDO) {
             p.setMotivoIndeferimento(motivoIndeferimento);
         }
-        return processoRepository.save(p);
+        Processo salvo = processoRepository.save(p);
+        // Espelha a decisao no status da SolicitacaoOnline de origem, se houver
+        solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
+            s.setStatus(decisao == StatusProcesso.DEFERIDO
+                ? StatusSolicitacaoOnline.APROVADA
+                : StatusSolicitacaoOnline.REPROVADA);
+            solicitacaoOnlineRepository.save(s);
+        });
+        return salvo;
     }
 
     /**

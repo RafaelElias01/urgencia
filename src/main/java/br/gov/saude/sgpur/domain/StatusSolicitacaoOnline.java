@@ -9,7 +9,9 @@ public enum StatusSolicitacaoOnline {
     CONVERTIDA("Convertida em processo"),
     DEVOLVIDA("Devolvida para correcao"),
     CANCELADA("Cancelada pelo solicitante"),
-    PROCESSO_EXCLUIDO("Processo excluido pela equipe");
+    PROCESSO_EXCLUIDO("Processo excluido pela equipe"),
+    APROVADA("Aprovada"),
+    REPROVADA("Reprovada");
 
     private final String descricao;
 
@@ -29,6 +31,8 @@ public enum StatusSolicitacaoOnline {
             case DEVOLVIDA -> "arrow-return-left";
             case CANCELADA -> "slash-circle-fill";
             case PROCESSO_EXCLUIDO -> "exclamation-triangle-fill";
+            case APROVADA -> "check-circle-fill";
+            case REPROVADA -> "x-circle-fill";
         };
     }
 
@@ -40,6 +44,8 @@ public enum StatusSolicitacaoOnline {
             case DEVOLVIDA -> "bg-danger";
             case CANCELADA -> "bg-secondary";
             case PROCESSO_EXCLUIDO -> "bg-danger";
+            case APROVADA -> "bg-success";
+            case REPROVADA -> "bg-danger";
         };
     }
 }

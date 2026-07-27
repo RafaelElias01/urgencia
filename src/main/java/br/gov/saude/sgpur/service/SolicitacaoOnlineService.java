@@ -201,7 +201,7 @@ public class SolicitacaoOnlineService {
         for (SolicitacaoOnline s : solicitacoes) {
             switch (s.getStatus()) {
                 case ENVIADA -> aguardando++;
-                case CONVERTIDA -> convertidas++;
+                case CONVERTIDA, APROVADA, REPROVADA -> convertidas++;
                 case DEVOLVIDA -> devolvidas++;
                 case CANCELADA -> canceladas++;
             }
