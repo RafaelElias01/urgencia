@@ -520,7 +520,7 @@ public class ProcessoDecisaoController {
      */
     private EmailPreparado prepararEmailPronto(Processo p, String chave, String assunto, String corpo) {
         switch (chave) {
-            case "medicos", "convite-avaliador", "convite-portal" -> {
+            case "convite-avaliador", "convite-portal" -> {
                 var emails = p.getPareceres().stream()
                     .map(par -> par.getMembro().getEmail())
                     .filter(e -> e != null && !e.isBlank())

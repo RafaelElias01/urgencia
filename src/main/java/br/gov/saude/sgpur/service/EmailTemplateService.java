@@ -45,7 +45,6 @@ public class EmailTemplateService {
 
     public List<EmailTemplate> gerar(Processo p) {
         List<EmailTemplate> lista = new ArrayList<>();
-        lista.add(emailMedicos(p));
         // Template de convite ao portal para processos em andamento (ENVIADO/EM_ANALISE)
         if (p.getStatus() == StatusProcesso.ENVIADO || p.getStatus() == StatusProcesso.EM_ANALISE) {
             lista.add(emailConvitePortal(p));
@@ -66,45 +65,6 @@ public class EmailTemplateService {
         return lista.stream()
             .filter(t -> !t.requerEnvio() || envioRealizado)
             .toList();
-    }
-
-    /**
-     * E-mail de solicitacao de parecer aos medicos avaliadores - SEM o nome do
-     * paciente (so iniciais), para preservar a imparcialidade do julgamento.
-     */
-    private EmailTemplate emailMedicos(Processo p) {
-        String medicos = p.getPareceres().stream()
-            .map(par -> "- " + par.getMembro().getRotulo())
-            .collect(Collectors.joining("\n"));
-        String data = p.getDataSituacaoEspecial() != null
-            ? p.getDataSituacaoEspecial().format(DATA) : "(data)";
-        String iniciais = Iniciais.de(p.getPacienteNome());
-        String idProcesso = p.getNumero() + " - Paciente " + iniciais;
-
-        String corpo = """
-            Prezados(as) avaliadores(as),
-
-            Encaminhamos para parecer da Urgencia Renal o processo abaixo. Solicitamos
-            a analise clinica e o retorno do parecer (Favoravel / Nao favoravel /
-            Solicita informacao).
-
-            Processo: %s
-            Data de solicitacao da urgencia renal: %s
-
-            (O nome do paciente foi omitido para preservar a imparcialidade do
-            julgamento; identificado apenas pelas iniciais. Em caso de necessidade
-            de identificacao, solicitar a Secretaria.)
-
-            Avaliadores designados:
-            %s
-
-            Atenciosamente,
-            %s
-            """.formatted(idProcesso, data, medicos, assinatura());
-
-        return new EmailTemplate("medicos", "Envio aos medicos (parecer)", "send",
-            assunto("Solicitacao de parecer - Processo " + idProcesso), corpo,
-            true); // so exibir apos dataEnvio registrada
     }
 
     /**

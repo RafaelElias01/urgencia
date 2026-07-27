@@ -241,12 +241,12 @@ class ProcessoControllerEmailTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void enviarEmailMedicosUsaEmailsDosAvaliadoresDoProcesso() throws Exception {
+    void enviarEmailConviteAvaliadorUsaEmailsDosAvaliadoresDoProcesso() throws Exception {
         when(emailSenderService.enviar(any(String[].class), any(), anyString(), anyString()))
             .thenReturn(true);
 
         mvc.perform(post("/processos/1/email/enviar")
-                .param("chave", "medicos")
+                .param("chave", "convite-avaliador")
                 .param("assunto", "assunto")
                 .param("corpo", "corpo")
                 .with(csrf()))
@@ -264,7 +264,7 @@ class ProcessoControllerEmailTest {
     void previewProntoDevolveDestinatariosEConteudoSemEnviar() throws Exception {
         mvc.perform(post("/processos/1/email/preview")
                 .param("tipo", "pronto")
-                .param("chave", "medicos")
+                .param("chave", "convite-avaliador")
                 .param("assunto", "Assunto X")
                 .param("corpo", "Corpo Y")
                 .with(csrf()))

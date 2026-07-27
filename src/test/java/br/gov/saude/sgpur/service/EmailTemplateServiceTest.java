@@ -24,21 +24,6 @@ class EmailTemplateServiceTest {
     }
 
     @Test
-    void emailAosMedicosNaoExpoeDadosDoPaciente() {
-        Processo p = processo();
-        p.getPareceres().forEach(par -> par.setDataEnvio(LocalDate.now()));
-        EmailTemplate medicos = service.gerar(p).stream()
-            .filter(e -> e.chave().equals("medicos")).findFirst().orElseThrow();
-
-        // Imparcialidade: nome e RGCT do paciente NAO podem aparecer no e-mail aos avaliadores
-        assertThat(medicos.corpo()).doesNotContain("Joao Paciente Secreto");
-        assertThat(medicos.corpo()).doesNotContain("123456-4360");
-        // mas deve trazer o numero do processo e o avaliador
-        assertThat(medicos.corpo()).contains("07/2026");
-        assertThat(medicos.corpo()).contains("Dr. Avaliador");
-    }
-
-    @Test
     void deferidoGeraEmailDeRespostaAoSolicitante() {
         Processo p = processo();
         p.setStatus(StatusProcesso.DEFERIDO);

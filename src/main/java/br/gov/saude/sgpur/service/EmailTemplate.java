@@ -3,7 +3,7 @@ package br.gov.saude.sgpur.service;
 /**
  * Texto de e-mail pronto para copiar/colar, referente a uma etapa do processo.
  *
- * @param chave       identificador da etapa (ex.: "medicos", "deferido")
+ * @param chave       identificador da etapa (ex.: "convite-avaliador", "deferido")
  * @param titulo      rotulo exibido na tela
  * @param icone       bootstrap-icon (sem o "bi-")
  * @param assunto     assunto sugerido do e-mail
