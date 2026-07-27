@@ -1,12 +1,15 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.TipoAnexo;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -58,15 +61,18 @@ public class SolicitanteController {
     private final AuditoriaService auditoria;
     private final AnexoSolicitacaoOnlineRepository anexoRepo;
     private final AnexoSolicitacaoOnlineStorageService anexoStorage;
+    private final AnexoStorageService anexoStorageProcesso;
 
     public SolicitanteController(UsuarioRepository usuarioRepo,
                                  SolicitacaoOnlineService solicitacaoService,
                                  AuditoriaService auditoria,
                                  AnexoSolicitacaoOnlineRepository anexoRepo,
-                                 AnexoSolicitacaoOnlineStorageService anexoStorage) {
+                                 AnexoSolicitacaoOnlineStorageService anexoStorage,
+                                 AnexoStorageService anexoStorageProcesso) {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
+        this.anexoStorageProcesso = anexoStorageProcesso;
         this.anexoRepo = anexoRepo;
         this.anexoStorage = anexoStorage;
     }
@@ -157,6 +163,12 @@ public class SolicitanteController {
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
         model.addAttribute("jaEnviouInfoComplementar", solicitacaoService.jaEnviouInformacaoComplementarNestaRodada(s));
+        if (s.getProcessoGerado() != null) {
+            model.addAttribute("comprovanteSntAnexo",
+                anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.COMPROVANTE_SNT));
+            model.addAttribute("oficioIndeferimentoAnexo",
+                anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.OFICIO_INDEFERIMENTO));
+        }
         return "solicitante/detalhe";
     }
 
@@ -216,6 +228,48 @@ public class SolicitanteController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Este anexo nao pertence a esta solicitacao.");
         }
         Path arquivo = anexoStorage.resolverArquivo(anexo);
+        Resource resource = new UrlResource(arquivo.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.notFound().build();
+        }
+        String contentType = anexo.getContentType() != null
+            ? anexo.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(contentType))
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
+            .body(resource);
+    }
+
+    /**
+     * Download do documento final (comprovante SNT ou oficio de indeferimento)
+     * do PROCESSO gerado a partir deste pedido. Whitelist explicita de
+     * TipoAnexo (nunca serve qualquer anexo do processo por ID - so estes
+     * dois, os unicos que a resposta final ao solicitante deve expor) +
+     * checagem de posse (o processo tem que ser o gerado por ESTA solicitacao
+     * do usuario logado).
+     */
+    @GetMapping("/{id}/processo-anexo/{anexoId}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> baixarAnexoProcesso(@PathVariable Long id, @PathVariable Long anexoId,
+                                                         Principal principal) throws MalformedURLException {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = resolverPropria(id, usuario);
+        if (s.getProcessoGerado() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        Anexo anexo;
+        try {
+            anexo = anexoStorageProcesso.buscar(anexoId);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        boolean tipoPermitido = anexo.getTipo() == TipoAnexo.COMPROVANTE_SNT
+            || anexo.getTipo() == TipoAnexo.OFICIO_INDEFERIMENTO;
+        if (!tipoPermitido || !anexo.getProcesso().getId().equals(s.getProcessoGerado().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Este anexo nao pertence a este pedido.");
+        }
+        Path arquivo = anexoStorageProcesso.resolverArquivo(anexo);
         Resource resource = new UrlResource(arquivo.toUri());
         if (!resource.exists() || !resource.isReadable()) {
             return ResponseEntity.notFound().build();

@@ -9,6 +9,7 @@ import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,7 @@ class SolicitanteControllerTest {
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private AnexoSolicitacaoOnlineRepository anexoRepo;
     @MockitoBean private AnexoSolicitacaoOnlineStorageService anexoStorage;
+    @MockitoBean private AnexoStorageService anexoStorageProcesso;
 
     @TempDir
     Path tempDir;
