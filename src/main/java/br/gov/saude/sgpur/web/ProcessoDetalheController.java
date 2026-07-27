@@ -109,7 +109,8 @@ public class ProcessoDetalheController {
     }
 
     @GetMapping("/novo")
-    public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model) {
+    public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model,
+                        RedirectAttributes ra) {
         // Kill-switch do modulo experimental (ver docs/PLANO-SOLICITANTE.md): se
         // desligado, ignora silenciosamente o parametro - o controller de triagem
         // nem esta registrado nesse caso, mas um link/favorito antigo ainda pode
@@ -126,6 +127,16 @@ public class ProcessoDetalheController {
         // fluxo de cadastro muda por causa disso.
         if (origemSolicitacaoOnlineId != null) {
             var s = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
+            // Revisar e converter so pode acontecer UMA vez: bloqueia ja aqui (GET,
+            // antes de montar o form) se a solicitacao ja foi triada - reforca a
+            // mesma checagem feita em salvar() (POST) para quem chega direto por
+            // link antigo/aba reaberta/botao voltar do navegador, sem passar pela
+            // UI que ja esconde os botoes nesse caso.
+            if (s.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
+                ra.addFlashAttribute("erro",
+                    "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
+                return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
+            }
             p.setPacienteNome(s.getPacienteNome());
             p.setPacienteRgct(s.getPacienteRgct());
             p.setSolicitanteEquipe(s.getSolicitanteEquipe());
