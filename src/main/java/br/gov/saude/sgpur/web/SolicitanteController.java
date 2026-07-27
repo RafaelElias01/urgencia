@@ -156,6 +156,7 @@ public class SolicitanteController {
         // util pro solicitante entender ha quanto tempo o pedido esta parado/foi resolvido.
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
+        model.addAttribute("jaEnviouInfoComplementar", solicitacaoService.jaEnviouInformacaoComplementarNestaRodada(s));
         return "solicitante/detalhe";
     }
 

@@ -85,6 +85,32 @@ public class SolicitacaoOnlineService {
     }
 
     /**
+     * Verdadeiro se o solicitante ja enviou a informacao complementar desta
+     * rodada de pausa (o processo pode entrar em SOLICITA_INFORMACAO mais de
+     * uma vez ao longo da vida). O inicio da rodada atual e o maior
+     * {@code Parecer.dataHoraVoto} entre os pareceres com resultado
+     * SOLICITA_INFORMACAO (setado no voto autenticado do Portal do
+     * Avaliador); qualquer anexo INFO_COMPLEMENTAR enviado depois desse
+     * instante ja e desta rodada. Usado pro Portal do Solicitante esconder o
+     * formulario apos o primeiro envio, ate o operador retomar a analise.
+     */
+    public boolean jaEnviouInformacaoComplementarNestaRodada(SolicitacaoOnline s) {
+        if (!precisaInformacaoComplementar(s)) {
+            return false;
+        }
+        Processo processo = s.getProcessoGerado();
+        LocalDateTime inicioRodada = processo.getPareceres().stream()
+            .filter(par -> par.getResultado() == ResultadoParecer.SOLICITA_INFORMACAO)
+            .map(Parecer::getDataHoraVoto)
+            .filter(java.util.Objects::nonNull)
+            .max(LocalDateTime::compareTo)
+            .orElse(null);
+        return processo.getAnexos().stream()
+            .anyMatch(a -> a.getTipo() == TipoAnexo.INFO_COMPLEMENTAR
+                && (inicioRodada == null || a.getDataUpload().isAfter(inicioRodada)));
+    }
+
+    /**
      * Recebe o(s) arquivo(s) de informacao complementar enviados pelo
      * SOLICITANTE diretamente no portal, como alternativa ao e-mail externo.
      * So grava o anexo {@code TipoAnexo.INFO_COMPLEMENTAR} no {@link Processo}
@@ -101,6 +127,11 @@ public class SolicitacaoOnlineService {
         if (!precisaInformacaoComplementar(s)) {
             throw new IllegalStateException(
                 "Este pedido nao esta aguardando informacao complementar no momento.");
+        }
+        if (jaEnviouInformacaoComplementarNestaRodada(s)) {
+            throw new IllegalStateException(
+                "Voce ja enviou as informacoes complementares para esta solicitacao. "
+                + "Aguarde a analise da equipe de Urgencia Renal.");
         }
         boolean algumArquivo = arquivos != null && arquivos.stream().anyMatch(a -> a != null && !a.isEmpty());
         if (!algumArquivo) {
