@@ -557,10 +557,10 @@
                 </div>
                 <div class="card-body">
                     <p class="small text-muted mb-3">
-                        Para cada medico, selecione o parecer (<strong>Favoravel</strong> /
-                        <strong>Nao favoravel</strong> / <strong>Solicita informacao</strong>),
-                        anexe o e-mail de resposta (.pdf, .eml, .msg) recebido, e clique em
-                        <strong>Registrar</strong>.
+                        O parecer de cada medico e registrado por ele mesmo, autenticado no
+                        <strong>Portal do Avaliador</strong>. Aqui o operador so acompanha o
+                        resultado de cada avaliador e pode enviar um lembrete por e-mail para
+                        quem ainda nao votou.
                         A decisao ocorre por <strong>maioria simples</strong> (2 de 3):
                         &ge;2 favoraveis = Deferido, &ge;2 desfavoraveis = Indeferido.
                     </p>
@@ -631,46 +631,6 @@
                                           th:if="${processo.status.finalizado and par.resultado == null}">
                                     <span class="small text-muted">—</span>
                                 </th:block>
-                                <!-- Form unificado: resultado + upload em uma unica acao.
-                                     Processo encerrado: nenhuma acao (o form some por completo). -->
-                                <form th:unless="${pareceresPortal.contains(par.id) or processo.status.finalizado}"
-                                      th:action="@{/processos/{id}/resposta-avaliador(id=${processo.id})}"
-                                      method="post" enctype="multipart/form-data"
-                                      class="acao-form">
-                                    <input type="hidden" name="parecerId" th:value="${par.id}">
-                                    <select name="resultado" class="form-select form-select-sm"
-                                            th:disabled="${par.resultado != null}"
-                                            th:if="${par.resultado == null}">
-                                        <option value="">-- parecer --</option>
-                                        <option th:each="r : ${resultadoValores}"
-                                                th:value="${r.name()}"
-                                                th:text="${r.descricao}"></option>
-                                    </select>
-                                    <span th:if="${par.resultado != null}"
-                                          class="small text-success fw-semibold"
-                                          th:text="${par.resultado.descricao}">—</span>
-                                    <th:block th:if="${par.resultado == null and !pareceresComResposta.contains(par.id)}">
-                                        <input type="file" name="arquivo" class="form-control form-control-sm"
-                                               accept=".pdf,.eml,.msg" required>
-                                        <button class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
-                                            <i class="bi bi-upload"></i> Registrar
-                                        </button>
-                                    </th:block>
-                                    <th:block th:if="${par.resultado != null and !pareceresComResposta.contains(par.id)}">
-                                        <input type="file" name="arquivo" class="form-control form-control-sm"
-                                               accept=".pdf,.eml,.msg" required>
-                                        <button class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
-                                            <i class="bi bi-upload"></i> Anexar
-                                        </button>
-                                    </th:block>
-                                    <!-- Recuperacao: anexo ja existe mas o resultado ficou pendente
-                                         (registro anterior a essa validacao). So falta o resultado,
-                                         sem exigir reenviar arquivo. -->
-                                    <button th:if="${par.resultado == null and pareceresComResposta.contains(par.id)}"
-                                            class="btn btn-outline-primary btn-sm text-nowrap btn-anexar-resposta">
-                                        <i class="bi bi-check2"></i> Registrar parecer
-                                    </button>
-                                </form>
                                 <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap mt-1 btn-lembrete-avaliador"
                                         th:if="${par.resultado == null and !processo.status.finalizado and !pareceresPortal.contains(par.id) and par.membro.email != null and !par.membro.email.isBlank()}"
                                         th:attr="data-parecer-id=${par.id}, data-processo-id=${processo.id}"
@@ -703,16 +663,6 @@
                         </tbody>
                         </table>
                     </div>
-
-                    <!-- Botao para salvar apenas pareceres (sem upload) — util para ajustes manuais -->
-                    <form th:action="@{/processos/{id}/pareceres(id=${processo.id})}" method="post"
-                          class="d-none" id="formPareceresHidden">
-                        <th:block th:each="par : ${processo.pareceres}">
-                            <input type="hidden" name="parecerId" th:value="${par.id}">
-                            <input type="hidden" name="dataEnvio" th:value="${par.dataEnvio}">
-                            <input type="hidden" name="resultado" th:value="${par.resultado != null} ? ${par.resultado.name()} : ''">
-                        </th:block>
-                    </form>
 
                     <div class="alert alert-info py-2 mb-0 mt-2" th:if="${sugestao != null}">
                         <i class="bi bi-lightbulb"></i>

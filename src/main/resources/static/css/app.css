@@ -517,9 +517,6 @@ tr.linha-inativa > td:first-child {
 /* Evita estouro de conteúdo em células da tabela: quebra palavras longas e permite wrap */
 .table td { overflow-wrap: break-word; white-space: normal; }
 
-/* Botões de anexar respostas: manter texto em uma linha, evitar deslocamento de layout */
-.btn-anexar-resposta { white-space: nowrap; }
-
 /* === Form controls === */
 .form-control, .form-select {
     border-radius: 8px;

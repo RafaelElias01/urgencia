@@ -79,20 +79,6 @@ window.mostrarToast = function (mensagem, tipo) {
         select.dataset.valorAnterior = select.value;
     });
 
-    // Confirmacao ao anexar resposta de avaliador
-    document.querySelectorAll('.btn-anexar-resposta').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            var form = this.closest('form');
-            var fileInput = form.querySelector('input[type="file"]');
-            if (fileInput && fileInput.files.length > 0) {
-                e.preventDefault();
-                window.confirmarAcao('Anexar este arquivo como resposta do avaliador?').then(function (ok) {
-                    if (ok) form.submit();
-                });
-            }
-        });
-    });
-
     // Avancar para a proxima aba do wizard (botoes "Avancar para X" de cada etapa concluida)
     document.querySelectorAll('[data-goto-pane]').forEach(function (btn) {
         btn.addEventListener('click', function () {

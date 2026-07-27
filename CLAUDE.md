@@ -95,11 +95,27 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   exibe o badge "Deferido pelo Coordenador da CET-RS"
   (`ProcessoService.deferidoPeloCoordenador`). Só 1 membro deve ter
   `coordenador = true` por vez.
-- **Toda resposta de médico recebida** (parecer com `resultado` preenchido)
-  **precisa ter o anexo comprobatório** (`TipoAnexo.RESPOSTA_AVALIADOR`
-  vinculado ao parecer) **antes de Deferir/Indeferir**. Imposto no serviço e no
-  controller (`pareceresRecebidosSemAnexo`) e refletido na etapa "Respostas dos
-  médicos" do fluxo. Como a decisão exige ≥2 pareceres, isso garante ≥2 anexos.
+- **Parecer só entra no sistema pelo Portal do Avaliador (mudança de
+  2026-07-27).** O médico se autentica em `/avaliador` e vota ele mesmo
+  (`origem = AVALIADOR_SISTEMA`) — não existe mais nenhum caminho para o
+  OPERADOR lançar/editar manualmente o resultado de um parecer. Os dois
+  endpoints que faziam isso (`POST /processos/{id}/resposta-avaliador` e
+  `POST /processos/{id}/pareceres`, em `ProcessoDecisaoController`) e os
+  respectivos forms na tela de detalhe (card "Respostas dos Avaliadores")
+  foram **removidos**. `OrigemParecer.OPERADOR_EMAIL` e o requisito de anexo
+  `TipoAnexo.RESPOSTA_AVALIADOR` **continuam existindo só para leitura**
+  (badge "Origem: Operador", coluna "Resposta anexada" etc.) de processos
+  antigos já registrados assim antes dessa mudança — não removidos do enum
+  nem da lógica de exibição, só deixaram de ser um caminho ativo. O card de
+  Respostas na tela de detalhe agora só acompanha o resultado de cada
+  avaliador e permite enviar lembrete por e-mail
+  (`POST /processos/{id}/lembrete-avaliador`/`lembrete-pendentes`, que
+  continuam existindo — só avisam o avaliador para ir votar no portal, não
+  registram parecer). Como a decisão exige ≥2 pareceres e o voto autenticado
+  dispensa anexo, a regra antiga "resposta recebida exige anexo antes de
+  decidir" só se aplica hoje a pareceres legados com `origem =
+  OPERADOR_EMAIL`/`null` (`pareceresRecebidosSemAnexo`, ainda impõe isso no
+  serviço e no controller do endpoint `/decidir`).
 - **Deferido exige anexar o comprovante de inserção da urgência renal no SNT**
   (`TipoAnexo.COMPROVANTE_SNT`) e enviá-lo junto na resposta ao solicitante; a
   etapa "Comprovante SNT" bloqueia a conclusão até o anexo existir (simétrico
@@ -247,8 +263,16 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 
 ## Portal do Avaliador (/avaliador) — Fase 1 MVP
 
-Modelo **híbrido** de parecer: convive o voto pelo operador (e-mail) e o voto
-autenticado do próprio médico no sistema.
+**Atualização de 2026-07-27: o "modelo híbrido" original foi encerrado.**
+Antes, convivia o voto pelo operador (e-mail) e o voto autenticado do próprio
+médico no sistema. Agora **parecer só é registrado pelo avaliador autenticado
+no Portal** (`origem = AVALIADOR_SISTEMA`) — o operador não lança/edita mais
+resultado de parecer manualmente por nenhum caminho. `OrigemParecer.
+OPERADOR_EMAIL` e o requisito de anexo `TipoAnexo.RESPOSTA_AVALIADOR`
+permanecem no código **só para leitura/histórico** de pareceres já
+registrados assim antes dessa mudança (nada foi apagado do banco nem do
+enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
+"Regras de negócio" acima.
 
 ### Perfil AVALIADOR
 - Novo valor `Perfil.AVALIADOR` em `domain/Perfil.java`.
@@ -260,12 +284,17 @@ autenticado do próprio médico no sistema.
 - Seed dev-only: `avaliador1` / `avaliador123`, vinculado ao primeiro membro ativo.
 
 ### OrigemParecer (domain/OrigemParecer.java)
-- `OPERADOR_EMAIL` — operador lançou o resultado após receber por e-mail; exige
-  `TipoAnexo.RESPOSTA_AVALIADOR` como comprovante (comportamento anterior).
-- `AVALIADOR_SISTEMA` — médico se autenticou no portal e votou diretamente; o
-  registro autenticado (usuario + `dataHoraVoto` + IP no log de auditoria)
-  substitui o anexo. `pareceresRecebidosSemAnexo` ignora esses pareceres.
-- Origem `null` (legado) equivale a `OPERADOR_EMAIL`.
+- `OPERADOR_EMAIL` — **legado, só leitura.** Identificava o parecer lançado
+  pelo operador após receber a resposta por e-mail, exigindo
+  `TipoAnexo.RESPOSTA_AVALIADOR` como comprovante. Desde 2026-07-27 não há
+  mais nenhum endpoint/form que grave esse valor — só existe em pareceres
+  antigos já persistidos, exibidos normalmente (badge "Origem: Operador").
+- `AVALIADOR_SISTEMA` — **único caminho ativo hoje.** Médico se autentica no
+  portal e vota diretamente; o registro autenticado (usuario + `dataHoraVoto`
+  + IP no log de auditoria) substitui o anexo. `pareceresRecebidosSemAnexo`
+  ignora esses pareceres.
+- Origem `null` (legado, anterior a essa coluna existir) equivale a
+  `OPERADOR_EMAIL` — mesma regra de só leitura.
 - Novos campos em `Parecer`: `origem`, `dataHoraVoto`, `votadoPor`.
 
 ### Segurança
@@ -384,6 +413,24 @@ autenticado do próprio médico no sistema.
   não-nula numa entidade já populada, rodar esse tipo de backfill em prod
   logo após o deploy** (não há Flyway/Liquibase neste projeto — é
   responsabilidade manual).
+- **`ddl-auto: update` também não atualiza CHECK constraints de enum.**
+  Mesma classe do pitfall acima, mas para colunas de status/enum
+  (`@Enumerated(EnumType.STRING)`) que têm uma constraint `CHECK (status IN
+  (...))` manual no Postgres de produção (criada fora do Hibernate, em algum
+  momento do histórico do banco). Adicionar um valor novo ao enum Java
+  **não** propaga pra essa constraint — o Hibernate nem sabe que ela existe.
+  Aconteceu em 2026-07-27: `StatusSolicitacaoOnline.PROCESSO_EXCLUIDO`
+  (commits `a7f9974`/`18ec060`) funcionava em dev/H2 (schema recriado do
+  zero a cada teste, sem a constraint antiga) mas quebrava em prod com
+  `violates check constraint "solicitacao_online_status_check"` — qualquer
+  exclusão de processo originado do Portal falhava (nada a ver com
+  permissão; erro só aparecia com `ADMIN` também). Corrigido via
+  `ALTER TABLE solicitacao_online DROP/ADD CONSTRAINT ...` manual na VM.
+  **Sempre que adicionar um valor a um enum usado numa coluna de status já
+  populada em prod, conferir se existe uma CHECK constraint na coluna
+  (`SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE
+  conrelid = '<tabela>'::regclass AND contype = 'c';`) e atualizá-la junto —
+  nenhum teste local pega isso, só se manifesta contra o Postgres real.
 
 ## Pendência de deploy: backfill de Parecer.versao
 

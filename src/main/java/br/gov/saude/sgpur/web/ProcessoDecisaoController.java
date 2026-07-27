@@ -19,13 +19,15 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Passos 2 a 4 do fluxo: envio aos avaliadores, respostas/pareceres, decisao
- * final e a pausa "Solicita informacao". Inclui o disparo manual de e-mails
+ * Passos 2 a 4 do fluxo: envio aos avaliadores, decisao final e a pausa
+ * "Solicita informacao". Desde 2026-07-27 o registro do parecer (resultado +
+ * anexo) NAO passa mais por aqui - e feito exclusivamente pelo proprio
+ * avaliador autenticado no Portal do Avaliador (AvaliadorController). Este
+ * controller so acompanha o resultado e cobre o disparo manual de e-mails
  * (lembretes e textos prontos) e a assistencia por IA ligada a decisao.
  */
 @Controller
@@ -61,95 +63,6 @@ public class ProcessoDecisaoController {
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
         this.geminiService = geminiService;
-    }
-
-    /** Salva os pareceres (envio/resultado/datas) editados na tela de detalhe. */
-    @PostMapping("/{id}/pareceres")
-    public String salvarPareceres(@PathVariable Long id,
-                                  @RequestParam(required = false) java.util.List<Long> parecerId,
-                                  @RequestParam(required = false) java.util.List<String> resultado,
-                                  @RequestParam(required = false) java.util.List<String> dataEnvio,
-                                  RedirectAttributes ra) {
-        Processo p = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(p, ra)) {
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        if (parecerId != null) {
-            for (int i = 0; i < parecerId.size(); i++) {
-                Long pid = parecerId.get(i);
-                // Distingue "indice ausente" (array mais curto que parecerId - cliente
-                // parcial/adulterado) de "indice presente mas em branco" (limpeza
-                // explicita, mesmo comportamento de sempre do form original que sempre
-                // envia todos os pareceres). So o segundo caso deve zerar o campo -
-                // o primeiro deve DEIXAR O VALOR ATUAL INTOCADO, para nao apagar
-                // resultado/dataEnvio ja gravados so porque o array veio incompleto.
-                boolean resPresente = resultado != null && i < resultado.size();
-                boolean envPresente = dataEnvio != null && i < dataEnvio.size();
-                String res = resPresente ? resultado.get(i) : null;
-                String env = envPresente ? dataEnvio.get(i) : null;
-                p.getPareceres().stream()
-                    .filter(par -> par.getId().equals(pid))
-                    .findFirst()
-                    .ifPresent(par -> {
-                        // Pareceres votados diretamente pelo avaliador no portal sao IMUTAVEIS:
-                        // o operador nao pode alterar o resultado (nao-repudio). Apenas a
-                        // dataEnvio pode ser preservada (e vem como hidden no form).
-                        if (par.getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
-                            return; // ignora silenciosamente qualquer alteracao de resultado
-                        }
-                        // Parses defensivos: valores adulterados (fora do <select>/
-                        // date picker) geram uma mensagem de negocio clara em vez de
-                        // "Registro nao encontrado" (IllegalArgumentException generica).
-                        if (envPresente) {
-                            if (env == null || env.isBlank()) {
-                                par.setDataEnvio(null);
-                            } else {
-                                try {
-                                    par.setDataEnvio(LocalDate.parse(env));
-                                } catch (java.time.format.DateTimeParseException e) {
-                                    throw new IllegalStateException("Data de envio invalida: " + env);
-                                }
-                            }
-                        }
-                        if (resPresente) {
-                            if (res == null || res.isBlank()) {
-                                par.setResultado(null);
-                            } else {
-                                ResultadoParecer parsed;
-                                try {
-                                    parsed = ResultadoParecer.valueOf(res);
-                                } catch (IllegalArgumentException e) {
-                                    throw new IllegalStateException("Parecer invalido: " + res);
-                                }
-                                if (!parsed.isVotoValido()) {
-                                    throw new IllegalStateException("Parecer invalido: " + res);
-                                }
-                                par.setResultado(parsed);
-                                if (par.getDataResposta() == null) {
-                                    par.setDataResposta(LocalDate.now());
-                                }
-                            }
-                        }
-                    });
-            }
-        }
-        processoService.salvar(p);
-        // Etapa 6/7: se um medico pediu informacao (e ainda nao houve decisao),
-        // o status passa a SOLICITA_INFORMACAO; senao permanece ENVIADO.
-        processoService.atualizarStatusPorPareceres(id);
-        // Decisao automatica: se a maioria foi formada e as pre-condicoes
-        // (sem pareceres sem anexo) estiverem satisfeitas, decide imediatamente.
-        Processo pDecidido = processoService.tentarDecisaoAutomatica(id);
-        if (pDecidido.getStatus().isFinalizado()) {
-            // Gera automaticamente o Oficio (se indeferido) e o Relatorio Final
-            try { decisaoFinalService.gerarDocumentos(pDecidido); }
-            catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
-            ra.addFlashAttribute("msg", "Pareceres atualizados. Decisao automatica: "
-                + pDecidido.getStatus().getDescricao() + ".");
-            return "redirect:/processos/" + id;
-        }
-        ra.addFlashAttribute("msg", "Pareceres atualizados.");
-        return "redirect:/processos/" + id + "#respostas";
     }
 
     /**
@@ -364,116 +277,6 @@ public class ProcessoDecisaoController {
         return geminiService.perguntar(prompt)
             .map(IaTextoResponse::sucesso)
             .orElseGet(() -> IaTextoResponse.erro("Falha ao consultar a IA. Tente novamente."));
-    }
-
-    /**
-     * Faz upload do e-mail de resposta de um avaliador especifico e opcionalmente
-     * registra o resultado (parecer) em uma unica acao. Se resultado for informado,
-     * o parecer e atualizado de uma vez — dispensando o form separado de pareceres.
-     */
-    @PostMapping("/{id}/resposta-avaliador")
-    public String respostaAvaliador(@PathVariable Long id,
-                                    @RequestParam Long parecerId,
-                                    @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
-                                    @RequestParam(required = false) String descricao,
-                                    @RequestParam(required = false) String resultado,
-                                    RedirectAttributes ra) {
-        Processo p = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(p, ra)) {
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        Parecer parecer = processoService.buscarParecer(id, parecerId)
-            .orElseThrow(() -> new IllegalArgumentException("Parecer nao encontrado neste processo: " + parecerId));
-        if (parecer.getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
-            ra.addFlashAttribute("erro",
-                "Nao e possivel anexar resposta de um avaliador que votou pelo portal (nao-repudio).");
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        // Parecer ainda sem resultado: o resultado e obrigatorio JUNTO com o anexo.
-        // Sem essa checagem, um anexo sem resultado selecionado salvava o arquivo e
-        // deixava o parecer preso sem resultado - a tela some com os dois botoes
-        // (upload exige !pareceresComResposta) e nao ha mais como registrar o parecer.
-        // Faz o parse ANTES de salvar o anexo: um valor invalido nao pode deixar o
-        // anexo salvo com o parecer ainda sem resultado.
-        boolean resultadoInformado = resultado != null && !resultado.isBlank();
-        if (parecer.getResultado() == null && !resultadoInformado) {
-            ra.addFlashAttribute("erro",
-                "Selecione o parecer (Favoravel/Nao favoravel/Solicita informacao) antes de anexar a resposta.");
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        ResultadoParecer resultadoParseado = null;
-        if (resultadoInformado) {
-            try {
-                resultadoParseado = ResultadoParecer.valueOf(resultado);
-            } catch (IllegalArgumentException e) {
-                ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
-                return "redirect:/processos/" + id + "#respostas";
-            }
-            if (!resultadoParseado.isVotoValido()) {
-                ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
-                return "redirect:/processos/" + id + "#respostas";
-            }
-        }
-        // Arquivo e opcional apenas quando o parecer JA tem um anexo de resposta
-        // (caso de recuperacao: operador so precisa completar o resultado que
-        // ficou pendente). Sem anexo previo, o arquivo continua obrigatorio.
-        boolean jaTemAnexoResposta = p.getAnexos().stream()
-            .anyMatch(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR
-                && a.getParecer() != null && a.getParecer().getId().equals(parecerId));
-        boolean arquivoEnviado = arquivo != null && !arquivo.isEmpty();
-        if (!arquivoEnviado && !jaTemAnexoResposta) {
-            ra.addFlashAttribute("erro", "Selecione o arquivo da resposta do avaliador.");
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        try {
-            if (arquivoEnviado) {
-                String desc = (descricao != null && !descricao.isBlank())
-                    ? descricao
-                    : "Resposta de " + parecer.getMembro().getNome();
-                anexoStorage.salvarRespostaAvaliador(p, parecer, desc, arquivo);
-                auditoria.registrar("ANEXO_ADICIONADO",
-                    "Processo " + p.getNumero() + " - Resposta de " + parecer.getMembro().getNome());
-            }
-        } catch (IllegalArgumentException | IOException e) {
-            ra.addFlashAttribute("erro", "Falha ao anexar resposta: " + e.getMessage());
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        // Se resultado foi informado, atualiza o parecer de uma vez
-        if (resultadoInformado) {
-            parecer.setResultado(resultadoParseado);
-            if (parecer.getDataResposta() == null) {
-                parecer.setDataResposta(LocalDate.now());
-            }
-            processoService.salvar(p);
-            processoService.atualizarStatusPorPareceres(id);
-            Processo pDecidido = processoService.tentarDecisaoAutomatica(id);
-            if (pDecidido.getStatus().isFinalizado()) {
-                try { decisaoFinalService.gerarDocumentos(pDecidido); }
-                catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
-                ra.addFlashAttribute("msg", "Resposta e parecer registrados. Decisao automatica: "
-                    + pDecidido.getStatus().getDescricao() + ".");
-                return "redirect:/processos/" + id;
-            }
-            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome()
-                + " anexada e parecer registrado.");
-        } else {
-            // So o anexo foi enviado (parecer ja tinha resultado, faltava o
-            // comprovante). Subir esse anexo pode satisfazer a ultima
-            // pre-condicao pendente (pareceresRecebidosSemAnexo) e liberar a
-            // decisao por maioria - por isso reavalia igual aos demais
-            // call-sites (salvarPareceres/portal), em vez de so exibir a mensagem.
-            processoService.atualizarStatusPorPareceres(id);
-            Processo pDecidido = processoService.tentarDecisaoAutomatica(id);
-            if (pDecidido.getStatus().isFinalizado()) {
-                try { decisaoFinalService.gerarDocumentos(pDecidido); }
-                catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
-                ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome()
-                    + " anexada. Decisao automatica: " + pDecidido.getStatus().getDescricao() + ".");
-                return "redirect:/processos/" + id;
-            }
-            ra.addFlashAttribute("msg", "Resposta de " + parecer.getMembro().getNome() + " anexada.");
-        }
-        return "redirect:/processos/" + id + "#respostas";
     }
 
     /**

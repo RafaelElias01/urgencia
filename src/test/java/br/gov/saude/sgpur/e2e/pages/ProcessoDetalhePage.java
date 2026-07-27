@@ -1,7 +1,6 @@
 package br.gov.saude.sgpur.e2e.pages;
 
 import br.gov.saude.sgpur.e2e.Legenda;
-import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.FilePayload;
 
@@ -56,19 +55,8 @@ public class ProcessoDetalhePage {
         return this;
     }
 
-    // ===== Passo 3: Respostas (registra resultado + anexo de UM parecer, pela linha do medico) =====
-
-    /** Registra o parecer do medico identificado pelo nome (texto da linha da tabela). */
-    public ProcessoDetalhePage passo3_registrarParecer(String nomeMedico, String resultado, FilePayload respostaAvaliador) {
-        narrar("Passo 3/5 - Respostas: registrando o parecer de " + nomeMedico + " (" + resultado + ")...");
-        clicarPasso("pane-respostas");
-        Locator linha = page.locator("#respostas tr", new Page.LocatorOptions().setHasText(nomeMedico));
-        linha.locator("select[name=resultado]").selectOption(resultado);
-        linha.locator("input[name=arquivo]").setInputFiles(respostaAvaliador);
-        linha.locator("button.btn-anexar-resposta").click();
-        page.waitForLoadState();
-        return this;
-    }
+    // ===== Passo 3: Respostas (registradas pelos proprios avaliadores no Portal
+    //       do Avaliador - ver AvaliadorPage - nao ha mais acao do operador aqui) =====
 
     // ===== Passo 4: Decisao =====
 
