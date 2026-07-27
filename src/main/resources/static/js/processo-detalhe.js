@@ -52,33 +52,6 @@ window.mostrarToast = function (mensagem, tipo) {
         toggleMotivo();
     }
 
-    // Confirmacao ao alterar parecer ja preenchido (usa o modal generico de
-    // confirmar-acao.js em vez de confirm() nativo - window.confirmarAcao
-    // retorna uma Promise, entao a mudanca so e confirmada/revertida quando o
-    // usuario responde no modal).
-    document.querySelectorAll('.parecer-select').forEach(function (select) {
-        select.addEventListener('change', function () {
-            var el = this;
-            var novoValor = el.value;
-            if (el.dataset.valorAnterior && el.dataset.valorAnterior !== novoValor) {
-                // window.confirmarAcao (confirmar-acao.js, sempre carregado via
-                // layout::confirmarAcaoScript) ja cai para confirm() nativo
-                // internamente se o modal nao estiver disponivel - nao precisa
-                // duplicar esse fallback aqui.
-                window.confirmarAcao('Alterar o parecer deste avaliador? O resultado anterior sera substituido.').then(function (ok) {
-                    if (!ok) {
-                        el.value = el.dataset.valorAnterior;
-                        return;
-                    }
-                    el.dataset.valorAnterior = novoValor;
-                });
-                return;
-            }
-            el.dataset.valorAnterior = novoValor;
-        });
-        select.dataset.valorAnterior = select.value;
-    });
-
     // Avancar para a proxima aba do wizard (botoes "Avancar para X" de cada etapa concluida)
     document.querySelectorAll('[data-goto-pane]').forEach(function (btn) {
         btn.addEventListener('click', function () {
