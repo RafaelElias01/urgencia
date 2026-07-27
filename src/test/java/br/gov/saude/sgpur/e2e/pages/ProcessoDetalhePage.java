@@ -48,15 +48,6 @@ public class ProcessoDetalhePage {
         return this;
     }
 
-    public ProcessoDetalhePage passo2_anexarComprovanteEnvio(FilePayload comprovante) {
-        narrar("Passo 2/5 - Envio: anexando o comprovante de envio aos avaliadores...");
-        clicarPasso("pane-envio");
-        page.locator("#pane-envio form[action*='comprovante-envio-avaliadores'] input[name=arquivo]").setInputFiles(comprovante);
-        page.locator("#pane-envio form[action*='comprovante-envio-avaliadores'] button").click();
-        page.waitForLoadState();
-        return this;
-    }
-
     public ProcessoDetalhePage passo2_registrarEnvio() {
         narrar("Passo 2/5 - Envio: registrando o envio aos 3 avaliadores...");
         clicarPasso("pane-envio");

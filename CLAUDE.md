@@ -176,16 +176,20 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   médicos — reaproveita a capa do Relatório Final via
   `RelatorioService.gerarCapaProcesso`). Endpoint
   `POST /processos/{id}/recebimento`. A etapa bloqueia até os dois existirem.
-  **Exceção — processo originado do Portal do Solicitante:** quando o
+  **Exceção — processo originado do Portal do Solicitante: recebimento
+  automático (ajuste de 2026-07-27).** Como hoje **100% dos processos nascem
+  pelo Portal do Solicitante**, essa deixou de ser uma exceção rara: quando o
   `Processo` foi convertido de uma `SolicitacaoOnline`
   (`FluxoProcessoService.veioDoPortal`, via
-  `SolicitacaoOnlineRepository.existsByProcessoGeradoId`), não existe
-  "e-mail original" a anexar — os dados já chegaram digitais pela própria
-  submissão online. Nesse caso a etapa dispensa `SOLICITACAO_RECEBIDA` e
-  exige só a `CAPA_PROCESSO` (o botão "Registrar recebimento" continua
-  funcionando sem arquivo, pois o parâmetro já era opcional). A tela mostra
-  um formulário simplificado, sem campo de upload, com link de volta para a
-  solicitação online original.
+  `SolicitacaoOnlineRepository.existsByProcessoGeradoId`), a etapa
+  **Recebimento já nasce concluída**, sem exigir nenhum anexo
+  (`SOLICITACAO_RECEBIDA` nem `CAPA_PROCESSO`) e **sem botão de confirmação**
+  — não há mais "Confirmar recebimento e gerar capa do processo" na tela
+  para esse caso (antes exigia clicar para gerar a `CAPA_PROCESSO`; agora a
+  aba de Envio já libera direto na criação do processo). A tela mostra só um
+  aviso informativo com link de volta para a solicitação online original.
+  Processos **não** originados do Portal (fluxo manual legado, ainda
+  suportado) continuam exigindo os dois anexos como antes.
 - **Passo 2 (Envio):** ao registrar o envio o sistema gera a **cópia anonimizada
   para as equipes** (`SOLICITACAO_AVALIADOR`, só iniciais), nome oficial
   `Processo CET-RS NN-AAAA - Paciente X.X.X.pdf`
@@ -207,11 +211,20 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   **solicitação original** (`SOLICITACAO_RECEBIDA`) **NUNCA** entra nesse PDF
   (contém o nome completo). Documentos clínicos não-PDF são ignorados do merge com
   **aviso não-bloqueante** (flash `aviso`). **O comprovante de envio aos
-  avaliadores (`EMAIL_ENVIADO_AVALIADORES`) também é obrigatório** (deixou de
-  ser opcional): `registrarEnvio` **bloqueia** (flash `erro`) se não houver
-  o PDF/EML/MSG do e-mail enviado aos 3 avaliadores anexado — os 3 sub-passos
-  da aba Envio (documentos clínicos, comprovante de envio, registrar envio)
-  são todos obrigatórios. O método legado
+  avaliadores (`EMAIL_ENVIADO_AVALIADORES`) deixou de ser exigido em
+  2026-07-27** (fluxo antigo, do tempo em que o envio aos avaliadores era só
+  por e-mail): os avaliadores hoje votam autenticados no Portal do Avaliador
+  (`/avaliador`), que nunca dependeu desse anexo (`AvaliadorController` só
+  checa o vínculo do parecer, nunca `EMAIL_ENVIADO_AVALIADORES`) — o
+  requisito era um gate sem função posterior. `registrarEnvio` e
+  `ProcessoValidator.validarRegistroEnvio` não checam mais esse anexo, e a
+  seção "Anexar comprovante de envio" e o endpoint
+  `POST /processos/{id}/comprovante-envio-avaliadores` foram removidos da
+  aba Envio. O enum `TipoAnexo.EMAIL_ENVIADO_AVALIADORES` **permanece** (só
+  não é mais exigido) — processos antigos em produção já têm esse anexo
+  gravado, removê-lo do enum quebraria o carregamento deles. Os 2 sub-passos
+  restantes da aba Envio (documentos clínicos, registrar envio) continuam
+  obrigatórios. O método legado
   `SolicitacaoAvaliadorService.gerar` (folha-rosto) **permanece no código mas não
   é mais chamado** no fluxo de envio. Os documentos clínicos são anexados na
   própria aba Envio (`POST /processos/{id}/documento-clinico`). **Aviso (não

@@ -116,7 +116,6 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
 
             detalhe
                 .passo2_anexarDocumentoClinico(pdfPayload("laudo.pdf", "Laudo clinico anonimizado"))
-                .passo2_anexarComprovanteEnvio(pdfPayload("comprovante-envio.pdf", "Comprovante de envio por e-mail"))
                 .passo2_registrarEnvio();
             assertThat(detalhe.passoConcluido(2)).isTrue();
 

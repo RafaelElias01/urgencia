@@ -612,20 +612,19 @@ class FluxoProcessoServiceTest {
     }
 
     // ----------------------------------------------------------------
-    // Excecao: processo originado do Portal do Solicitante dispensa a copia
-    // manual da solicitacao original (nao existe "e-mail original" a
-    // anexar) - exige so a capa do processo. Mantido em sincronia entre
-    // montarEtapas e calcularGating (mesma fonte: veioDoPortal).
+    // Excecao: processo originado do Portal do Solicitante tem Recebimento
+    // AUTOMATICO - nao ha "e-mail original" a anexar (dados ja chegaram
+    // digitais na submissao online) nem confirmacao manual/capa gerada pelo
+    // operador; a etapa ja nasce concluida, com ou sem qualquer anexo.
+    // Mantido em sincronia entre montarEtapas e calcularGating (mesma
+    // fonte: veioDoPortal).
     // ----------------------------------------------------------------
 
     @Test
-    void recebimentoConcluiSoComCapaQuandoProcessoVeioDoPortal() {
+    void recebimentoConcluiAutomaticamenteQuandoVeioDoPortalMesmoSemNenhumAnexo() {
         Processo p = processoComTresPareceres();
         p.setId(10L);
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        p.addAnexo(capa);
-        // sem SOLICITACAO_RECEBIDA
+        // nenhum anexo - nem CAPA_PROCESSO, nem SOLICITACAO_RECEBIDA
 
         // fluxo() aplica um stub lenient() generico (anyLong -> false) para os
         // demais testes; o stub especifico abaixo, feito DEPOIS, tem
@@ -634,27 +633,12 @@ class FluxoProcessoServiceTest {
         org.mockito.Mockito.when(solicitacaoOnlineRepository.existsByProcessoGeradoId(10L)).thenReturn(true);
         EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
         assertThat(recebimento.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+        assertThat(recebimento.detalhe()).contains("automatico");
 
         FluxoProcessoService.GatingAbas gating = fluxo.calcularGating(p);
         assertThat(gating.liberadoRecebimento()).isTrue();
-        // Envio (passo 2) libera so com a capa, sem exigir a solicitacao original.
+        // Envio (passo 2) ja libera de imediato, sem exigir nenhum anexo de Recebimento.
         assertThat(gating.liberadoEnvio()).isTrue();
-    }
-
-    @Test
-    void recebimentoNaoConcluiSemCapaMesmoQuandoVeioDoPortal() {
-        Processo p = processoComTresPareceres();
-        p.setId(11L);
-        // nenhum anexo
-
-        FluxoProcessoService fluxo = fluxo();
-        org.mockito.Mockito.when(solicitacaoOnlineRepository.existsByProcessoGeradoId(11L)).thenReturn(true);
-        EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
-        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-        assertThat(recebimento.detalhe()).contains("capa do processo");
-        assertThat(recebimento.detalhe()).doesNotContain("solicitacao original");
-
-        assertThat(fluxo.calcularGating(p).liberadoEnvio()).isFalse();
     }
 
     @Test

@@ -29,11 +29,10 @@ import static org.mockito.Mockito.when;
 
 /**
  * Cobre a logica de negocio extraida de
- * {@code ProcessoDecisaoController.registrarEnvio}: comprovante de envio e
- * documento clinico PDF obrigatorios, PDFs corrompidos/sem paginas ficam de
- * fora da consolidacao (aviso, nao bloqueio automatico), e o service so
- * efetiva o envio (processoService.registrarEnvio) quando ha ao menos um PDF
- * valido.
+ * {@code ProcessoDecisaoController.registrarEnvio}: documento clinico PDF
+ * obrigatorio, PDFs corrompidos/sem paginas ficam de fora da consolidacao
+ * (aviso, nao bloqueio automatico), e o service so efetiva o envio
+ * (processoService.registrarEnvio) quando ha ao menos um PDF valido.
  */
 @ExtendWith(MockitoExtension.class)
 class RegistroEnvioServiceTest {
@@ -82,13 +81,6 @@ class RegistroEnvioServiceTest {
         }
     }
 
-    private Anexo comprovanteEnvio() {
-        Anexo a = new Anexo();
-        a.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        a.setNomeArquivo("comprovante.pdf");
-        return a;
-    }
-
     private Anexo documentoClinicoPdf(String nome, byte[] bytes) throws Exception {
         Anexo a = new Anexo();
         a.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
@@ -97,16 +89,15 @@ class RegistroEnvioServiceTest {
         Path arquivo = tempDir.resolve(nome);
         Files.write(arquivo, bytes);
         // lenient: em cenarios onde o service bloqueia ANTES de ler o arquivo
-        // (ex.: sem comprovante de envio), este stub nunca chega a ser usado -
-        // sem lenient, o modo STRICT_STUBS padrao do MockitoExtension falha
-        // com UnnecessaryStubbingException nesses testes.
+        // (ex.: nenhum documento clinico valido), este stub nunca chega a ser
+        // usado - sem lenient, o modo STRICT_STUBS padrao do MockitoExtension
+        // falha com UnnecessaryStubbingException nesses testes.
         org.mockito.Mockito.lenient().when(anexoStorage.resolverArquivo(a)).thenReturn(arquivo);
         return a;
     }
 
     @Test
-    void sucessoComUmDocumentoClinicoPdfValidoEComprovante() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
+    void sucessoComUmDocumentoClinicoPdfValido() throws Exception {
         processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
 
         when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
@@ -133,7 +124,6 @@ class RegistroEnvioServiceTest {
 
     @Test
     void pdfCorrompidoFicaDeForaComAvisoMasEnvioSeguePorHaverOutroValido() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
         processo.addAnexo(documentoClinicoPdf("bom.pdf", pdfValido()));
         // bytes que nao formam um PDF valido - PdfReader lanca excecao ao ler
         processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "isto nao e um pdf valido".getBytes()));
@@ -155,7 +145,6 @@ class RegistroEnvioServiceTest {
 
     @Test
     void bloqueiaSemNenhumDocumentoClinicoPdfValido() {
-        processo.addAnexo(comprovanteEnvio());
         // sem nenhum documento clinico anexado
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
@@ -167,21 +156,7 @@ class RegistroEnvioServiceTest {
     }
 
     @Test
-    void bloqueiaSemComprovanteDeEnvio() throws Exception {
-        // sem TipoAnexo.EMAIL_ENVIADO_AVALIADORES anexado, mesmo com documento clinico valido
-        processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
-
-        RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
-
-        assertThat(resultado.ok()).isFalse();
-        assertThat(resultado.mensagemErro()).contains("comprovante de envio");
-        verifyNoInteractions(solicitacaoAvaliadorService);
-        verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
-    }
-
-    @Test
     void bloqueiaQuandoTodosOsPdfsEstaoCorrompidos() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
         processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "nao e pdf".getBytes()));
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);

@@ -157,6 +157,19 @@ public class ProcessoDetalheController {
         if (!solicitanteHabilitado) {
             origemSolicitacaoOnlineId = null;
         }
+        // Revisar e converter so pode acontecer UMA vez: se a solicitacao ja
+        // foi triada (reenvio do form, duplo clique, aba antiga reaberta),
+        // rejeita ANTES de cadastrar o Processo - checar so depois (como era
+        // antes) criava um Processo duplicado de verdade e so avisava, sem
+        // desfazer nada, porque a excecao chegava tarde demais.
+        if (origemSolicitacaoOnlineId != null) {
+            var origem = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
+            if (origem.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
+                ra.addFlashAttribute("erro",
+                    "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
+                return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
+            }
+        }
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();
         boolean automatica = processoService.isNumeracaoAutomatica(ano);
@@ -320,11 +333,6 @@ public class ProcessoDetalheController {
             .filter(a -> a.getTipo() == TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE)
             .findFirst();
         model.addAttribute("comprovanteEnvioSolicitante", comprovanteEnvioSolicitante.orElse(null));
-        Optional<Anexo> comprovanteEnvioAvaliadores = p.getAnexos().stream()
-            .filter(a -> a.getTipo() == TipoAnexo.EMAIL_ENVIADO_AVALIADORES)
-            .findFirst();
-        model.addAttribute("comprovanteEnvioAvaliadores", comprovanteEnvioAvaliadores.orElse(null));
-
         // Gating das abas (passo 1..5): ate qual passo o operador pode
         // navegar/agir. Calculo centralizado em FluxoProcessoService (mesma
         // fonte de verdade do checklist/wizard), fonte unica para nao

@@ -56,23 +56,24 @@ public class FluxoProcessoService {
         //    (manual) E a capa do processo (CAPA_PROCESSO, gerada pelo sistema
         //    com os dados do solicitante e os 3 medicos). A copia anonimizada
         //    para as equipes e gerada no passo 2 (Envio). Mantido em sincronia
-        //    com ProcessoDetalheController.recebimentoFeito, que usa a mesma
-        //    dupla condicao para liberar a aba de Envio.
+        //    com calcularGating, que usa a mesma condicao para liberar a aba
+        //    de Envio.
+        //
+        //    Processo originado do Portal do Solicitante: como os dados ja
+        //    chegaram digitais na propria submissao online (sem e-mail
+        //    original a anexar) e hoje em dia 100% dos processos nascem pelo
+        //    Portal, o Recebimento e AUTOMATICO nesse caso - nao ha botao de
+        //    "confirmar recebimento" nem geracao de capa para o operador
+        //    clicar; a etapa ja nasce concluida.
         boolean veioDoPortal = veioDoPortal(p);
         boolean temOriginal = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
         boolean temCapa = temAnexo(p, TipoAnexo.CAPA_PROCESSO);
-        // Processo originado do Portal do Solicitante: nao existe "e-mail
-        // original" para anexar, os dados ja chegaram digitais pelo proprio
-        // sistema na submissao online. Dispensa SOLICITACAO_RECEBIDA, exige
-        // so a capa do processo.
-        boolean recebimentoOk = veioDoPortal ? temCapa : (temOriginal && temCapa);
+        boolean recebimentoOk = veioDoPortal || (temOriginal && temCapa);
         String detReceb;
-        if (recebimentoOk) {
-            detReceb = veioDoPortal
-                ? "Solicitacao recebida pelo Portal do Solicitante; capa do processo anexada."
-                : "Solicitacao original e capa do processo anexadas.";
-        } else if (veioDoPortal) {
-            detReceb = "Falta: capa do processo.";
+        if (veioDoPortal) {
+            detReceb = "Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).";
+        } else if (recebimentoOk) {
+            detReceb = "Solicitacao original e capa do processo anexadas.";
         } else {
             List<String> faltasReceb = new ArrayList<>();
             if (!temOriginal) faltasReceb.add("copia da solicitacao original");
@@ -319,11 +320,10 @@ public class FluxoProcessoService {
 
     public GatingAbas calcularGating(Processo p) {
         // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
-        // Processo originado do Portal do Solicitante dispensa a copia manual
-        // da solicitacao original (ver veioDoPortal/montarEtapas).
+        // Processo originado do Portal do Solicitante tem Recebimento
+        // automatico, sem exigir nenhum anexo (ver veioDoPortal/montarEtapas).
         boolean recebimentoFeito = veioDoPortal(p)
-            ? temAnexo(p, TipoAnexo.CAPA_PROCESSO)
-            : temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA) && temAnexo(p, TipoAnexo.CAPA_PROCESSO);
+            || (temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA) && temAnexo(p, TipoAnexo.CAPA_PROCESSO));
         boolean envioFeito = envioRegistrado(p);
         long respondidos = processoService.contarRespondidos(p);
         int totalMedicos = p.getPareceres().size();

@@ -257,39 +257,6 @@ public class ProcessoDecisaoController {
     }
 
     /**
-     * Anexa o comprovante de envio (e-mail) aos avaliadores, separadamente
-     * do registro de envio. Permite que o operador anexe o comprovante antes
-     * ou depois de registrar o envio.
-     */
-    @PostMapping("/{id}/comprovante-envio-avaliadores")
-    public String anexarComprovanteEnvioAvaliadores(@PathVariable Long id,
-                                                     @RequestParam("arquivo") MultipartFile arquivo,
-                                                     RedirectAttributes ra) {
-        if (arquivo == null || arquivo.isEmpty()) {
-            ra.addFlashAttribute("erro", "Selecione um arquivo para anexar.");
-            return "redirect:/processos/" + id + "#envio";
-        }
-        Processo p = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(p, ra)) {
-            return "redirect:/processos/" + id + "#envio";
-        }
-        try {
-            // Salva o novo primeiro, so remove o antigo depois de confirmado
-            // o sucesso - evita o processo ficar sem nenhum comprovante de
-            // envio se o save() falhar entre o remover e o salvar.
-            Anexo novo = anexoStorage.salvar(p, TipoAnexo.EMAIL_ENVIADO_AVALIADORES,
-                "Comprovante de envio aos avaliadores", arquivo);
-            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.EMAIL_ENVIADO_AVALIADORES, novo.getId());
-            auditoria.registrar("ANEXO_ADICIONADO",
-                "Processo " + p.getNumero() + " - " + TipoAnexo.EMAIL_ENVIADO_AVALIADORES.getDescricao());
-            ra.addFlashAttribute("msg", "Comprovante de envio anexado.");
-        } catch (IllegalArgumentException | IOException e) {
-            ra.addFlashAttribute("erro", "Falha ao anexar o comprovante: " + e.getMessage());
-        }
-        return "redirect:/processos/" + id + "#envio";
-    }
-
-    /**
      * Anexa um documento clinico ANONIMIZADO (sem nome do paciente) que sera
      * consolidado, junto com a folha-rosto, no PDF unico enviado aos avaliadores
      * no passo 2 (envio). Mantem o operador na aba Envio.
