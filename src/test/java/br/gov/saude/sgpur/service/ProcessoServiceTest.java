@@ -752,4 +752,125 @@ class ProcessoServiceTest {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
     }
+
+    // ----- decidir atualiza status da SolicitacaoOnline de origem -----
+
+    @Test
+    void decidirDeferidoAtualizaSolicitacaoParaAprovada() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        p.setId(200L);
+        when(processoRepository.findById(200L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(200L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(200L, StatusProcesso.DEFERIDO, null);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.APROVADA);
+        org.mockito.Mockito.verify(solicitacaoOnlineRepository).save(s);
+    }
+
+    @Test
+    void decidirIndeferidoAtualizaSolicitacaoParaReprovada() {
+        Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
+            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        p.setId(201L);
+        when(processoRepository.findById(201L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(201L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(201L, StatusProcesso.INDEFERIDO, "motivo");
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.REPROVADA);
+        org.mockito.Mockito.verify(solicitacaoOnlineRepository).save(s);
+    }
+
+    @Test
+    void decidirNaoAtualizaSolicitacaoQuandoProcessoNaoVeioDoPortal() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        p.setId(202L);
+        when(processoRepository.findById(202L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(202L)).thenReturn(java.util.Optional.empty());
+
+        service.decidir(202L, StatusProcesso.DEFERIDO, null);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
+        org.mockito.Mockito.verify(solicitacaoOnlineRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // ----- finalizarResposta -----
+
+    @Test
+    void finalizarRespostaEnviaEmailESalvaMensagem() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        p.setId(300L);
+        p.setStatus(StatusProcesso.DEFERIDO);
+        p.setSolicitanteEmail("solicitante@test.com");
+
+        Anexo comprovante = new Anexo();
+        comprovante.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        comprovante.setNomeArquivo("comprovante.pdf");
+        p.addAnexo(comprovante);
+
+        when(processoRepository.findById(300L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        var template = new EmailTemplate(
+            "deferido", "titulo", "icon",
+            "Assunto: Processo DEFERIDO", "Corpo do email de deferimento");
+        when(emailTemplateService.emailDeferido(p)).thenReturn(template);
+
+        when(anexoStorageService.buscarUltimoPorTipo(300L, TipoAnexo.COMPROVANTE_SNT))
+            .thenReturn(comprovante);
+        when(anexoStorageService.resolverArquivo(comprovante))
+            .thenReturn(java.nio.file.Paths.get("test.pdf"));
+        when(emailSenderService.enviarComAnexo(
+            "solicitante@test.com", "Assunto: Processo DEFERIDO", "Corpo do email de deferimento",
+            java.nio.file.Paths.get("test.pdf").toFile(), "comprovante.pdf"))
+            .thenReturn(true);
+
+        Processo resultado = service.finalizarResposta(300L);
+
+        assertThat(resultado.isEmailEnviadoSolicitante()).isTrue();
+        assertThat(resultado.getMensagemResposta()).isEqualTo("Corpo do email de deferimento");
+    }
+
+    @Test
+    void finalizarRespostaRejeitaProcessoNaoDecidido() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
+        p.setId(301L);
+        p.setStatus(StatusProcesso.ENVIADO);
+        when(processoRepository.findById(301L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.finalizarResposta(301L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("ainda nao foi decidido");
+    }
+
+    @Test
+    void finalizarRespostaRejeitaProcessoCancelado() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
+        p.setId(302L);
+        p.setStatus(StatusProcesso.CANCELADO);
+        when(processoRepository.findById(302L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.finalizarResposta(302L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("cancelado");
+    }
 }

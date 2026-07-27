@@ -449,9 +449,31 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   `ALTER TABLE solicitacao_online DROP/ADD CONSTRAINT ...` manual na VM.
   **Sempre que adicionar um valor a um enum usado numa coluna de status já
   populada em prod, conferir se existe uma CHECK constraint na coluna
-  (`SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE
-  conrelid = '<tabela>'::regclass AND contype = 'c';`) e atualizá-la junto —
-  nenhum teste local pega isso, só se manifesta contra o Postgres real.
+(`SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE
+   conrelid = '<tabela>'::regclass AND contype = 'c';`) e atualizá-la junto —
+   nenhum teste local pega isso, só se manifesta contra o Postgres real.
+
+## Pendência de deploy: CHECK constraint para StatusSolicitacaoOnline.APROVADA/REPROVADA
+
+Commit `74b4aba` adicionou `APROVADA` e `REPROVADA` ao enum
+`StatusSolicitacaoOnline`. Se existir uma CHECK constraint manual na coluna
+`solicitacao_online.status` em prod (mesmo padrão do incidente
+`PROCESSO_EXCLUIDO` descrito acima), ela vai barrar os novos valores. Antes do
+próximo deploy, verificar e atualizar:
+
+```sql
+SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
+WHERE conrelid = 'solicitacao_online'::regclass AND contype = 'c';
+-- Se existir, dropar e recriar incluindo 'APROVADA' e 'REPROVADA'
+ALTER TABLE solicitacao_online DROP CONSTRAINT solicitacao_online_status_check;
+ALTER TABLE solicitacao_online ADD CONSTRAINT solicitacao_online_status_check
+CHECK (status IN ('ENVIADA','CONVERTIDA','DEVOLVIDA','CANCELADA','PROCESSO_EXCLUIDO','APROVADA','REPROVADA'));
+```
+
+Nenhum backfill é necessário — processos já decididos terão o status atualizado
+automaticamente na primeira vez que `decidir()` for chamado sobre eles (ou
+podem ficar como `CONVERTIDA` sem prejuízo, já que os templates tratam ambos os
+casos).
 
 ## Pendência de deploy: backfill de Parecer.versao
 

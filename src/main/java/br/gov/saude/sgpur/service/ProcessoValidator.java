@@ -243,10 +243,6 @@ public class ProcessoValidator {
      * (simetria entre as duas decisoes finais).
      */
     public Optional<String> validarRespostaSolicitante(Processo processo) {
-        if (processo.getSolicitanteEmail() == null || processo.getSolicitanteEmail().isBlank()) {
-            return Optional.of(
-                "Processo sem e-mail do solicitante cadastrado.");
-        }
         if (processo.getStatus() == StatusProcesso.DEFERIDO
                 && processo.getAnexos().stream().noneMatch(a -> a.getTipo() == TipoAnexo.COMPROVANTE_SNT)) {
             return Optional.of(

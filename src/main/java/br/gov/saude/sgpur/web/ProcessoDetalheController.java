@@ -105,7 +105,7 @@ public class ProcessoDetalheController {
     @GetMapping("/novo")
     public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model,
                         RedirectAttributes ra) {
-        // Desde 2026-07-27, TODO processo tem que vir de uma SolicitacaoOnline
+        // Desde 2026-07-27, cada processo tem que vir de uma SolicitacaoOnline
         // convertida pelo Portal do Solicitante - nao existe mais cadastro
         // manual "do zero". Kill-switch do proprio Portal: se o modulo estiver
         // desligado, nao ha como triar nenhuma solicitacao, logo nao ha como

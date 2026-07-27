@@ -53,7 +53,7 @@ public class FluxoProcessoService {
         boolean finalizado = p.getStatus() != null && p.getStatus().isFinalizado();
 
         // 1. Recebimento da solicitacao: SEMPRE automatico e concluido. Desde
-        //    2026-07-27, TODO processo nasce obrigatoriamente de uma
+        //    2026-07-27, cada processo nasce obrigatoriamente de uma
         //    SolicitacaoOnline convertida pelo Portal do Solicitante
         //    (ProcessoDetalheController.novo/salvar passaram a exigir
         //    origemSolicitacaoOnlineId) - nao existe mais cadastro manual "do

@@ -470,6 +470,11 @@ public class ProcessoService {
         validator.validarRespostaSolicitante(p)
             .ifPresent(msg -> { throw new IllegalStateException(msg); });
 
+        if (p.getSolicitanteEmail() == null || p.getSolicitanteEmail().isBlank()) {
+            throw new IllegalStateException(
+                "Processo sem e-mail do solicitante cadastrado. Impossivel enviar resposta.");
+        }
+
         EmailTemplate template = (p.getStatus() == StatusProcesso.DEFERIDO)
             ? emailTemplateService.emailDeferido(p)
             : emailTemplateService.emailIndeferido(p);
