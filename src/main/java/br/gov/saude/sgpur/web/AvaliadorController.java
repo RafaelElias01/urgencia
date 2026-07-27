@@ -165,7 +165,11 @@ public class AvaliadorController {
         model.addAttribute("prazoDias", prazoDias);
         model.addAttribute("historico", historico);
         model.addAttribute("iniciaisHistorico", iniciaisHistorico);
-        model.addAttribute("membro", membro);
+        // String, nao a entidade: com open-in-view desligado a sessao ja fechou
+        // quando o template renderiza, e membro (via usuario.getMembro()) pode
+        // vir como proxy lazy - passar so o rotulo forca a leitura aqui dentro
+        // da transacao, evitando LazyInitializationException na view.
+        model.addAttribute("membroRotulo", membro.getRotulo());
         model.addAttribute("totalAtribuidos", totalAtribuidos);
         model.addAttribute("totalPendentes", parecersFiltrados.size());
         model.addAttribute("totalAvaliados", totalAvaliados);
