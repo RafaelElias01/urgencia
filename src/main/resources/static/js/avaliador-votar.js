@@ -35,9 +35,20 @@
         var radioMarcado = form.querySelector('input[name="resultado"]:checked');
         if (!radioMarcado) return;
         var label = form.querySelector('label[for="' + radioMarcado.id + '"]');
+
+        // Mesmas cores/icones do formulario (bi-check-circle verde = Favoravel,
+        // bi-x-circle vermelho = Nao favoravel, bi-question-circle amarelo =
+        // Solicita informacao) - ver templates/avaliador/votar.html.
+        var iconeClasse = radioMarcado.value === 'FAVORAVEL' ? 'bi-check-circle text-success'
+            : radioMarcado.value === 'NAO_FAVORAVEL' ? 'bi-x-circle text-danger'
+            : 'bi-question-circle text-warning';
+        var icone = document.createElement('i');
+        icone.className = 'bi ' + iconeClasse + ' me-2';
+        var texto = document.createElement('span');
         // textContent (nao innerHTML): o resumo e so texto, nunca deve
         // interpretar o conteudo do label como HTML.
-        resumoResultado.textContent = label ? label.textContent.trim() : radioMarcado.value;
+        texto.textContent = label ? label.textContent.trim() : radioMarcado.value;
+        resumoResultado.replaceChildren(icone, texto);
 
         checkConfirma.checked = false;
         btnConfirmar.disabled = true;
