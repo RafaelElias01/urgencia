@@ -120,6 +120,16 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   (`TipoAnexo.COMPROVANTE_SNT`) e enviá-lo junto na resposta ao solicitante; a
   etapa "Comprovante SNT" bloqueia a conclusão até o anexo existir (simétrico
   ao ofício no indeferimento). O comprovante é gerado fora do sistema.
+  **Desde 2026-07-27, o Portal do Solicitante também exibe o resultado final**
+  (`/solicitante/{id}`): quando o `Processo` gerado está Deferido/Indeferido/
+  Cancelado, a tela mostra a decisão e, se o anexo já existir, um botão de
+  download do comprovante SNT (Deferido) ou do ofício de indeferimento
+  (Indeferido) via `GET /solicitante/{id}/processo-anexo/{anexoId}`
+  (`SolicitanteController.baixarAnexoProcesso`) — endpoint com whitelist
+  explícita de `TipoAnexo` (só esses dois) e checagem de posse, nunca serve
+  qualquer anexo do processo por ID. Isso é **além** do e-mail com
+  comprovante de envio, que continua obrigatório para concluir o processo
+  (não foi substituído).
 - Status (ciclo expandido, reflete a planilha): `Solicitado` → `Enviado` →
   { `Deferido` / `Indeferido` / `Solicita informação` } (+ `Cancelado`).
   Finais: Deferido/Indeferido/Cancelado. `Em análise` é mantido como sinônimo
