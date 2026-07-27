@@ -404,12 +404,34 @@ class ProcessoControllerEmailTest {
         when(registroEnvioService.registrar(1L)).thenReturn(
             RegistroEnvioService.RegistroEnvioResultado.sucesso(
                 "Envio aos avaliadores registrado em 25/07/2026.",
-                List.of("exame.jpg")));
+                List.of("exame.jpg"), List.of()));
 
         mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Envio aos avaliadores registrado em 25/07/2026."))
             .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("exame.jpg")));
+
+        verify(registroEnvioService).registrar(1L);
+    }
+
+    /**
+     * Falha no envio automatico do convite ao Portal do Avaliador para um dos
+     * avaliadores (SMTP fora do ar, etc.) NAO bloqueia o registro do envio -
+     * vira flash "aviso" nao-bloqueante, junto do flash "msg" de sucesso.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void registrarEnvioMapeiaAvisoDeFalhaDeEmailParaFlashSemBloquear() throws Exception {
+        when(registroEnvioService.registrar(1L)).thenReturn(
+            RegistroEnvioService.RegistroEnvioResultado.sucesso(
+                "Envio aos avaliadores registrado em 25/07/2026.",
+                List.of(),
+                List.of("Nao foi possivel enviar o convite por e-mail ao avaliador Dr. Fulano.")));
+
+        mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", "Envio aos avaliadores registrado em 25/07/2026."))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("Dr. Fulano")));
 
         verify(registroEnvioService).registrar(1L);
     }

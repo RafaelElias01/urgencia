@@ -223,15 +223,13 @@ public class ProcessoValidator {
      * antes de registrar o envio (defesa em profundidade): mesmo que
      * {@code ProcessoService.registrarEnvio} venha a ser chamado de outro
      * lugar no futuro (outro controller, job, teste), o processo nunca vira
-     * ENVIADO sem essas duas garantias minimas.
+     * ENVIADO sem essa garantia minima. NAO exige mais o anexo
+     * {@code EMAIL_ENVIADO_AVALIADORES}: o parecer medico agora e feito
+     * exclusivamente pelo Portal do Avaliador, entao o comprovante manual de
+     * e-mail deixou de ser pre-requisito - o convite ao portal e disparado
+     * automaticamente pelo sistema (ver {@code RegistroEnvioService}).
      */
     public Optional<String> validarRegistroEnvio(Processo processo) {
-        boolean temComprovanteEnvio = processo.getAnexos().stream()
-            .anyMatch(a -> a.getTipo() == TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        if (!temComprovanteEnvio) {
-            return Optional.of(
-                "Anexe o comprovante de envio (PDF, EML ou MSG) aos avaliadores antes de registrar o envio.");
-        }
         boolean temDocumentoClinicoPdf = processo.getAnexos().stream()
             .anyMatch(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR
                 && a.getContentType() != null

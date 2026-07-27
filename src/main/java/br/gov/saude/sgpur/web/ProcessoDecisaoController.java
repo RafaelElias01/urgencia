@@ -247,10 +247,16 @@ public class ProcessoDecisaoController {
             ra.addFlashAttribute("erro", resultado.mensagemErro());
             return "redirect:/processos/" + id + "#envio";
         }
+        List<String> avisosCombinados = new ArrayList<>();
         if (!resultado.avisos().isEmpty()) {
-            ra.addFlashAttribute("aviso",
-                "Estes documentos clinicos ficaram de fora do PDF consolidado: "
-                    + String.join(", ", resultado.avisos()) + ".");
+            avisosCombinados.add("Estes documentos clinicos ficaram de fora do PDF consolidado: "
+                + String.join(", ", resultado.avisos()) + ".");
+        }
+        if (!resultado.avisosEmail().isEmpty()) {
+            avisosCombinados.add(String.join(" ", resultado.avisosEmail()));
+        }
+        if (!avisosCombinados.isEmpty()) {
+            ra.addFlashAttribute("aviso", String.join(" ", avisosCombinados));
         }
         ra.addFlashAttribute("msg", resultado.mensagemSucesso());
         return "redirect:/processos/" + id + "#envio";

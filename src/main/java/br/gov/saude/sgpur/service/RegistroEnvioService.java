@@ -1,6 +1,8 @@
 package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.Anexo;
+import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
+import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
 import org.slf4j.Logger;
@@ -37,31 +39,40 @@ public class RegistroEnvioService {
     private final SolicitacaoAvaliadorService solicitacaoAvaliadorService;
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
+    private final EmailSenderService emailSender;
+    private final EmailTemplateService emailTemplateService;
 
     public RegistroEnvioService(ProcessoService processoService,
                                 SolicitacaoAvaliadorService solicitacaoAvaliadorService,
                                 AnexoStorageService anexoStorage,
-                                AuditoriaService auditoria) {
+                                AuditoriaService auditoria,
+                                EmailSenderService emailSender,
+                                EmailTemplateService emailTemplateService) {
         this.processoService = processoService;
         this.solicitacaoAvaliadorService = solicitacaoAvaliadorService;
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
+        this.emailSender = emailSender;
+        this.emailTemplateService = emailTemplateService;
     }
 
     /**
      * Resultado do registro de envio: ou {@code ok=true} com a mensagem de
-     * sucesso e a lista de avisos (documentos clinicos que ficaram de fora do
-     * PDF consolidado), ou {@code ok=false} com a mensagem de erro (nenhum
-     * efeito colateral ocorreu).
+     * sucesso, a lista de avisos (documentos clinicos que ficaram de fora do
+     * PDF consolidado) e a lista de avisos de e-mail (convites ao Portal do
+     * Avaliador que nao puderam ser enviados a algum dos 3 avaliadores - NAO
+     * bloqueia o registro do envio, so avisa o operador), ou {@code ok=false}
+     * com a mensagem de erro (nenhum efeito colateral ocorreu).
      */
     public record RegistroEnvioResultado(boolean ok, String mensagemErro,
-                                         String mensagemSucesso, List<String> avisos) {
+                                         String mensagemSucesso, List<String> avisos,
+                                         List<String> avisosEmail) {
         public static RegistroEnvioResultado erro(String msg) {
-            return new RegistroEnvioResultado(false, msg, null, List.of());
+            return new RegistroEnvioResultado(false, msg, null, List.of(), List.of());
         }
 
-        public static RegistroEnvioResultado sucesso(String msg, List<String> avisos) {
-            return new RegistroEnvioResultado(true, null, msg, avisos);
+        public static RegistroEnvioResultado sucesso(String msg, List<String> avisos, List<String> avisosEmail) {
+            return new RegistroEnvioResultado(true, null, msg, avisos, avisosEmail);
         }
     }
 
@@ -70,12 +81,14 @@ public class RegistroEnvioService {
         Processo p = processoService.buscar(processoId);
         LocalDate hoje = LocalDate.now();
 
-        boolean temComprovanteEnvio = p.getAnexos().stream()
-            .anyMatch(a -> a.getTipo() == TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        if (!temComprovanteEnvio) {
-            return RegistroEnvioResultado.erro(
-                "Anexe o comprovante de envio (PDF, EML ou MSG) aos avaliadores antes de registrar o envio.");
-        }
+        // NAO exige mais o anexo EMAIL_ENVIADO_AVALIADORES: o parecer medico
+        // passou a ser feito exclusivamente pelo Portal do Avaliador
+        // (AvaliadorController), entao o avaliador nao precisa mais receber
+        // nada por e-mail pra poder votar - so precisa saber que ha um
+        // parecer pendente. O sistema agora dispara automaticamente, ao
+        // registrar o envio, o convite ao Portal do Avaliador
+        // (EmailTemplateService.emailConviteAvaliador) para os 3 avaliadores
+        // (ver disparo apos a consolidacao/carimbo abaixo).
 
         // O PDF dos avaliadores e montado SO com os documentos clinicos
         // anonimizados (PDF) anexados pelo operador: funde-os em um unico PDF e
@@ -173,8 +186,37 @@ public class RegistroEnvioService {
         }
 
         auditoria.registrar("ENVIO_AVALIADORES_REGISTRADO", "Processo " + p.getNumero());
+
+        // Dispara automaticamente o convite ao Portal do Avaliador para os 3
+        // avaliadores do processo. Falha de SMTP em um ou mais destinatarios
+        // NAO pode travar o fluxo clinico: cada envio e tratado de forma
+        // independente, falhas sao auditadas e viram um aviso nao-bloqueante
+        // pro operador (o registro do envio ja foi efetivado acima).
+        List<String> avisosEmail = new ArrayList<>();
+        for (Parecer parecer : p.getPareceres()) {
+            MembroUrgenciaRenal membro = parecer.getMembro();
+            if (membro == null || membro.getEmail() == null || membro.getEmail().isBlank()) {
+                log.warn("Avaliador sem e-mail cadastrado, convite nao enviado. Processo {}, membro {}",
+                    p.getNumero(), membro != null ? membro.getNome() : "desconhecido");
+                auditoria.registrar("CONVITE_AVALIADOR_NAO_ENVIADO",
+                    "Processo " + p.getNumero() + " - avaliador "
+                    + (membro != null ? membro.getNome() : "desconhecido") + " sem e-mail cadastrado");
+                avisosEmail.add("Nao foi possivel enviar o convite ao avaliador "
+                    + (membro != null ? membro.getNome() : "desconhecido") + " (sem e-mail cadastrado).");
+                continue;
+            }
+            EmailTemplate convite = emailTemplateService.emailConviteAvaliador(p, membro);
+            boolean enviado = emailSender.enviar(membro.getEmail(), convite.assunto(), convite.corpo());
+            if (!enviado) {
+                log.warn("Falha ao enviar convite ao avaliador {} (processo {})", membro.getNome(), p.getNumero());
+                auditoria.registrar("CONVITE_AVALIADOR_FALHOU",
+                    "Processo " + p.getNumero() + " - falha ao enviar convite ao avaliador " + membro.getNome());
+                avisosEmail.add("Nao foi possivel enviar o convite por e-mail ao avaliador " + membro.getNome() + ".");
+            }
+        }
+
         String msg = "Envio aos avaliadores registrado em "
             + hoje.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ".";
-        return RegistroEnvioResultado.sucesso(msg, ignorados);
+        return RegistroEnvioResultado.sucesso(msg, ignorados, avisosEmail);
     }
 }

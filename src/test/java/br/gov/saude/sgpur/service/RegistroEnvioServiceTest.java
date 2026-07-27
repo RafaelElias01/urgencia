@@ -1,6 +1,7 @@
 package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.Anexo;
+import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
@@ -29,11 +30,13 @@ import static org.mockito.Mockito.when;
 
 /**
  * Cobre a logica de negocio extraida de
- * {@code ProcessoDecisaoController.registrarEnvio}: comprovante de envio e
- * documento clinico PDF obrigatorios, PDFs corrompidos/sem paginas ficam de
- * fora da consolidacao (aviso, nao bloqueio automatico), e o service so
- * efetiva o envio (processoService.registrarEnvio) quando ha ao menos um PDF
- * valido.
+ * {@code ProcessoDecisaoController.registrarEnvio}: documento clinico PDF
+ * obrigatorio (comprovante de envio manual NAO e mais exigido - o parecer
+ * medico e feito exclusivamente pelo Portal do Avaliador), PDFs
+ * corrompidos/sem paginas ficam de fora da consolidacao (aviso, nao bloqueio
+ * automatico), o service so efetiva o envio (processoService.registrarEnvio)
+ * quando ha ao menos um PDF valido, e o convite ao Portal do Avaliador e
+ * disparado automaticamente para cada avaliador do processo apos o envio.
  */
 @ExtendWith(MockitoExtension.class)
 class RegistroEnvioServiceTest {
@@ -46,6 +49,10 @@ class RegistroEnvioServiceTest {
     AnexoStorageService anexoStorage;
     @Mock
     AuditoriaService auditoria;
+    @Mock
+    EmailSenderService emailSender;
+    @Mock
+    EmailTemplateService emailTemplateService;
 
     RegistroEnvioService service;
 
@@ -53,16 +60,19 @@ class RegistroEnvioServiceTest {
     Path tempDir;
 
     private Processo processo;
+    private MembroUrgenciaRenal medico;
 
     @BeforeEach
     void setUp() {
-        service = new RegistroEnvioService(processoService, solicitacaoAvaliadorService, anexoStorage, auditoria);
+        service = new RegistroEnvioService(processoService, solicitacaoAvaliadorService, anexoStorage, auditoria,
+            emailSender, emailTemplateService);
 
         processo = new Processo();
         processo.setId(1L);
         processo.setNumero("01/2026");
         processo.setPacienteNome("Fulano de Tal");
-        processo.addParecer(new Parecer(new br.gov.saude.sgpur.domain.MembroUrgenciaRenal("HCPA", "Medico", null)));
+        medico = new MembroUrgenciaRenal("HCPA", "Medico", "medico@hcpa.example.com");
+        processo.addParecer(new Parecer(medico));
 
         when(processoService.buscar(1L)).thenReturn(processo);
     }
@@ -82,13 +92,6 @@ class RegistroEnvioServiceTest {
         }
     }
 
-    private Anexo comprovanteEnvio() {
-        Anexo a = new Anexo();
-        a.setTipo(TipoAnexo.EMAIL_ENVIADO_AVALIADORES);
-        a.setNomeArquivo("comprovante.pdf");
-        return a;
-    }
-
     private Anexo documentoClinicoPdf(String nome, byte[] bytes) throws Exception {
         Anexo a = new Anexo();
         a.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
@@ -104,9 +107,13 @@ class RegistroEnvioServiceTest {
         return a;
     }
 
+    private EmailTemplate templateConvite(MembroUrgenciaRenal m) {
+        return new EmailTemplate("convite-avaliador", "Convite - " + m.getNome(), "person-check",
+            "Solicitacao de avaliacao", "corpo do convite para " + m.getNome());
+    }
+
     @Test
-    void sucessoComUmDocumentoClinicoPdfValidoEComprovante() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
+    void sucessoComUmDocumentoClinicoPdfValidoDisparaConviteAoAvaliador() throws Exception {
         processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
 
         when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
@@ -116,6 +123,8 @@ class RegistroEnvioServiceTest {
         when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
             anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
         when(processoService.registrarEnvio(1L)).thenReturn(processo);
+        when(emailTemplateService.emailConviteAvaliador(processo, medico)).thenReturn(templateConvite(medico));
+        when(emailSender.enviar(eq(medico.getEmail()), anyString(), anyString())).thenReturn(true);
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
 
@@ -123,17 +132,18 @@ class RegistroEnvioServiceTest {
         assertThat(resultado.mensagemErro()).isNull();
         assertThat(resultado.mensagemSucesso()).contains("Envio aos avaliadores registrado em");
         assertThat(resultado.avisos()).isEmpty();
+        assertThat(resultado.avisosEmail()).isEmpty();
 
         verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR, 99L);
         verify(processoService).salvar(processo);
         verify(processoService).registrarEnvio(1L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
         verify(auditoria).registrar(eq("ENVIO_AVALIADORES_REGISTRADO"), anyString());
+        verify(emailSender).enviar(eq(medico.getEmail()), anyString(), anyString());
     }
 
     @Test
     void pdfCorrompidoFicaDeForaComAvisoMasEnvioSeguePorHaverOutroValido() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
         processo.addAnexo(documentoClinicoPdf("bom.pdf", pdfValido()));
         // bytes que nao formam um PDF valido - PdfReader lanca excecao ao ler
         processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "isto nao e um pdf valido".getBytes()));
@@ -145,6 +155,8 @@ class RegistroEnvioServiceTest {
         when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
             anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
         when(processoService.registrarEnvio(1L)).thenReturn(processo);
+        when(emailTemplateService.emailConviteAvaliador(processo, medico)).thenReturn(templateConvite(medico));
+        when(emailSender.enviar(eq(medico.getEmail()), anyString(), anyString())).thenReturn(true);
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
 
@@ -155,7 +167,6 @@ class RegistroEnvioServiceTest {
 
     @Test
     void bloqueiaSemNenhumDocumentoClinicoPdfValido() {
-        processo.addAnexo(comprovanteEnvio());
         // sem nenhum documento clinico anexado
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
@@ -163,25 +174,57 @@ class RegistroEnvioServiceTest {
         assertThat(resultado.ok()).isFalse();
         assertThat(resultado.mensagemErro()).contains("documento clinico");
         verifyNoInteractions(solicitacaoAvaliadorService);
+        verifyNoInteractions(emailSender);
         verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
     }
 
     @Test
-    void bloqueiaSemComprovanteDeEnvio() throws Exception {
-        // sem TipoAnexo.EMAIL_ENVIADO_AVALIADORES anexado, mesmo com documento clinico valido
+    void naoExigeMaisComprovanteDeEnvioManual() throws Exception {
+        // sem TipoAnexo.EMAIL_ENVIADO_AVALIADORES anexado - deixou de ser
+        // obrigatorio: o parecer medico agora e feito exclusivamente pelo
+        // Portal do Avaliador, sem necessidade de comprovante manual de e-mail.
         processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
+
+        when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
+        when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
+        Anexo novoAnexo = new Anexo();
+        novoAnexo.setId(101L);
+        when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
+            anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
+        when(processoService.registrarEnvio(1L)).thenReturn(processo);
+        when(emailTemplateService.emailConviteAvaliador(processo, medico)).thenReturn(templateConvite(medico));
+        when(emailSender.enviar(eq(medico.getEmail()), anyString(), anyString())).thenReturn(true);
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
 
-        assertThat(resultado.ok()).isFalse();
-        assertThat(resultado.mensagemErro()).contains("comprovante de envio");
-        verifyNoInteractions(solicitacaoAvaliadorService);
-        verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
+        assertThat(resultado.ok()).isTrue();
+        verify(processoService).registrarEnvio(1L);
+    }
+
+    @Test
+    void falhaNoEnvioDeEmailAoAvaliadorNaoBloqueiaRegistroEEhAuditada() throws Exception {
+        processo.addAnexo(documentoClinicoPdf("exame.pdf", pdfValido()));
+
+        when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
+        when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
+        Anexo novoAnexo = new Anexo();
+        novoAnexo.setId(102L);
+        when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
+            anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
+        when(processoService.registrarEnvio(1L)).thenReturn(processo);
+        when(emailTemplateService.emailConviteAvaliador(processo, medico)).thenReturn(templateConvite(medico));
+        when(emailSender.enviar(eq(medico.getEmail()), anyString(), anyString())).thenReturn(false);
+
+        RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
+
+        assertThat(resultado.ok()).isTrue();
+        assertThat(resultado.avisosEmail()).anyMatch(a -> a.contains(medico.getNome()));
+        verify(processoService).registrarEnvio(1L);
+        verify(auditoria).registrar(eq("CONVITE_AVALIADOR_FALHOU"), anyString());
     }
 
     @Test
     void bloqueiaQuandoTodosOsPdfsEstaoCorrompidos() throws Exception {
-        processo.addAnexo(comprovanteEnvio());
         processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "nao e pdf".getBytes()));
 
         RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
@@ -189,6 +232,7 @@ class RegistroEnvioServiceTest {
         assertThat(resultado.ok()).isFalse();
         assertThat(resultado.mensagemErro()).contains("PDF valido");
         verifyNoInteractions(solicitacaoAvaliadorService);
+        verifyNoInteractions(emailSender);
         verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
     }
 }
