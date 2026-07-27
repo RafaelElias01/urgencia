@@ -37,6 +37,7 @@ public final class NomePadraoAnexo {
             case EMAIL_ENVIADO_AVALIADORES -> "Email aos avaliadores";
             case EMAIL_PARECER_RECEBIDO -> "Parecer recebido";
             case RESPOSTA_AVALIADOR -> "Resposta avaliador";
+            case ANEXO_AVALIADOR -> "Anexo do avaliador";
             case INFO_COMPLEMENTAR -> "Informacao complementar";
             case OFICIO_INDEFERIMENTO -> "Oficio indeferimento";
             case COMPROVANTE_SNT -> "Comprovante SNT";

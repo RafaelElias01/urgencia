@@ -89,7 +89,8 @@
                 Esta acao nao pode ser desfeita.
             </div>
 
-            <form id="formVotoAvaliador" th:action="@{/avaliador/{id}/votar(id=${processo.id})}" method="post">
+            <form id="formVotoAvaliador" th:action="@{/avaliador/{id}/votar(id=${processo.id})}" method="post"
+                  enctype="multipart/form-data">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Parecer *</label>
                     <div class="d-flex flex-column gap-2">
@@ -112,6 +113,17 @@
                               placeholder="Descreva sua analise clinica, pontos relevantes ou fundamento do parecer..."></textarea>
                     <div class="form-text">
                         Opcional. Sera registrado internamente para subsidiar a decisao do processo.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Anexar documento (opcional)</label>
+                    <input type="file" name="arquivo" class="form-control"
+                           accept=".pdf,.png,.jpg,.jpeg,.eml,.msg">
+                    <div class="form-text">
+                        Opcional. Anexe algum documento de apoio ao seu parecer (ex.: exame,
+                        laudo). Seu voto autenticado ja e o comprovante - o anexo aqui e so
+                        material extra.
                     </div>
                 </div>
 

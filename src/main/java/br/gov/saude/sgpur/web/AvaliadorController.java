@@ -23,9 +23,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -229,6 +231,7 @@ public class AvaliadorController {
     public String registrarVoto(@PathVariable Long processoId,
                                 @RequestParam ResultadoParecer resultado,
                                 @RequestParam(required = false) String justificativa,
+                                @RequestParam(required = false) MultipartFile arquivo,
                                 Principal principal,
                                 HttpServletRequest request,
                                 RedirectAttributes ra) {
@@ -251,6 +254,21 @@ public class AvaliadorController {
             ? null : justificativa.trim();
         parecer.setJustificativa(justificativaLimpa);
         parecerRepo.save(parecer);
+
+        // Anexo opcional (ex.: exame/documento de apoio do proprio avaliador).
+        // O voto autenticado ja dispensa anexo como comprovante - isso e so um
+        // material extra que o avaliador pode querer deixar registrado.
+        if (arquivo != null && !arquivo.isEmpty()) {
+            try {
+                Anexo anexo = anexoStorage.salvar(parecer.getProcesso(), TipoAnexo.ANEXO_AVALIADOR,
+                    "Documento anexado por " + membro.getNome() + " junto ao parecer", arquivo);
+                anexo.setParecer(parecer);
+                anexoRepo.save(anexo);
+            } catch (IllegalArgumentException | IOException e) {
+                ra.addFlashAttribute("aviso",
+                    "Voto registrado, mas houve falha ao anexar o documento: " + e.getMessage());
+            }
+        }
 
         // Atualiza o status do processo (pode ir para SOLICITA_INFORMACAO)
         processoService.atualizarStatusPorPareceres(processoId);

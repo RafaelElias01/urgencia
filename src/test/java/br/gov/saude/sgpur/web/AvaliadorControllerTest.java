@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
@@ -265,6 +266,51 @@ class AvaliadorControllerTest {
         // Justificativa salva com trim aplicado
         verify(parecerRepo).save(argThat(p ->
             "Quadro clinico compativel".equals(p.getJustificativa())));
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void registrarVotoComArquivoAnexaComoAnexoAvaliador() throws Exception {
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
+        when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
+        Anexo anexo = new Anexo();
+        when(anexoStorage.salvar(eq(processo), eq(TipoAnexo.ANEXO_AVALIADOR), any(), any()))
+            .thenReturn(anexo);
+        doNothing().when(auditoria).registrar(any(), any(), any());
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "exame.pdf",
+            "application/pdf", "conteudo".getBytes());
+
+        mvc.perform(multipart("/avaliador/1/votar")
+                .file(arquivo)
+                .with(csrf())
+                .param("resultado", "FAVORAVEL"))
+            .andExpect(status().is3xxRedirection());
+
+        verify(anexoStorage).salvar(eq(processo), eq(TipoAnexo.ANEXO_AVALIADOR), any(), any());
+        verify(anexoRepo).save(anexo);
+        assert anexo.getParecer() == parecer;
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void registrarVotoSemArquivoNaoTentaAnexar() throws Exception {
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
+        when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
+        doNothing().when(auditoria).registrar(any(), any(), any());
+
+        mvc.perform(post("/avaliador/1/votar")
+                .with(csrf())
+                .param("resultado", "FAVORAVEL"))
+            .andExpect(status().is3xxRedirection());
+
+        verifyNoInteractions(anexoStorage);
     }
 
     @Test
