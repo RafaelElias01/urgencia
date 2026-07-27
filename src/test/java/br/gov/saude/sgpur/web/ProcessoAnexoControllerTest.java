@@ -127,7 +127,8 @@ class ProcessoAnexoControllerTest {
     void respostaSolicitanteSemConfirmarNaoValidaESalva() throws Exception {
         // Regra de validacao (SNT/oficio) agora vive dentro de
         // ProcessoService.confirmarRespostaSolicitante - o controller so delega.
-        when(processoService.confirmarRespostaSolicitante(1L, false)).thenReturn(processo);
+        when(processoService.confirmarRespostaSolicitante(1L, false))
+            .thenReturn(new ProcessoService.ConfirmacaoRespostaResultado(processo, null));
 
         mvc.perform(post("/processos/1/resposta-solicitante").with(csrf()))
             .andExpect(status().is3xxRedirection())
@@ -153,15 +154,35 @@ class ProcessoAnexoControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void respostaSolicitanteConfirmadaComComprovanteSalva() throws Exception {
+    void respostaSolicitanteConfirmadaComComprovanteSalvaEEnviaEmail() throws Exception {
         processo.setEmailEnviadoSolicitante(true);
-        when(processoService.confirmarRespostaSolicitante(1L, true)).thenReturn(processo);
+        when(processoService.confirmarRespostaSolicitante(1L, true))
+            .thenReturn(new ProcessoService.ConfirmacaoRespostaResultado(processo, null));
 
         mvc.perform(post("/processos/1/resposta-solicitante")
                 .param("emailEnviadoSolicitante", "true")
                 .with(csrf()))
             .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attribute("msg", "Finalizacao salva."));
+            .andExpect(flash().attribute("msg", "Finalizacao salva. E-mail de resposta enviado ao solicitante."));
+
+        verify(processoService).confirmarRespostaSolicitante(1L, true);
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void respostaSolicitanteConfirmadaComFalhaDeEnvioMostraAviso() throws Exception {
+        // Falha de SMTP nao bloqueia a confirmacao - vira aviso nao-bloqueante,
+        // a finalizacao ja foi processada mesmo assim (ver ProcessoService).
+        processo.setEmailEnviadoSolicitante(true);
+        when(processoService.confirmarRespostaSolicitante(1L, true))
+            .thenReturn(new ProcessoService.ConfirmacaoRespostaResultado(
+                processo, "Nao foi possivel enviar automaticamente o e-mail de resposta ao solicitante (falha de SMTP)."));
+
+        mvc.perform(post("/processos/1/resposta-solicitante")
+                .param("emailEnviadoSolicitante", "true")
+                .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attributeExists("aviso"));
 
         verify(processoService).confirmarRespostaSolicitante(1L, true);
     }

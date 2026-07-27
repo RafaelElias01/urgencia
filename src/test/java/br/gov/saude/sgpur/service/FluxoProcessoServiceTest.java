@@ -30,7 +30,12 @@ class FluxoProcessoServiceTest {
     SolicitacaoOnlineRepository solicitacaoOnlineRepository;
 
     private FluxoProcessoService fluxo() {
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(),
+            parecerRepository, solicitacaoOnlineRepository,
+            org.mockito.Mockito.mock(EmailTemplateService.class),
+            org.mockito.Mockito.mock(EmailSenderService.class),
+            org.mockito.Mockito.mock(AnexoStorageService.class),
+            org.mockito.Mockito.mock(AuditoriaService.class));
         // Por padrao nenhum processo veio do Portal do Solicitante nesses
         // testes (comportamento identico ao existente antes da excecao do
         // Portal); testes especificos sobrescrevem esse stub.
@@ -504,7 +509,12 @@ class FluxoProcessoServiceTest {
 
         // Retoma: ProcessoService.retomarAposInformacao volta o status para
         // ENVIADO e limpa (reabre) apenas o parecer que pediu informacao.
-        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
+        ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(),
+            parecerRepository, solicitacaoOnlineRepository,
+            org.mockito.Mockito.mock(EmailTemplateService.class),
+            org.mockito.Mockito.mock(EmailSenderService.class),
+            org.mockito.Mockito.mock(AnexoStorageService.class),
+            org.mockito.Mockito.mock(AuditoriaService.class));
         org.mockito.Mockito.when(processoRepository.findById(org.mockito.ArgumentMatchers.anyLong()))
             .thenReturn(java.util.Optional.of(p));
         org.mockito.Mockito.when(processoRepository.save(org.mockito.ArgumentMatchers.any()))

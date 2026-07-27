@@ -1,14 +1,19 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.Perfil;
+import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
+import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.TipoAnexo;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +58,7 @@ class SolicitanteControllerTest {
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private AnexoSolicitacaoOnlineRepository anexoRepo;
     @MockitoBean private AnexoSolicitacaoOnlineStorageService anexoStorage;
+    @MockitoBean private AnexoStorageService anexoStorageProcesso;
 
     @TempDir
     Path tempDir;
@@ -318,5 +324,102 @@ class SolicitanteControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/solicitante/50"))
             .andExpect(flash().attributeExists("erro"));
+    }
+
+    // ----- detalhe: status do processo gerado exposto ao model -----
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void detalheExpoeStatusDeferidoDoProcessoGerado() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        Processo processo = new Processo();
+        processo.setId(200L);
+        processo.setNumero("05/2026");
+        processo.setStatus(StatusProcesso.DEFERIDO);
+        solicitacaoDoDono.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(3, "bg-success"));
+        when(anexoStorageProcesso.buscarUltimoPorTipo(200L, TipoAnexo.COMPROVANTE_SNT))
+            .thenReturn(new Anexo());
+
+        mvc.perform(get("/solicitante/50"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("statusProcesso", StatusProcesso.DEFERIDO))
+            .andExpect(model().attribute("temComprovanteSnt", true));
+    }
+
+    // ----- processo-anexo: download restrito ao proprio dono, so SNT/oficio -----
+
+    @Test
+    @WithMockUser(username = "solicitante2", roles = "SOLICITANTE")
+    void baixarAnexoProcessoExibe403ParaSolicitacaoDeOutroUsuario() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante2")).thenReturn(Optional.of(outroUsuario));
+        Processo processo = new Processo();
+        processo.setId(200L);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        mvc.perform(get("/solicitante/50/processo-anexo/COMPROVANTE_SNT"))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(anexoStorageProcesso);
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void baixarAnexoProcessoRecusaTipoForaDaWhitelistMesmoParaODono() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        Processo processo = new Processo();
+        processo.setId(200L);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        // SOLICITACAO_AVALIADOR e material interno dos avaliadores - nunca pode
+        // ser exposto ao solicitante, mesmo sendo dono da propria solicitacao.
+        mvc.perform(get("/solicitante/50/processo-anexo/SOLICITACAO_AVALIADOR"))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(anexoStorageProcesso);
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void baixarAnexoProcessoFuncionaParaComprovanteSntDaPropriaSolicitacao() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        Processo processo = new Processo();
+        processo.setId(200L);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        Anexo anexo = new Anexo();
+        anexo.setId(500L);
+        anexo.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        anexo.setNomeArquivo("comprovante-snt.pdf");
+        anexo.setContentType(MediaType.APPLICATION_PDF_VALUE);
+        when(anexoStorageProcesso.buscarUltimoPorTipo(200L, TipoAnexo.COMPROVANTE_SNT)).thenReturn(anexo);
+
+        Path arquivo = tempDir.resolve("comprovante-snt.pdf");
+        Files.write(arquivo, "conteudo".getBytes());
+        when(anexoStorageProcesso.resolverArquivo(anexo)).thenReturn(arquivo);
+
+        mvc.perform(get("/solicitante/50/processo-anexo/COMPROVANTE_SNT"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition",
+                org.hamcrest.Matchers.containsString("comprovante-snt.pdf")));
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void baixarAnexoProcessoRetorna404QuandoTipoInvalido() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        Processo processo = new Processo();
+        processo.setId(200L);
+        solicitacaoDoDono.setProcessoGerado(processo);
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+
+        mvc.perform(get("/solicitante/50/processo-anexo/TIPO_INEXISTENTE"))
+            .andExpect(status().isNotFound());
     }
 }

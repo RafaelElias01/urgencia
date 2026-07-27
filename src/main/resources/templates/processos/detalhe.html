@@ -1009,16 +1009,17 @@
                                            th:checked="${processo.emailEnviadoSolicitante}">
                                     <label class="form-check-label fw-semibold d-flex align-items-center gap-1" for="emailEnvSolicitante">
                                         <i class="bi" th:classappend="${processo.emailEnviadoSolicitante} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'"></i>
-                                        E-mail de resposta enviado ao solicitante
+                                        Confirmar resposta ao solicitante
                                     </label>
                                     <div class="form-text ms-4 mb-0">
-                                        Marque quando o e-mail com a decisao (deferimento ou indeferimento) tiver
-                                        sido enviado a equipe solicitante, com o comprovante acima anexado.
+                                        Ao marcar e salvar, o sistema envia automaticamente o e-mail com a decisao
+                                        (deferimento ou indeferimento) para o solicitante, com o comprovante SNT/oficio
+                                        anexado. Confirme quando o comprovante acima ja estiver pronto.
                                     </div>
                                 </div>
                             </div>
                             <button class="btn btn-primary btn-sm">
-                                <i class="bi bi-save"></i> Salvar finalizacao
+                                <i class="bi bi-send"></i> Confirmar e enviar
                             </button>
                         </form>
                     </div>

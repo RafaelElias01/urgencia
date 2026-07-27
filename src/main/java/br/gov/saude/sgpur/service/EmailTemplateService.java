@@ -265,7 +265,13 @@ public class EmailTemplateService {
             corpo);
     }
 
-    private EmailTemplate emailDeferido(Processo p) {
+    /**
+     * Texto pronto de resposta ao solicitante quando o processo foi DEFERIDO.
+     * Publico porque tambem e usado por {@code ProcessoService.
+     * confirmarRespostaSolicitante} para o envio automatico do e-mail (nao so
+     * para exibicao na tela de copiar/colar).
+     */
+    public EmailTemplate emailDeferido(Processo p) {
         String corpo = """
             Prezados(as),
 
@@ -287,7 +293,11 @@ public class EmailTemplateService {
             assunto("Processo " + p.getNumero() + " - DEFERIDO"), corpo);
     }
 
-    private EmailTemplate emailIndeferido(Processo p) {
+    /**
+     * Texto pronto de resposta ao solicitante quando o processo foi INDEFERIDO.
+     * Publico pelo mesmo motivo de {@link #emailDeferido(Processo)}.
+     */
+    public EmailTemplate emailIndeferido(Processo p) {
         String motivo = (p.getMotivoIndeferimento() == null || p.getMotivoIndeferimento().isBlank())
             ? "(informar o motivo do indeferimento)" : p.getMotivoIndeferimento();
 

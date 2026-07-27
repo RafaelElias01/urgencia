@@ -1,12 +1,16 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.TipoAnexo;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.AnexoSolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
+import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -58,18 +62,32 @@ public class SolicitanteController {
     private final AuditoriaService auditoria;
     private final AnexoSolicitacaoOnlineRepository anexoRepo;
     private final AnexoSolicitacaoOnlineStorageService anexoStorage;
+    private final AnexoStorageService anexoStorageProcesso;
 
     public SolicitanteController(UsuarioRepository usuarioRepo,
                                  SolicitacaoOnlineService solicitacaoService,
                                  AuditoriaService auditoria,
                                  AnexoSolicitacaoOnlineRepository anexoRepo,
-                                 AnexoSolicitacaoOnlineStorageService anexoStorage) {
+                                 AnexoSolicitacaoOnlineStorageService anexoStorage,
+                                 AnexoStorageService anexoStorageProcesso) {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
         this.anexoRepo = anexoRepo;
         this.anexoStorage = anexoStorage;
+        this.anexoStorageProcesso = anexoStorageProcesso;
     }
+
+    /**
+     * Anexos do PROCESSO que o solicitante pode baixar assim que a decisao
+     * sai — whitelist restrita ao comprovante SNT (Deferido) e ao oficio de
+     * indeferimento (Indeferido). NUNCA inclui material dos avaliadores
+     * (SOLICITACAO_AVALIADOR, RESPOSTA_AVALIADOR, DOCUMENTO_CLINICO_AVALIADOR
+     * etc.) — expor isso quebraria a regra de imparcialidade do sistema (a
+     * deliberacao interna dos avaliadores nunca e visivel ao solicitante).
+     */
+    private static final java.util.Set<TipoAnexo> ANEXOS_PROCESSO_PERMITIDOS_AO_SOLICITANTE =
+        java.util.Set.of(TipoAnexo.COMPROVANTE_SNT, TipoAnexo.OFICIO_INDEFERIMENTO);
 
     /**
      * Allowlist explicita dos campos que o solicitante pode preencher no
@@ -156,7 +174,68 @@ public class SolicitanteController {
         // util pro solicitante entender ha quanto tempo o pedido esta parado/foi resolvido.
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
+        // Status do PROCESSO gerado (nao da SolicitacaoOnline) - permite a tela
+        // mostrar o desfecho real (Deferido/Indeferido/Solicita informacao) em
+        // vez do texto generico anterior. Anexos do processo sao LAZY e nao vem
+        // no fetch join de buscarParaDetalhe, entao a existencia do comprovante
+        // SNT/oficio e checada aqui dentro da transacao (nunca no template).
+        Processo processoGerado = s.getProcessoGerado();
+        if (processoGerado != null) {
+            model.addAttribute("statusProcesso", processoGerado.getStatus());
+            model.addAttribute("temComprovanteSnt",
+                anexoStorageProcesso.buscarUltimoPorTipo(processoGerado.getId(), TipoAnexo.COMPROVANTE_SNT) != null);
+            model.addAttribute("temOficioIndeferimento",
+                anexoStorageProcesso.buscarUltimoPorTipo(processoGerado.getId(), TipoAnexo.OFICIO_INDEFERIMENTO) != null);
+        }
         return "solicitante/detalhe";
+    }
+
+    /**
+     * Download restrito de um anexo do PROCESSO (nao da SolicitacaoOnline)
+     * vinculado a esta solicitacao — usado pelo solicitante para baixar o
+     * comprovante de insercao no SNT (Deferido) ou o oficio de indeferimento
+     * (Indeferido). Whitelist dupla de seguranca: (1) so os dois tipos em
+     * {@link #ANEXOS_PROCESSO_PERMITIDOS_AO_SOLICITANTE} sao aceitos, mesmo
+     * que o dono peca outro tipo; (2) a solicitacao precisa pertencer ao
+     * usuario logado (mesmo padrao de posse de {@link #baixarAnexo}). Nunca
+     * expoe material dos avaliadores (imparcialidade).
+     */
+    @GetMapping("/{id}/processo-anexo/{tipo}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> baixarAnexoProcesso(@PathVariable Long id, @PathVariable String tipo,
+                                                         Principal principal) throws MalformedURLException {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
+        Processo processo = s.getProcessoGerado();
+        if (processo == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        TipoAnexo tipoAnexo;
+        try {
+            tipoAnexo = TipoAnexo.valueOf(tipo);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        if (!ANEXOS_PROCESSO_PERMITIDOS_AO_SOLICITANTE.contains(tipoAnexo)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Este tipo de anexo nao pode ser baixado pelo solicitante.");
+        }
+        Anexo anexo = anexoStorageProcesso.buscarUltimoPorTipo(processo.getId(), tipoAnexo);
+        if (anexo == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Path arquivo = anexoStorageProcesso.resolverArquivo(anexo);
+        Resource resource = new UrlResource(arquivo.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.notFound().build();
+        }
+        String contentType = anexo.getContentType() != null
+            ? anexo.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(contentType))
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
+            .body(resource);
     }
 
     /**

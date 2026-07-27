@@ -111,7 +111,13 @@ public class ProcessoAnexoController {
         // dentro do servico - ProcessoService.confirmarRespostaSolicitante -
         // para nao existir so aqui na camada web.
         try {
-            processoService.confirmarRespostaSolicitante(id, emailEnviadoSolicitante);
+            var resultado = processoService.confirmarRespostaSolicitante(id, emailEnviadoSolicitante);
+            if (resultado.aviso() != null) {
+                ra.addFlashAttribute("aviso", resultado.aviso());
+            } else if (emailEnviadoSolicitante) {
+                ra.addFlashAttribute("msg", "Finalizacao salva. E-mail de resposta enviado ao solicitante.");
+                return "redirect:/processos/" + id + "#finalizacao";
+            }
         } catch (IllegalStateException e) {
             ra.addFlashAttribute("erro", e.getMessage());
             return "redirect:/processos/" + id + "#finalizacao";

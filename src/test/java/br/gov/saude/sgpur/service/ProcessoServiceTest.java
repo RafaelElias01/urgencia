@@ -28,13 +28,23 @@ class ProcessoServiceTest {
     ParecerRepository parecerRepository;
     @Mock
     SolicitacaoOnlineRepository solicitacaoOnlineRepository;
+    @Mock
+    EmailTemplateService emailTemplateService;
+    @Mock
+    EmailSenderService emailSenderService;
+    @Mock
+    AnexoStorageService anexoStorageService;
+    @Mock
+    AuditoriaService auditoriaService;
     ProcessoService service;
 
     // Usa o ProcessoValidator real (funcoes puras): as regras de negocio vivem
     // nele, e o servico apenas delega.
     @BeforeEach
     void setUp() {
-        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(),
+            parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService,
+            anexoStorageService, auditoriaService);
     }
 
     private Parecer parecer(ResultadoParecer r) {
@@ -761,5 +771,117 @@ class ProcessoServiceTest {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // ----- confirmarRespostaSolicitante: envio automatico de e-mail -----
+
+    private Processo processoDeferidoComSnt(Long id) {
+        Processo p = new Processo();
+        p.setId(id);
+        p.setStatus(StatusProcesso.DEFERIDO);
+        p.setSolicitanteEmail("equipe@exemplo.com");
+        Anexo snt = new Anexo();
+        snt.setId(200L);
+        snt.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        snt.setNomeArquivo("comprovante-snt.pdf");
+        snt.setCaminhoArmazenado("comprovante-snt.pdf");
+        p.addAnexo(snt);
+        return p;
+    }
+
+    @Test
+    void confirmarRespostaSolicitanteEnviaEmailDeferidoComAnexoQuandoSucesso() {
+        Processo p = processoDeferidoComSnt(40L);
+        Anexo snt = p.getAnexos().get(0);
+        when(processoRepository.findById(40L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+        when(anexoStorageService.buscarUltimoPorTipo(40L, TipoAnexo.COMPROVANTE_SNT)).thenReturn(snt);
+        java.io.File arquivoFake = new java.io.File("comprovante-snt.pdf");
+        when(anexoStorageService.resolverArquivo(snt)).thenReturn(arquivoFake.toPath());
+        EmailTemplate template = new EmailTemplate("deferido", "titulo", "icone", "assunto", "corpo");
+        when(emailTemplateService.emailDeferido(p)).thenReturn(template);
+        when(emailSenderService.enviarComAnexo("equipe@exemplo.com", "assunto", "corpo",
+            arquivoFake, "comprovante-snt.pdf")).thenReturn(true);
+
+        var resultado = service.confirmarRespostaSolicitante(40L, true);
+
+        assertThat(resultado.aviso()).isNull();
+        assertThat(resultado.processo().isEmailEnviadoSolicitante()).isTrue();
+        org.mockito.Mockito.verify(emailSenderService).enviarComAnexo(
+            "equipe@exemplo.com", "assunto", "corpo", arquivoFake, "comprovante-snt.pdf");
+        org.mockito.Mockito.verify(auditoriaService).registrar(
+            org.mockito.ArgumentMatchers.eq("EMAIL_RESPOSTA_SOLICITANTE_ENVIADO"), any());
+    }
+
+    @Test
+    void confirmarRespostaSolicitanteRetornaAvisoNaoBloqueanteQuandoSmtpFalha() {
+        Processo p = processoDeferidoComSnt(41L);
+        Anexo snt = p.getAnexos().get(0);
+        when(processoRepository.findById(41L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+        when(anexoStorageService.buscarUltimoPorTipo(41L, TipoAnexo.COMPROVANTE_SNT)).thenReturn(snt);
+        java.io.File arquivoFake = new java.io.File("comprovante-snt.pdf");
+        when(anexoStorageService.resolverArquivo(snt)).thenReturn(arquivoFake.toPath());
+        when(emailTemplateService.emailDeferido(p))
+            .thenReturn(new EmailTemplate("deferido", "titulo", "icone", "assunto", "corpo"));
+        when(emailSenderService.enviarComAnexo(any(), any(), any(), any(), any())).thenReturn(false);
+
+        var resultado = service.confirmarRespostaSolicitante(41L, true);
+
+        // Falha de SMTP nao bloqueia a confirmacao (a decisao clinica ja foi
+        // tomada) - so devolve um aviso nao-bloqueante.
+        assertThat(resultado.aviso()).isNotNull().contains("SMTP");
+        assertThat(resultado.processo().isEmailEnviadoSolicitante()).isTrue();
+        org.mockito.Mockito.verify(auditoriaService).registrar(
+            org.mockito.ArgumentMatchers.eq("EMAIL_RESPOSTA_SOLICITANTE_FALHA"), any());
+    }
+
+    @Test
+    void confirmarRespostaSolicitanteRetornaAvisoQuandoSemEmailDoSolicitante() {
+        Processo p = processoDeferidoComSnt(42L);
+        p.setSolicitanteEmail(null);
+        when(processoRepository.findById(42L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        var resultado = service.confirmarRespostaSolicitante(42L, true);
+
+        assertThat(resultado.aviso()).isNotNull().contains("e-mail do solicitante");
+        assertThat(resultado.processo().isEmailEnviadoSolicitante()).isTrue();
+        org.mockito.Mockito.verify(emailSenderService, org.mockito.Mockito.never())
+            .enviarComAnexo(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void confirmarRespostaSolicitanteContinuaExigindoSntParaDeferido() {
+        Processo p = new Processo();
+        p.setId(43L);
+        p.setStatus(StatusProcesso.DEFERIDO);
+        p.setSolicitanteEmail("equipe@exemplo.com");
+        // sem anexo COMPROVANTE_SNT
+        when(processoRepository.findById(43L)).thenReturn(java.util.Optional.of(p));
+
+        assertThatThrownBy(() -> service.confirmarRespostaSolicitante(43L, true))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("SNT");
+        org.mockito.Mockito.verify(emailSenderService, org.mockito.Mockito.never())
+            .enviar(any(), any(), any());
+    }
+
+    @Test
+    void confirmarRespostaSolicitanteSemMarcarNaoEnviaEmail() {
+        Processo p = new Processo();
+        p.setId(44L);
+        p.setStatus(StatusProcesso.ENVIADO);
+        when(processoRepository.findById(44L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        var resultado = service.confirmarRespostaSolicitante(44L, false);
+
+        assertThat(resultado.aviso()).isNull();
+        assertThat(resultado.processo().isEmailEnviadoSolicitante()).isFalse();
+        org.mockito.Mockito.verify(emailSenderService, org.mockito.Mockito.never())
+            .enviar(any(), any(), any());
+        org.mockito.Mockito.verify(emailSenderService, org.mockito.Mockito.never())
+            .enviarComAnexo(any(), any(), any(), any(), any());
     }
 }

@@ -197,20 +197,16 @@ public class FluxoProcessoService {
             anterioresConcluidas = anterioresConcluidas && comprovanteOk;
         }
 
-        // 6. Resposta ao solicitante — exige o flag de e-mail enviado E o
-        //    comprovante de envio (print/PDF do e-mail) anexado ao processo.
-        boolean emailMarcado = p.isEmailEnviadoSolicitante();
-        boolean temComprovanteEnvio = temAnexo(p, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE);
-        boolean respostaOk = emailMarcado && temComprovanteEnvio;
-        String detResposta;
-        if (respostaOk) {
-            detResposta = "Resposta enviada ao solicitante e comprovante anexado.";
-        } else {
-            java.util.List<String> faltasResp = new java.util.ArrayList<>();
-            if (!emailMarcado) faltasResp.add("marcar e-mail como enviado");
-            if (!temComprovanteEnvio) faltasResp.add("anexar comprovante de envio (print/PDF do e-mail)");
-            detResposta = "Falta: " + String.join(", ", faltasResp) + ".";
-        }
+        // 6. Resposta ao solicitante — o e-mail de resultado (Deferido/Indeferido)
+        //    agora e enviado automaticamente pelo sistema ao confirmar esta etapa
+        //    (ProcessoService.confirmarRespostaSolicitante); o flag
+        //    emailEnviadoSolicitante reflete esse envio automatico, entao a
+        //    conclusao da etapa depende so dele (nao exige mais o anexo manual
+        //    de comprovante de envio por fora do sistema).
+        boolean respostaOk = p.isEmailEnviadoSolicitante();
+        String detResposta = respostaOk
+            ? "E-mail de resposta enviado automaticamente ao solicitante."
+            : "Confirme a resposta ao solicitante para o sistema enviar o e-mail com a decisao.";
         etapas.add(montar("Resposta ao solicitante", "envelope-check-fill",
             respostaOk, anterioresConcluidas, detResposta));
 

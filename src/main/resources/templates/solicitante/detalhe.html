@@ -79,13 +79,43 @@
         </div>
     </div>
 
-    <div th:if="${solicitacao.status.name() == 'CONVERTIDA' and !precisaInformacaoComplementar}"
-         class="alert alert-success">
-        <i class="bi bi-check-circle-fill"></i>
-        Seu pedido foi aceito e virou o processo
-        <strong th:text="${solicitacao.processoGerado != null ? solicitacao.processoGerado.numero : '?'}">00/0000</strong>
-        na Central de Transplantes do Estado do Rio Grande do Sul.
-        Voce recebera o resultado da avaliacao por e-mail assim que a decisao for concluida.
+    <div th:if="${solicitacao.status.name() == 'CONVERTIDA' and !precisaInformacaoComplementar}">
+        <div th:switch="${statusProcesso != null ? statusProcesso.name() : 'DESCONHECIDO'}">
+            <div th:case="'DEFERIDO'" class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i>
+                Seu pedido foi <strong>DEFERIDO</strong>! O processo
+                <strong th:text="${solicitacao.processoGerado.numero}">00/0000</strong>
+                foi aprovado pela equipe de Urgencia Renal e a urgencia renal ja foi inserida no
+                Sistema Nacional de Transplantes (SNT).
+                <div th:if="${temComprovanteSnt}" class="mt-2">
+                    <a th:href="@{/solicitante/{id}/processo-anexo/COMPROVANTE_SNT(id=${solicitacao.id})}"
+                       class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-download"></i> Baixar comprovante de insercao no SNT
+                    </a>
+                </div>
+            </div>
+            <div th:case="'INDEFERIDO'" class="alert alert-danger">
+                <i class="bi bi-x-circle-fill"></i>
+                Seu pedido foi <strong>INDEFERIDO</strong> pela equipe de Urgencia Renal.
+                <div th:if="${solicitacao.processoGerado.motivoIndeferimento}" class="mt-2">
+                    <strong>Motivo:</strong>
+                    <span th:text="${solicitacao.processoGerado.motivoIndeferimento}"></span>
+                </div>
+                <div th:if="${temOficioIndeferimento}" class="mt-2">
+                    <a th:href="@{/solicitante/{id}/processo-anexo/OFICIO_INDEFERIMENTO(id=${solicitacao.id})}"
+                       class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-download"></i> Baixar oficio de indeferimento
+                    </a>
+                </div>
+            </div>
+            <div th:case="*" class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i>
+                Seu pedido foi aceito e virou o processo
+                <strong th:text="${solicitacao.processoGerado != null ? solicitacao.processoGerado.numero : '?'}">00/0000</strong>
+                na Central de Transplantes do Estado do Rio Grande do Sul.
+                Voce recebera o resultado da avaliacao por e-mail assim que a decisao for concluida.
+            </div>
+        </div>
     </div>
     <div th:if="${solicitacao.status.name() == 'CONVERTIDA' and precisaInformacaoComplementar}"
          class="alert alert-warning">

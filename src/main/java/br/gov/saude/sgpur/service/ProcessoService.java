@@ -5,12 +5,15 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.List;
@@ -31,22 +34,36 @@ public class ProcessoService {
     /** Quantidade de pareceres desfavoraveis necessaria para indeferir (maioria simples). */
     public static final int DESFAVORAVEIS_PARA_INDEFERIR = 2;
 
+    private static final Logger log = LoggerFactory.getLogger(ProcessoService.class);
+
     private final ProcessoRepository processoRepository;
     private final MembroUrgenciaRenalRepository membroRepository;
     private final ProcessoValidator validator;
     private final ParecerRepository parecerRepository;
     private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
+    private final EmailTemplateService emailTemplateService;
+    private final EmailSenderService emailSenderService;
+    private final AnexoStorageService anexoStorageService;
+    private final AuditoriaService auditoriaService;
 
     public ProcessoService(ProcessoRepository processoRepository,
                            MembroUrgenciaRenalRepository membroRepository,
                            ProcessoValidator validator,
                            ParecerRepository parecerRepository,
-                           SolicitacaoOnlineRepository solicitacaoOnlineRepository) {
+                           SolicitacaoOnlineRepository solicitacaoOnlineRepository,
+                           EmailTemplateService emailTemplateService,
+                           EmailSenderService emailSenderService,
+                           AnexoStorageService anexoStorageService,
+                           AuditoriaService auditoriaService) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
         this.validator = validator;
         this.parecerRepository = parecerRepository;
         this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
+        this.emailTemplateService = emailTemplateService;
+        this.emailSenderService = emailSenderService;
+        this.anexoStorageService = anexoStorageService;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<Processo> listarTodos() {
@@ -412,22 +429,99 @@ public class ProcessoService {
     }
 
     /**
+     * Resultado de {@link #confirmarRespostaSolicitante}: o processo salvo e,
+     * quando o envio automatico do e-mail falhou (SMTP fora do ar, processo
+     * sem e-mail do solicitante cadastrado, etc.), um aviso NAO-BLOQUEANTE —
+     * a confirmacao ja foi processada mesmo assim, pois a decisao clinica ja
+     * foi tomada e uma falha de e-mail nao pode travar o fluxo.
+     */
+    public record ConfirmacaoRespostaResultado(Processo processo, String aviso) {
+    }
+
+    /**
      * Confirma (ou desmarca) o envio da resposta ao solicitante (aba 6). Ao
      * marcar como enviada, exige o comprovante que sustenta a decisao final —
      * SNT no Deferido, oficio no Indeferido (ProcessoValidator.
      * validarRespostaSolicitante) — mesma checagem usada na camada web, aqui
      * como defesa em profundidade: o metodo e publico e nao pode confiar
-     * apenas no guard do controller.
+     * apenas no guard do controller. Essa exigencia regulatoria NAO muda.
+     *
+     * <p>Diferente do comportamento anterior (so marcava um checkbox), ao
+     * confirmar com sucesso o metodo agora ENVIA DE VERDADE o e-mail de
+     * resultado (Deferido/Indeferido) para {@code p.getSolicitanteEmail()},
+     * com o comprovante SNT/oficio anexado quando disponivel em disco. Vale
+     * para todo processo, inclusive os que nao vieram do Portal do
+     * Solicitante (decisao confirmada com o usuario) — processos assim podem
+     * ter um e-mail de solicitante de qualidade variavel (campo texto livre),
+     * o que e aceitavel: uma falha de envio vira aviso, nao bloqueio.
      */
     @Transactional
-    public Processo confirmarRespostaSolicitante(Long id, boolean emailEnviadoSolicitante) {
+    public ConfirmacaoRespostaResultado confirmarRespostaSolicitante(Long id, boolean emailEnviadoSolicitante) {
         Processo p = buscar(id);
+        String aviso = null;
         if (emailEnviadoSolicitante) {
             validator.validarRespostaSolicitante(p)
                 .ifPresent(msg -> { throw new IllegalStateException(msg); });
+            aviso = enviarEmailResultadoFinal(p);
         }
         p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
-        return processoRepository.save(p);
+        Processo salvo = processoRepository.save(p);
+        return new ConfirmacaoRespostaResultado(salvo, aviso);
+    }
+
+    /**
+     * Envia de fato o e-mail de resultado final (Deferido/Indeferido) ao
+     * solicitante, anexando o comprovante SNT/oficio quando ja estiver salvo
+     * em disco. Retorna {@code null} quando o envio foi bem sucedido, ou uma
+     * mensagem de aviso (nao-bloqueante) quando nao foi possivel enviar —
+     * falha de SMTP ou ausencia de e-mail do solicitante cadastrado nunca
+     * impedem a confirmacao de ter sido processada.
+     */
+    private String enviarEmailResultadoFinal(Processo p) {
+        String destinatario = p.getSolicitanteEmail();
+        if (destinatario == null || destinatario.isBlank()) {
+            auditoriaService.registrar("EMAIL_RESPOSTA_SOLICITANTE_FALHA",
+                "Processo " + p.getNumero() + " - sem e-mail do solicitante cadastrado");
+            return "Nao foi possivel enviar automaticamente o e-mail de resposta: o processo nao "
+                + "tem e-mail do solicitante cadastrado. Envie manualmente pelo card de e-mails prontos.";
+        }
+
+        EmailTemplate template;
+        TipoAnexo tipoAnexo;
+        if (p.getStatus() == StatusProcesso.DEFERIDO) {
+            template = emailTemplateService.emailDeferido(p);
+            tipoAnexo = TipoAnexo.COMPROVANTE_SNT;
+        } else if (p.getStatus() == StatusProcesso.INDEFERIDO) {
+            template = emailTemplateService.emailIndeferido(p);
+            tipoAnexo = TipoAnexo.OFICIO_INDEFERIMENTO;
+        } else {
+            // Nao deveria acontecer: validarRespostaSolicitante ja garante que
+            // so chega aqui apos uma decisao final (Deferido/Indeferido).
+            return null;
+        }
+
+        Anexo anexo = anexoStorageService.buscarUltimoPorTipo(p.getId(), tipoAnexo);
+        boolean ok;
+        if (anexo != null) {
+            File arquivo = anexoStorageService.resolverArquivo(anexo).toFile();
+            ok = emailSenderService.enviarComAnexo(
+                destinatario, template.assunto(), template.corpo(), arquivo, anexo.getNomeArquivo());
+        } else {
+            // Nao deveria faltar (validarRespostaSolicitante ja exige o anexo),
+            // mas manda o texto mesmo sem anexo em vez de bloquear a confirmacao.
+            ok = emailSenderService.enviar(destinatario, template.assunto(), template.corpo());
+        }
+
+        if (ok) {
+            auditoriaService.registrar("EMAIL_RESPOSTA_SOLICITANTE_ENVIADO",
+                "Processo " + p.getNumero() + " - " + destinatario);
+            return null;
+        }
+        log.warn("Falha ao enviar e-mail automatico de resposta ao solicitante do processo {}", p.getNumero());
+        auditoriaService.registrar("EMAIL_RESPOSTA_SOLICITANTE_FALHA",
+            "Processo " + p.getNumero() + " - " + destinatario);
+        return "Nao foi possivel enviar automaticamente o e-mail de resposta ao solicitante (falha de "
+            + "SMTP). A finalizacao foi confirmada mesmo assim; envie manualmente pelo card de e-mails prontos.";
     }
 
     /**
