@@ -174,7 +174,7 @@
                                  th:text="${pendencias.get(l.processo.id)}"
                                  th:title="${pendencias.get(l.processo.id)}">o que falta</div>
                         </td>
-                        <td class="align-top" th:each="c : ${l.medicos}">
+                        <td class="align-top" style="min-width:9rem;max-width:12rem;" th:each="c : ${l.medicos}">
                             <th:block th:if="${c.definido}">
                                 <div class="fw-medium text-truncate" style="font-size:.8rem;max-width:12rem;"
                                      th:text="${c.medico}" th:title="${c.medico}">Medico</div>
