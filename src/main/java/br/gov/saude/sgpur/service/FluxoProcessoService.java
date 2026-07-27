@@ -52,37 +52,19 @@ public class FluxoProcessoService {
         // encerrados, a cascata de "anteriores concluidas" e ignorada.
         boolean finalizado = p.getStatus() != null && p.getStatus().isFinalizado();
 
-        // 1. Recebimento da solicitacao: exige a copia da solicitacao ORIGINAL
-        //    (manual) E a capa do processo (CAPA_PROCESSO, gerada pelo sistema
-        //    com os dados do solicitante e os 3 medicos). A copia anonimizada
-        //    para as equipes e gerada no passo 2 (Envio). Mantido em sincronia
-        //    com calcularGating, que usa a mesma condicao para liberar a aba
-        //    de Envio.
-        //
-        //    Processo originado do Portal do Solicitante: como os dados ja
-        //    chegaram digitais na propria submissao online (sem e-mail
-        //    original a anexar) e hoje em dia 100% dos processos nascem pelo
-        //    Portal, o Recebimento e AUTOMATICO nesse caso - nao ha botao de
-        //    "confirmar recebimento" nem geracao de capa para o operador
-        //    clicar; a etapa ja nasce concluida.
-        boolean veioDoPortal = veioDoPortal(p);
-        boolean temOriginal = temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA);
-        boolean temCapa = temAnexo(p, TipoAnexo.CAPA_PROCESSO);
-        boolean recebimentoOk = veioDoPortal || (temOriginal && temCapa);
-        String detReceb;
-        if (veioDoPortal) {
-            detReceb = "Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).";
-        } else if (recebimentoOk) {
-            detReceb = "Solicitacao original e capa do processo anexadas.";
-        } else {
-            List<String> faltasReceb = new ArrayList<>();
-            if (!temOriginal) faltasReceb.add("copia da solicitacao original");
-            if (!temCapa) faltasReceb.add("capa do processo");
-            detReceb = "Falta: " + String.join(", ", faltasReceb) + ".";
-        }
+        // 1. Recebimento da solicitacao: SEMPRE automatico e concluido. Desde
+        //    2026-07-27, TODO processo nasce obrigatoriamente de uma
+        //    SolicitacaoOnline convertida pelo Portal do Solicitante
+        //    (ProcessoDetalheController.novo/salvar passaram a exigir
+        //    origemSolicitacaoOnlineId) - nao existe mais cadastro manual "do
+        //    zero" nem "e-mail original" a anexar, entao esta etapa nunca
+        //    depende de nenhum anexo (SOLICITACAO_RECEBIDA/CAPA_PROCESSO).
+        //    veioDoPortal(p) continua existindo so para achar o link "Ver
+        //    solicitacao original" na tela de detalhe.
+        String detReceb = "Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).";
         etapas.add(montar("Recebimento da solicitacao", "inbox-fill",
-            recebimentoOk, anterioresConcluidas, detReceb));
-        anterioresConcluidas = finalizado || (anterioresConcluidas && recebimentoOk);
+            true, anterioresConcluidas, detReceb));
+        anterioresConcluidas = finalizado || anterioresConcluidas;
 
         // 2. Envio aos 3 medicos (data de envio registrada em todos os pareceres).
         //    Exige ao menos um documento clinico (PDF) anexado: o PDF dos
@@ -319,11 +301,11 @@ public class FluxoProcessoService {
     }
 
     public GatingAbas calcularGating(Processo p) {
-        // 1 Recebimento sempre liberado; cada passo seguinte exige o anterior pronto.
-        // Processo originado do Portal do Solicitante tem Recebimento
-        // automatico, sem exigir nenhum anexo (ver veioDoPortal/montarEtapas).
-        boolean recebimentoFeito = veioDoPortal(p)
-            || (temAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA) && temAnexo(p, TipoAnexo.CAPA_PROCESSO));
+        // 1 Recebimento sempre automatico e liberado; cada passo seguinte
+        // exige o anterior pronto. Todo processo nasce do Portal do
+        // Solicitante (ver veioDoPortal/montarEtapas), entao nao ha mais
+        // nenhum anexo exigido para esta etapa.
+        boolean recebimentoFeito = true;
         boolean envioFeito = envioRegistrado(p);
         long respondidos = processoService.contarRespondidos(p);
         int totalMedicos = p.getPareceres().size();

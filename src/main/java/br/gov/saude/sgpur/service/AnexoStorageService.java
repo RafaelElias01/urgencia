@@ -1,7 +1,6 @@
 package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.Anexo;
-import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
 import br.gov.saude.sgpur.repository.AnexoRepository;
@@ -123,41 +122,6 @@ public class AnexoStorageService {
         Anexo anexo = new Anexo();
         anexo.setProcesso(processo);
         anexo.setTipo(tipo);
-        anexo.setDescricao(descricao);
-        anexo.setNomeArquivo(nomeFinal);
-        anexo.setContentType(arquivo.getContentType());
-        anexo.setTamanhoBytes(arquivo.getSize());
-        anexo.setCaminhoArmazenado(raiz.relativize(destino).toString());
-        return anexoRepository.save(anexo);
-    }
-
-    /**
-     * Salva o e-mail de resposta de um avaliador especifico, vinculando o
-     * anexo ao {@link Parecer} correspondente.
-     */
-    @Transactional
-    public Anexo salvarRespostaAvaliador(Processo processo, Parecer parecer,
-                                         String descricao, MultipartFile arquivo) throws IOException {
-        if (arquivo == null || arquivo.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo vazio.");
-        }
-        validarTipoPermitido(arquivo);
-        Path pastaProcesso = resolverDirProcesso(processo);
-        Files.createDirectories(pastaProcesso);
-
-        String original = arquivo.getOriginalFilename() == null ? "anexo" : arquivo.getOriginalFilename();
-        String nomePadrao = NomePadraoAnexo.gerar(processo, TipoAnexo.RESPOSTA_AVALIADOR, original, LocalDate.now());
-        String nomeFinal = nomeArquivoUnico(pastaProcesso, nomePadrao);
-        Path destino = pastaProcesso.resolve(nomeFinal);
-
-        try (InputStream in = arquivo.getInputStream()) {
-            Files.copy(in, destino);
-        }
-
-        Anexo anexo = new Anexo();
-        anexo.setProcesso(processo);
-        anexo.setParecer(parecer);
-        anexo.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
         anexo.setDescricao(descricao);
         anexo.setNomeArquivo(nomeFinal);
         anexo.setContentType(arquivo.getContentType());

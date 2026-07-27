@@ -233,20 +233,4 @@ public class RelatorioService {
         doc.close();
         return out.toByteArray();
     }
-
-    // -----------------------------------------------------------------------
-    // Capa do processo
-    // -----------------------------------------------------------------------
-
-    public byte[] gerarCapaProcesso(Processo p) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            Document doc = pdfBuilder.abrirDocumentoA4(out);
-            pdfBuilder.adicionarCapa(doc, p, "CAPA DO PROCESSO", true);
-            doc.close();
-            return out.toByteArray();
-        } catch (DocumentException e) {
-            throw new IllegalStateException("Falha ao gerar a capa do processo", e);
-        }
-    }
 }

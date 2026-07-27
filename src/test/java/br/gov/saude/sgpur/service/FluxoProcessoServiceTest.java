@@ -33,7 +33,9 @@ class FluxoProcessoServiceTest {
         ProcessoService ps = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
         // Por padrao nenhum processo veio do Portal do Solicitante nesses
         // testes (comportamento identico ao existente antes da excecao do
-        // Portal); testes especificos sobrescrevem esse stub.
+        // Portal); testes especificos sobrescrevem esse stub. Note que desde
+        // 2026-07-27 isso nao afeta mais o Recebimento (sempre automatico) -
+        // so o link "Ver solicitacao original" na tela de detalhe depende disso.
         lenient().when(solicitacaoOnlineRepository.existsByProcessoGeradoId(anyLong())).thenReturn(false);
         return new FluxoProcessoService(ps, solicitacaoOnlineRepository);
     }
@@ -44,16 +46,6 @@ class FluxoProcessoServiceTest {
             p.addParecer(new Parecer(new MembroUrgenciaRenal("INST" + i, "Medico " + i, null)));
         }
         return p;
-    }
-
-    /** Etapa 1 (Recebimento) concluida: solicitacao original + capa do processo. */
-    private void anexarRecebimentoCompleto(Processo p) {
-        Anexo original = new Anexo();
-        original.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
-        p.addAnexo(original);
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        p.addAnexo(capa);
     }
 
     /** Etapa 2 (Envio) concluida: doc clinico PDF anexado + dataEnvio nos 3 pareceres. */
@@ -88,24 +80,26 @@ class FluxoProcessoServiceTest {
     private Processo processoProntoParaDecisao() {
         Processo p = processoComTresPareceres();
         p.setStatus(StatusProcesso.ENVIADO);
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.FAVORAVEL);
         return p;
     }
 
     @Test
-    void recebimentoEhAtualQuandoNadaFeito() {
+    void recebimentoEhSempreConcluidoAutomaticamente() {
+        // Desde 2026-07-27, todo processo nasce de uma SolicitacaoOnline
+        // convertida pelo Portal do Solicitante - o Recebimento (etapa 1)
+        // nunca depende de nenhum anexo, e ja nasce CONCLUIDA.
         List<EtapaFluxo> etapas = fluxo().montarEtapas(processoComTresPareceres());
         assertThat(etapas).isNotEmpty();
         assertThat(etapas.get(0).titulo()).contains("Recebimento");
-        assertThat(etapas.get(0).estado()).isEqualTo(EtapaFluxo.Estado.ATUAL);
+        assertThat(etapas.get(0).estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+        assertThat(etapas.get(0).detalhe()).contains("automatico");
     }
 
     @Test
     void envioConcluiQuandoTodosPareceresTemDataEnvio() {
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         p.getPareceres().forEach(par -> par.setDataEnvio(LocalDate.now()));
         EtapaFluxo envio = fluxo().montarEtapas(p).stream()
             .filter(e -> e.titulo().startsWith("Envio")).findFirst().orElseThrow();
@@ -129,8 +123,10 @@ class FluxoProcessoServiceTest {
 
     @Test
     void resumoPendenciaApontaEtapaAtual() {
+        // Recebimento ja nasce CONCLUIDA (automatica) - a proxima etapa
+        // pendente (ATUAL) e o Envio aos 3 medicos.
         String resumo = fluxo().resumoPendencia(processoComTresPareceres());
-        assertThat(resumo).contains("Recebimento");
+        assertThat(resumo).contains("Envio");
     }
 
     @Test
@@ -240,55 +236,6 @@ class FluxoProcessoServiceTest {
     }
 
     // ----------------------------------------------------------------
-    // Bug irmao encontrado durante a auditoria: a etapa "Recebimento da
-    // solicitacao" so checava SOLICITACAO_RECEBIDA, mas o gate real de
-    // navegacao (ProcessoDetalheController.recebimentoFeito) e a propria
-    // regra de negocio (CLAUDE.md) exigem TAMBEM a CAPA_PROCESSO. Sem o
-    // segundo anexo, a etapa 1 podia aparecer CONCLUIDA (verde) e liberar
-    // toda a timeline (incluindo Envio) mesmo faltando a capa.
-    // ----------------------------------------------------------------
-
-    @Test
-    void recebimentoNaoConcluiSoComSolicitacaoOriginalSemCapa() {
-        Processo p = processoComTresPareceres();
-        Anexo original = new Anexo();
-        original.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
-        p.addAnexo(original);
-        // falta CAPA_PROCESSO
-
-        EtapaFluxo recebimento = fluxo().montarEtapas(p).get(0);
-        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-        assertThat(recebimento.detalhe()).contains("capa do processo");
-
-        // e por consequencia a etapa seguinte (Envio) nao pode ficar liberada/concluida
-        EtapaFluxo envio = fluxo().montarEtapas(p).stream()
-            .filter(e -> e.titulo().startsWith("Envio")).findFirst().orElseThrow();
-        assertThat(envio.estado()).isEqualTo(EtapaFluxo.Estado.PENDENTE);
-    }
-
-    @Test
-    void recebimentoNaoConcluiSoComCapaSemSolicitacaoOriginal() {
-        Processo p = processoComTresPareceres();
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        p.addAnexo(capa);
-        // falta SOLICITACAO_RECEBIDA
-
-        EtapaFluxo recebimento = fluxo().montarEtapas(p).get(0);
-        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-        assertThat(recebimento.detalhe()).contains("solicitacao original");
-    }
-
-    @Test
-    void recebimentoConcluiComSolicitacaoOriginalECapa() {
-        Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
-
-        EtapaFluxo recebimento = fluxo().montarEtapas(p).get(0);
-        assertThat(recebimento.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-    }
-
-    // ----------------------------------------------------------------
     // Fluxo feliz completo: cada etapa avanca PENDENTE -> ATUAL -> CONCLUIDA
     // em ordem, uma de cada vez, para o caso Deferido.
     // ----------------------------------------------------------------
@@ -298,19 +245,14 @@ class FluxoProcessoServiceTest {
         Processo p = processoComTresPareceres();
         p.setStatus(StatusProcesso.SOLICITADO);
 
-        // nada feito: so a etapa 1 esta ATUAL, o resto PENDENTE
+        // Recebimento e sempre automatico: ja nasce CONCLUIDA, entao a etapa 2
+        // (Envio) ja comeca ATUAL desde o primeiro momento (nao ha mais um
+        // passo manual de "completar o recebimento" para liberar o Envio).
         List<EtapaFluxo> e0 = fluxo().montarEtapas(p);
-        assertThat(estado(e0, "Recebimento da solicitacao")).isEqualTo(EtapaFluxo.Estado.ATUAL);
-        assertThat(estado(e0, "Envio aos 3 medicos")).isEqualTo(EtapaFluxo.Estado.PENDENTE);
+        assertThat(estado(e0, "Recebimento da solicitacao")).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
+        assertThat(estado(e0, "Envio aos 3 medicos")).isEqualTo(EtapaFluxo.Estado.ATUAL);
         assertThat(estado(e0, "Respostas dos medicos")).isEqualTo(EtapaFluxo.Estado.PENDENTE);
         assertThat(estado(e0, "Decisao final")).isEqualTo(EtapaFluxo.Estado.PENDENTE);
-
-        // etapa 1 completa -> etapa 2 fica ATUAL
-        anexarRecebimentoCompleto(p);
-        List<EtapaFluxo> e1 = fluxo().montarEtapas(p);
-        assertThat(estado(e1, "Recebimento da solicitacao")).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-        assertThat(estado(e1, "Envio aos 3 medicos")).isEqualTo(EtapaFluxo.Estado.ATUAL);
-        assertThat(estado(e1, "Respostas dos medicos")).isEqualTo(EtapaFluxo.Estado.PENDENTE);
 
         // etapa 2 completa -> etapa 3 fica ATUAL
         registrarEnvioCompleto(p);
@@ -362,7 +304,6 @@ class FluxoProcessoServiceTest {
     @Test
     void fluxoFelizCompletoIndeferido() {
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.NAO_FAVORAVEL);
         p.setStatus(StatusProcesso.INDEFERIDO);
@@ -403,7 +344,6 @@ class FluxoProcessoServiceTest {
         // deveria aparecer (so aparece com status INDEFERIDO), e a Decisao
         // final continua nao concluida.
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.NAO_FAVORAVEL);
         p.setStatus(StatusProcesso.ENVIADO); // decisao ainda nao tomada
@@ -424,7 +364,6 @@ class FluxoProcessoServiceTest {
         // ao solicitante ja registrados, mas o oficio de indeferimento (etapa
         // anterior) ainda esta incompleto.
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.NAO_FAVORAVEL);
         p.setStatus(StatusProcesso.INDEFERIDO);
@@ -454,7 +393,6 @@ class FluxoProcessoServiceTest {
         // Isso e esperado (nao e o bug de "etapa fora de ordem"): a timeline so
         // acende a etapa de pausa quando o fluxo realmente "chegou" nela.
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         p.setStatus(StatusProcesso.ENVIADO);
         Parecer par0 = p.getPareceres().get(0);
@@ -483,7 +421,6 @@ class FluxoProcessoServiceTest {
         // anexos de todos os 3 pareceres recebidos), entao "Informacao
         // complementar" fica ATUAL (a pausa esta "na frente" do fluxo).
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.FAVORAVEL); // pareceres 0 e 1 favoraveis, com anexo
         Parecer par2 = p.getPareceres().get(2);
@@ -537,7 +474,6 @@ class FluxoProcessoServiceTest {
         // bloqueia "Decisao final" (PENDENTE) - o wizard horizontal precisa
         // concordar e manter o passo 4 BLOQUEADA, nao ATUAL.
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.FAVORAVEL);
         Parecer par2 = p.getPareceres().get(2);
@@ -594,7 +530,6 @@ class FluxoProcessoServiceTest {
     @Test
     void resumoPendenciaApontaOficioQuandoIndeferidoSemOficio() {
         Processo p = processoComTresPareceres();
-        anexarRecebimentoCompleto(p);
         registrarEnvioCompleto(p);
         registrarMaioria(p, ResultadoParecer.NAO_FAVORAVEL);
         p.setStatus(StatusProcesso.INDEFERIDO);
@@ -612,51 +547,30 @@ class FluxoProcessoServiceTest {
     }
 
     // ----------------------------------------------------------------
-    // Excecao: processo originado do Portal do Solicitante tem Recebimento
-    // AUTOMATICO - nao ha "e-mail original" a anexar (dados ja chegaram
-    // digitais na submissao online) nem confirmacao manual/capa gerada pelo
-    // operador; a etapa ja nasce concluida, com ou sem qualquer anexo.
-    // Mantido em sincronia entre montarEtapas e calcularGating (mesma
-    // fonte: veioDoPortal).
+    // Recebimento e SEMPRE automatico desde 2026-07-27 (todo processo nasce
+    // de uma SolicitacaoOnline convertida pelo Portal do Solicitante) - nao
+    // ha mais "e-mail original" a anexar nem confirmacao manual/capa gerada
+    // pelo operador; a etapa ja nasce concluida, com ou sem qualquer anexo,
+    // e independente de veioDoPortal(p) (que so serve hoje para achar o link
+    // "Ver solicitacao original" na tela de detalhe - ver
+    // ProcessoDetalheController.detalhe).
     // ----------------------------------------------------------------
 
     @Test
-    void recebimentoConcluiAutomaticamenteQuandoVeioDoPortalMesmoSemNenhumAnexo() {
+    void recebimentoConcluiAutomaticamenteMesmoSemNenhumAnexoEIndependenteDeVeioDoPortal() {
         Processo p = processoComTresPareceres();
         p.setId(10L);
-        // nenhum anexo - nem CAPA_PROCESSO, nem SOLICITACAO_RECEBIDA
-
-        // fluxo() aplica um stub lenient() generico (anyLong -> false) para os
-        // demais testes; o stub especifico abaixo, feito DEPOIS, tem
-        // prioridade no Mockito (ultimo stub que casa vence).
+        // nenhum anexo - nem CAPA_PROCESSO, nem SOLICITACAO_RECEBIDA - e
+        // veioDoPortal(p) false (stub default de fluxo()): mesmo assim a
+        // etapa 1 ja nasce CONCLUIDA e o Envio (passo 2) ja libera de imediato.
         FluxoProcessoService fluxo = fluxo();
-        org.mockito.Mockito.when(solicitacaoOnlineRepository.existsByProcessoGeradoId(10L)).thenReturn(true);
         EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
         assertThat(recebimento.estado()).isEqualTo(EtapaFluxo.Estado.CONCLUIDA);
         assertThat(recebimento.detalhe()).contains("automatico");
 
         FluxoProcessoService.GatingAbas gating = fluxo.calcularGating(p);
         assertThat(gating.liberadoRecebimento()).isTrue();
-        // Envio (passo 2) ja libera de imediato, sem exigir nenhum anexo de Recebimento.
         assertThat(gating.liberadoEnvio()).isTrue();
-    }
-
-    @Test
-    void recebimentoContinuaExigindoSolicitacaoOriginalQuandoNaoVeioDoPortal() {
-        Processo p = processoComTresPareceres();
-        p.setId(12L);
-        // stub default de fluxo() ja cobre existsByProcessoGeradoId -> false
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        p.addAnexo(capa);
-        // sem SOLICITACAO_RECEBIDA, e o processo NAO veio do portal
-
-        FluxoProcessoService fluxo = fluxo();
-        EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);
-        assertThat(recebimento.estado()).isNotEqualTo(EtapaFluxo.Estado.CONCLUIDA);
-        assertThat(recebimento.detalhe()).contains("solicitacao original");
-
-        assertThat(fluxo.calcularGating(p).liberadoEnvio()).isFalse();
     }
 
     @Test

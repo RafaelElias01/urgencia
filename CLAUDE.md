@@ -183,29 +183,38 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   podia mostrar "Recebimento" verde mesmo sem a capa, embora a aba de Envio
    já estivesse corretamente bloqueada (inconsistência só visual, sem
    regressão funcional). **Capa automática corrigida em 2026-07-09:**
-   `ProcessoDetalheController.registrarRecebimento` agora chama
+   `ProcessoDetalheController.registrarRecebimento` chamava
    `RelatorioService.gerarCapaProcesso` automaticamente, gerando a capa
-   sempre que o recebimento é registrado.
-- **Passo 1 (Recebimento):** exige a **cópia da solicitação original**
-  (`SOLICITACAO_RECEBIDA`, manual) **+** a **capa do processo**
-  (`CAPA_PROCESSO`, **gerada pelo sistema** com dados do solicitante e os 3
-  médicos — reaproveita a capa do Relatório Final via
-  `RelatorioService.gerarCapaProcesso`). Endpoint
-  `POST /processos/{id}/recebimento`. A etapa bloqueia até os dois existirem.
-  **Exceção — processo originado do Portal do Solicitante: recebimento
-  automático (ajuste de 2026-07-27).** Como hoje **100% dos processos nascem
-  pelo Portal do Solicitante**, essa deixou de ser uma exceção rara: quando o
-  `Processo` foi convertido de uma `SolicitacaoOnline`
-  (`FluxoProcessoService.veioDoPortal`, via
-  `SolicitacaoOnlineRepository.existsByProcessoGeradoId`), a etapa
-  **Recebimento já nasce concluída**, sem exigir nenhum anexo
-  (`SOLICITACAO_RECEBIDA` nem `CAPA_PROCESSO`) e **sem botão de confirmação**
-  — não há mais "Confirmar recebimento e gerar capa do processo" na tela
-  para esse caso (antes exigia clicar para gerar a `CAPA_PROCESSO`; agora a
-  aba de Envio já libera direto na criação do processo). A tela mostra só um
-  aviso informativo com link de volta para a solicitação online original.
-  Processos **não** originados do Portal (fluxo manual legado, ainda
-  suportado) continuam exigindo os dois anexos como antes.
+   sempre que o recebimento era registrado. **Esse endpoint e esse método
+   foram removidos em 2026-07-27** (ver bullet "Passo 1 (Recebimento)"
+   abaixo) — o parágrafo acima é histórico, mantido para quem for procurar o
+   contexto do bug de 2026-07-09, mas o comportamento descrito já não existe
+   mais no código.
+- **Passo 1 (Recebimento): SEMPRE automático desde 2026-07-27.** Criação
+  manual de processo "do zero" deixou de existir — `GET/POST /processos`
+  (`ProcessoDetalheController.novo`/`salvar`) agora **exigem**
+  `origemSolicitacaoOnlineId` (rejeita com flash de erro e redireciona para
+  `/processos/solicitacoes-online` se vier nulo/ausente; se o módulo do
+  Portal estiver desligado via `app.solicitante.habilitado=false`, redireciona
+  para `/processos` com mensagem própria, já que a fila de triagem nem está
+  registrada nesse caso). Como **todo** `Processo` agora nasce de uma
+  `SolicitacaoOnline` convertida, a distinção "veio do portal ou não" deixou
+  de ter efeito prático no Passo 1: `FluxoProcessoService.montarEtapas`
+  marca a etapa Recebimento como **sempre `CONCLUIDA`**, incondicionalmente,
+  sem checar nenhum anexo (`SOLICITACAO_RECEBIDA`/`CAPA_PROCESSO`); mesmo
+  vale para `calcularGating` (`recebimentoFeito = true` sempre). O antigo
+  endpoint `POST /processos/{id}/recebimento`
+  (`ProcessoDetalheController.registrarRecebimento`, upload da solicitação
+  original + geração da `CAPA_PROCESSO` via `RelatorioService.
+  gerarCapaProcesso`) foi **removido** — sem cadastro manual não sobrou
+  nenhum processo real que precisasse dele. `FluxoProcessoService.
+  veioDoPortal(p)` **continua existindo** (não foi removido), mas hoje serve
+  só para achar o `solicitacaoOnlineOrigemId` e exibir o link "Ver
+  solicitação original" no card de Recebimento da tela de detalhe — não
+  influencia mais nenhum gating. Os valores de enum `TipoAnexo.
+  SOLICITACAO_RECEBIDA`/`CAPA_PROCESSO` e o método `PdfRelatorioBuilder.
+  adicionarCapa` (reaproveitado pelo Relatório Final, com outros parâmetros)
+  continuam no código para leitura de processos antigos.
 - **Passo 2 (Envio):** ao registrar o envio o sistema gera a **cópia anonimizada
   para as equipes** (`SOLICITACAO_AVALIADOR`, só iniciais), nome oficial
   `Processo CET-RS NN-AAAA - Paciente X.X.X.pdf`
@@ -240,9 +249,10 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   não é mais exigido) — processos antigos em produção já têm esse anexo
   gravado, removê-lo do enum quebraria o carregamento deles. Os 2 sub-passos
   restantes da aba Envio (documentos clínicos, registrar envio) continuam
-  obrigatórios. O método legado
-  `SolicitacaoAvaliadorService.gerar` (folha-rosto) **permanece no código mas não
-  é mais chamado** no fluxo de envio. Os documentos clínicos são anexados na
+  obrigatórios. O método legado `SolicitacaoAvaliadorService.gerar`
+  (folha-rosto) foi **removido em 2026-07-27** por falta de qualquer
+  chamador (`consolidar`/`carimbarCabecalho`/`nomeArquivoOficial` continuam
+  ativos na mesma classe). Os documentos clínicos são anexados na
   própria aba Envio (`POST /processos/{id}/documento-clinico`). **Aviso (não
   bloqueia)** se algum médico for da mesma equipe/instituição do solicitante —
   `ConflitoEquipeMatcher.mesmaEquipe(instituicaoMembro, solicitanteEquipe)`

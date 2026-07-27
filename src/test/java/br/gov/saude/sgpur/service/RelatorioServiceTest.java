@@ -28,11 +28,15 @@ import static org.mockito.Mockito.when;
 
 /**
  * Testes do RelatorioService: monta o Relatorio Final (sumario + copia dos
- * anexos PDF + pagina informativa para nao-PDF) e a Capa do Processo,
- * exercitando de quebra o PdfRelatorioBuilder e o PdfCabecalhoStamper
- * (pacote-privados, so testaveis a partir daqui). FluxoProcessoService e
- * ProcessoService sao mockados porque so a MONTAGEM do PDF importa aqui
- * (o que entra no relatorio e testado nos servicos deles mesmos).
+ * anexos PDF + pagina informativa para nao-PDF), exercitando de quebra o
+ * PdfRelatorioBuilder e o PdfCabecalhoStamper (pacote-privados, so
+ * testaveis a partir daqui). FluxoProcessoService e ProcessoService sao
+ * mockados porque so a MONTAGEM do PDF importa aqui (o que entra no
+ * relatorio e testado nos servicos deles mesmos).
+ *
+ * <p>{@code gerarCapaProcesso} (capa isolada, usada pelo antigo endpoint
+ * manual de Recebimento) foi removido em 2026-07-27 junto com o endpoint -
+ * ver {@code ProcessoDetalheController}.
  */
 @ExtendWith(MockitoExtension.class)
 class RelatorioServiceTest {
@@ -185,40 +189,6 @@ class RelatorioServiceTest {
         assertThat(texto.toString())
             .contains("Anexo (formato nao-PDF)")
             .contains("comprovante.png");
-    }
-
-    @Test
-    void gerarCapaProcessoProduzPdfValidoComDadosDoSolicitante() throws Exception {
-        Processo p = processoBase(StatusProcesso.ENVIADO);
-
-        byte[] pdf = novoService().gerarCapaProcesso(p);
-
-        assertThat(pdf).isNotEmpty();
-        assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
-
-        PdfReader reader = new PdfReader(pdf);
-        String texto = new PdfTextExtractor(reader).getTextFromPage(1);
-        reader.close();
-        assertThat(texto)
-            .contains("CAPA DO PROCESSO")
-            .contains("Hospital X")
-            .contains("Em andamento");
-    }
-
-    @Test
-    void gerarCapaProcessoContemNomeCompletoDoPaciente() throws Exception {
-        // Regressao simetrica ao contrato de imparcialidade dos avaliadores
-        // (ver SolicitacaoAvaliadorServiceTest): a capa do processo e um
-        // documento INTERNO de arquivamento, nao enviado aos avaliadores, e
-        // por isso deve conter o nome completo do paciente (nao as iniciais).
-        Processo p = processoBase(StatusProcesso.ENVIADO);
-
-        byte[] pdf = novoService().gerarCapaProcesso(p);
-
-        PdfReader reader = new PdfReader(pdf);
-        String texto = new PdfTextExtractor(reader).getTextFromPage(1);
-        reader.close();
-        assertThat(texto).contains("Joao da Silva");
     }
 
     /** PDF minimo valido contendo o texto informado, para simular um anexo real no disco. */

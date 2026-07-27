@@ -11,7 +11,6 @@ import br.gov.saude.sgpur.service.GeminiService;
 import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
-import br.gov.saude.sgpur.service.RelatorioService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
@@ -22,15 +21,23 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.Optional;
 
-/** Criacao, detalhe, edicao/exclusao e recebimento (passo 1) do processo. */
+/**
+ * Criacao, detalhe e edicao/exclusao do processo.
+ *
+ * <p>Desde 2026-07-27, todo processo nasce OBRIGATORIAMENTE de uma
+ * {@code SolicitacaoOnline} convertida pelo Portal do Solicitante - nao ha
+ * mais cadastro manual "do zero". O Passo 1 (Recebimento) e sempre
+ * automatico (ver {@code FluxoProcessoService}), por isso o antigo endpoint
+ * {@code POST /{id}/recebimento} (upload de SOLICITACAO_RECEBIDA + geracao
+ * da CAPA_PROCESSO) foi removido - nao existe mais nenhum processo real que
+ * precise dele.
+ */
 @Controller
 @RequestMapping("/processos")
 @Transactional
@@ -44,7 +51,6 @@ public class ProcessoDetalheController {
     private final AuditoriaService auditoria;
     private final GeminiService geminiService;
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
-    private final RelatorioService relatorioService;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
     private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     private final boolean solicitanteHabilitado;
@@ -57,7 +63,6 @@ public class ProcessoDetalheController {
                                      AuditoriaService auditoria,
                                      GeminiService geminiService,
                                      ConflitoEquipeMatcher conflitoEquipeMatcher,
-                                     RelatorioService relatorioService,
                                      SolicitacaoOnlineService solicitacaoOnlineService,
                                      SolicitacaoOnlineRepository solicitacaoOnlineRepository,
                                      @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
@@ -69,7 +74,6 @@ public class ProcessoDetalheController {
         this.auditoria = auditoria;
         this.geminiService = geminiService;
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
-        this.relatorioService = relatorioService;
         this.solicitacaoOnlineService = solicitacaoOnlineService;
         this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
         this.solicitanteHabilitado = solicitanteHabilitado;
@@ -101,39 +105,47 @@ public class ProcessoDetalheController {
     @GetMapping("/novo")
     public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model,
                         RedirectAttributes ra) {
-        // Kill-switch do modulo experimental (ver docs/PLANO-SOLICITANTE.md): se
-        // desligado, ignora silenciosamente o parametro - o controller de triagem
-        // nem esta registrado nesse caso, mas um link/favorito antigo ainda pode
-        // chegar aqui com o parametro na URL.
+        // Desde 2026-07-27, TODO processo tem que vir de uma SolicitacaoOnline
+        // convertida pelo Portal do Solicitante - nao existe mais cadastro
+        // manual "do zero". Kill-switch do proprio Portal: se o modulo estiver
+        // desligado, nao ha como triar nenhuma solicitacao, logo nao ha como
+        // cadastrar processo NENHUM por aqui (a fila de triagem
+        // /processos/solicitacoes-online tambem nao esta registrada nesse
+        // caso - mensagem direciona para a lista de processos, nao para ela).
         if (!solicitanteHabilitado) {
-            origemSolicitacaoOnlineId = null;
+            ra.addFlashAttribute("erro",
+                "O Portal do Solicitante esta desativado. Nao e possivel cadastrar processos "
+                    + "enquanto o modulo estiver desligado.");
+            return "redirect:/processos";
+        }
+        if (origemSolicitacaoOnlineId == null) {
+            ra.addFlashAttribute("erro",
+                "Todo processo deve ser criado a partir de uma solicitacao do Portal do Solicitante.");
+            return "redirect:/processos/solicitacoes-online";
         }
         Processo p = new Processo();
         p.setDataSituacaoEspecial(LocalDate.now());
-        // Modulo experimental "Solicitacao Online" (ver docs/PLANO-SOLICITANTE.md):
-        // pre-preenche o formulario com os dados que o solicitante ja enviou pelo
-        // portal, para o operador nao redigitar tudo. O operador ainda confere os
-        // dados, escolhe os 3 avaliadores e digita o numero normalmente - nada do
-        // fluxo de cadastro muda por causa disso.
-        if (origemSolicitacaoOnlineId != null) {
-            var s = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
-            // Revisar e converter so pode acontecer UMA vez: bloqueia ja aqui (GET,
-            // antes de montar o form) se a solicitacao ja foi triada - reforca a
-            // mesma checagem feita em salvar() (POST) para quem chega direto por
-            // link antigo/aba reaberta/botao voltar do navegador, sem passar pela
-            // UI que ja esconde os botoes nesse caso.
-            if (s.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
-                ra.addFlashAttribute("erro",
-                    "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
-                return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
-            }
-            p.setPacienteNome(s.getPacienteNome());
-            p.setPacienteRgct(s.getPacienteRgct());
-            p.setSolicitanteEquipe(s.getSolicitanteEquipe());
-            p.setSolicitanteEmail(s.getSolicitanteEmail());
-            p.setDataSituacaoEspecial(s.getDataSituacaoEspecial());
-            p.setObservacoes(s.getJustificativaClinica());
+        // Pre-preenche o formulario com os dados que o solicitante ja enviou
+        // pelo portal, para o operador nao redigitar tudo. O operador ainda
+        // confere os dados, escolhe os 3 avaliadores e digita o numero
+        // normalmente - nada do fluxo de cadastro muda por causa disso.
+        var s = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
+        // Revisar e converter so pode acontecer UMA vez: bloqueia ja aqui (GET,
+        // antes de montar o form) se a solicitacao ja foi triada - reforca a
+        // mesma checagem feita em salvar() (POST) para quem chega direto por
+        // link antigo/aba reaberta/botao voltar do navegador, sem passar pela
+        // UI que ja esconde os botoes nesse caso.
+        if (s.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
+            ra.addFlashAttribute("erro",
+                "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
+            return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
         }
+        p.setPacienteNome(s.getPacienteNome());
+        p.setPacienteRgct(s.getPacienteRgct());
+        p.setSolicitanteEquipe(s.getSolicitanteEquipe());
+        p.setSolicitanteEmail(s.getSolicitanteEmail());
+        p.setDataSituacaoEspecial(s.getDataSituacaoEspecial());
+        p.setObservacoes(s.getJustificativaClinica());
         model.addAttribute("origemSolicitacaoOnlineId", origemSolicitacaoOnlineId);
         int ano = Year.now().getValue();
         boolean automatica = processoService.isNumeracaoAutomatica(ano);
@@ -153,23 +165,30 @@ public class ProcessoDetalheController {
                          @RequestParam(value = "medicoIds", required = false) java.util.List<Long> medicoIds,
                          @RequestParam(required = false) Long origemSolicitacaoOnlineId,
                          Model model, RedirectAttributes ra) {
-        // Kill-switch do modulo experimental: ignora o parametro se desligado
-        // (ver mesma checagem em novo()).
+        // Mesma exigencia de novo() (GET): todo processo tem que vir de uma
+        // SolicitacaoOnline convertida pelo Portal do Solicitante. Kill-switch
+        // do modulo bloqueia qualquer cadastro por aqui.
         if (!solicitanteHabilitado) {
-            origemSolicitacaoOnlineId = null;
+            ra.addFlashAttribute("erro",
+                "O Portal do Solicitante esta desativado. Nao e possivel cadastrar processos "
+                    + "enquanto o modulo estiver desligado.");
+            return "redirect:/processos";
+        }
+        if (origemSolicitacaoOnlineId == null) {
+            ra.addFlashAttribute("erro",
+                "Todo processo deve ser criado a partir de uma solicitacao do Portal do Solicitante.");
+            return "redirect:/processos/solicitacoes-online";
         }
         // Revisar e converter so pode acontecer UMA vez: se a solicitacao ja
         // foi triada (reenvio do form, duplo clique, aba antiga reaberta),
         // rejeita ANTES de cadastrar o Processo - checar so depois (como era
         // antes) criava um Processo duplicado de verdade e so avisava, sem
         // desfazer nada, porque a excecao chegava tarde demais.
-        if (origemSolicitacaoOnlineId != null) {
-            var origem = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
-            if (origem.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
-                ra.addFlashAttribute("erro",
-                    "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
-                return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
-            }
+        var origem = solicitacaoOnlineService.buscar(origemSolicitacaoOnlineId);
+        if (origem.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
+            ra.addFlashAttribute("erro",
+                "Esta solicitacao ja foi triada e nao pode ser convertida novamente.");
+            return "redirect:/processos/solicitacoes-online/" + origemSolicitacaoOnlineId;
         }
         int ano = processo.getDataSituacaoEspecial() != null
             ? processo.getDataSituacaoEspecial().getYear() : Year.now().getValue();
@@ -215,23 +234,20 @@ public class ProcessoDetalheController {
         Processo salvo = processoService.cadastrar(processo, medicoIds);
         auditoria.registrar("PROCESSO_CADASTRADO",
             "Processo " + salvo.getNumero() + " - " + salvo.getPacienteNome());
-        // Modulo experimental "Solicitacao Online": se este cadastro veio da
-        // triagem de uma solicitacao enviada pelo portal, fecha o vinculo -
-        // copia os documentos clinicos anexados pelo solicitante para o
-        // processo e marca a solicitacao como CONVERTIDA. Feito DEPOIS do
-        // cadastro ja ter tido sucesso; se falhar aqui, o processo continua
-        // valido (so a solicitacao de origem fica sem o vinculo automatico,
-        // corrigivel manualmente).
-        if (origemSolicitacaoOnlineId != null) {
-            try {
-                solicitacaoOnlineService.converter(origemSolicitacaoOnlineId, salvo);
-                auditoria.registrar("SOLICITACAO_ONLINE_CONVERTIDA",
-                    "Solicitacao " + origemSolicitacaoOnlineId + " -> Processo " + salvo.getNumero());
-            } catch (IllegalStateException | IllegalArgumentException e) {
-                ra.addFlashAttribute("aviso",
-                    "Processo cadastrado, mas houve falha ao vincular a solicitacao online de origem: "
-                        + e.getMessage());
-            }
+        // Fecha o vinculo com a solicitacao online de origem - copia os
+        // documentos clinicos anexados pelo solicitante para o processo e
+        // marca a solicitacao como CONVERTIDA. Feito DEPOIS do cadastro ja
+        // ter tido sucesso; se falhar aqui, o processo continua valido (so a
+        // solicitacao de origem fica sem o vinculo automatico, corrigivel
+        // manualmente).
+        try {
+            solicitacaoOnlineService.converter(origemSolicitacaoOnlineId, salvo);
+            auditoria.registrar("SOLICITACAO_ONLINE_CONVERTIDA",
+                "Solicitacao " + origemSolicitacaoOnlineId + " -> Processo " + salvo.getNumero());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            ra.addFlashAttribute("aviso",
+                "Processo cadastrado, mas houve falha ao vincular a solicitacao online de origem: "
+                    + e.getMessage());
         }
         ra.addFlashAttribute("msg", "Processo " + salvo.getNumero() + " cadastrado.");
         return "redirect:/processos/" + salvo.getId();
@@ -271,15 +287,9 @@ public class ProcessoDetalheController {
             .filter(a -> a.getTipo() == TipoAnexo.SOLICITACAO_AVALIADOR)
             .findFirst();
         model.addAttribute("solicitacaoPdf", solicitacaoPdf.orElse(null));
-        // Anexo da solicitacao ORIGINAL recebida (com nome completo)
-        Optional<Anexo> solicitacaoOriginal = p.getAnexos().stream()
-            .filter(a -> a.getTipo() == TipoAnexo.SOLICITACAO_RECEBIDA)
-            .findFirst();
-        model.addAttribute("solicitacaoOriginal", solicitacaoOriginal.orElse(null));
-        // Passo 1 (Recebimento): quando o processo veio do Portal do
-        // Solicitante nao existe "e-mail original" pra anexar - os dados ja
-        // chegaram digitais na propria submissao online. Ver
-        // FluxoProcessoService.veioDoPortal (fonte unica com o gating).
+        // Todo processo nasce de uma SolicitacaoOnline convertida pelo Portal
+        // do Solicitante (desde 2026-07-27) - usado so para o link "Ver
+        // solicitacao original" na tela de detalhe. Ver FluxoProcessoService.veioDoPortal.
         boolean processoVeioDoPortal = fluxoService.veioDoPortal(p);
         model.addAttribute("processoVeioDoPortal", processoVeioDoPortal);
         model.addAttribute("solicitacaoOnlineOrigemId",
@@ -418,63 +428,6 @@ public class ProcessoDetalheController {
         anexoStorage.removerPastaProcesso(p);
         ra.addFlashAttribute("msg", "Processo " + numero + " excluido.");
         return "redirect:/processos";
-    }
-
-    /**
-     * Etapa 1 (Recebimento da solicitacao): anexa a copia da solicitacao
-     * ORIGINAL recebida e gera automaticamente a CAPA do processo (PDF com os
-     * dados do solicitante e os medicos avaliadores), salva na pasta do
-     * processo. A copia anonimizada para as equipes ("Processo CET-RS...") e
-     * gerada no passo 2 (envio).
-     */
-    @PostMapping("/{id}/recebimento")
-    public String registrarRecebimento(@PathVariable Long id,
-                                       @RequestParam(value = "arquivo", required = false) MultipartFile arquivo,
-                                       RedirectAttributes ra) {
-        Processo p = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(p, ra)) {
-            return "redirect:/processos/" + id + "#recebimento";
-        }
-
-        // 1) Copia da solicitacao original (com nome completo) — anexo manual.
-        // Salva o novo primeiro, so remove o antigo depois de confirmado o
-        // sucesso - evita o processo ficar sem nenhuma copia se o save() falhar
-        // entre o remover e o salvar.
-        if (arquivo != null && !arquivo.isEmpty()) {
-            try {
-                Anexo novo = anexoStorage.salvar(p, TipoAnexo.SOLICITACAO_RECEBIDA,
-                    "Copia da solicitacao original recebida", arquivo);
-                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.SOLICITACAO_RECEBIDA, novo.getId());
-                auditoria.registrar("ANEXO_ADICIONADO",
-                    "Processo " + p.getNumero() + " - " + TipoAnexo.SOLICITACAO_RECEBIDA.getDescricao());
-            } catch (IllegalArgumentException | IOException e) {
-                ra.addFlashAttribute("erro", "Falha ao anexar a solicitacao original: " + e.getMessage());
-                return "redirect:/processos/" + id + "#recebimento";
-            }
-        }
-
-        // 2) CAPA DO PROCESSO — gerada automaticamente pelo sistema com os
-        // dados do solicitante + 3 medicos avaliadores (reaproveita a capa do
-        // Relatorio Final). Sempre substitui a capa anterior ao registrar
-        // recebimento, garantindo que esteja atualizada. Gera e salva a nova
-        // capa ANTES de remover a antiga, para nao ficar sem nenhuma se algo
-        // falhar no meio.
-        try {
-            byte[] pdfCapa = relatorioService.gerarCapaProcesso(p);
-            String nomeCapa = "capa-processo-" + p.getNumero().replace("/", "-") + ".pdf";
-            Anexo novaCapa = anexoStorage.salvarBytes(p, TipoAnexo.CAPA_PROCESSO,
-                "Capa do processo gerada automaticamente no recebimento",
-                nomeCapa, "application/pdf", pdfCapa);
-            anexoStorage.removerAntigosDoTipo(id, TipoAnexo.CAPA_PROCESSO, novaCapa.getId());
-            auditoria.registrar("ANEXO_ADICIONADO",
-                "Processo " + p.getNumero() + " - Capa do processo gerada automaticamente");
-        } catch (Exception e) {
-            ra.addFlashAttribute("erro", "Falha ao gerar a capa do processo: " + e.getMessage());
-            return "redirect:/processos/" + id + "#recebimento";
-        }
-
-        ra.addFlashAttribute("msg", "Recebimento registrado: solicitacao original anexada e capa gerada.");
-        return "redirect:/processos/" + id + "#recebimento";
     }
 
     /**

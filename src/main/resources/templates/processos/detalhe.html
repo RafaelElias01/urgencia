@@ -250,76 +250,28 @@
                     <div class="card mb-4" id="recebimento">
                         <div class="card-header"><i class="bi bi-inbox"></i> Recebimento e ajuste do texto</div>
                         <div class="card-body">
-                            <!-- Fluxo tradicional: exige a copia da solicitacao original (e-mail/PDF) -->
-                            <div th:unless="${processoVeioDoPortal}">
-                                <p class="small text-muted mb-3">
-                                    Anexe a <strong>solicitacao original</strong> recebida.
-                                    A copia anonimizada para as equipes e gerada no passo 2 (Envio).
-                                    A capa com os pareceres e o resultado e gerada apenas no <strong>Relatorio Final</strong>.
-                                </p>
-
-                                <!-- Status do anexo da solicitacao original -->
-                                <ul class="list-group mb-3">
-                                    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                        <span>Copia da solicitacao original</span>
-                                        <a th:if="${solicitacaoOriginal != null}"
-                                           th:href="@{/processos/anexos/{id}/download(id=${solicitacaoOriginal.id})}"
-                                           class="btn btn-sm btn-outline-secondary">
-                                            <i class="bi bi-download"></i>
-                                            <span th:text="${solicitacaoOriginal.nomeArquivo}">arquivo</span>
-                                        </a>
-                                        <span th:replace="~{layout :: status(${solicitacaoOriginal != null})}"></span>
-                                    </li>
-                                </ul>
-
-                                <!-- Acao: anexar a original + gerar a copia para as equipes -->
-                                <form th:unless="${processo.status.finalizado}"
-                                      th:action="@{/processos/{id}/recebimento(id=${processo.id})}" method="post"
-                                      enctype="multipart/form-data" class="row g-2 align-items-end">
-                                    <div class="col-md-7">
-                                        <label class="form-label">Solicitacao original recebida (PDF/e-mail)</label>
-                                        <input type="file" name="arquivo" class="form-control form-control-sm"
-                                               accept=".pdf,.eml,.msg"
-                                               th:required="${solicitacaoOriginal == null}">
-                                        <div class="form-text" th:if="${solicitacaoOriginal != null}">
-                                            Ja anexada. Selecione um arquivo apenas se quiser substituir.
-                                        </div>
-                                    </div>
-                                    <div class="col-md-5 d-flex align-items-end">
-                                        <button class="btn btn-primary btn-sm">
-                                            <i class="bi bi-inbox-fill"></i> Registrar recebimento
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <!-- Processo originado do Portal do Solicitante: recebimento automatico,
-                                 sem e-mail/PDF original para anexar (os dados ja chegaram digitais
-                                 no sistema) e sem acao manual do operador. -->
-                            <div th:if="${processoVeioDoPortal}">
-                                <p class="small text-muted mb-0">
-                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                    Esta solicitacao foi enviada diretamente pelo <strong>Portal do
-                                    Solicitante</strong> — recebimento automatico, sem necessidade de
-                                    confirmacao manual.
-                                    <a th:if="${solicitacaoOnlineOrigemId != null}"
-                                       th:href="@{/processos/solicitacoes-online/{id}(id=${solicitacaoOnlineOrigemId})}">
-                                        Ver solicitacao original
-                                    </a>
-                                </p>
-                            </div>
+                            <!-- Todo processo nasce de uma solicitacao enviada pelo Portal do
+                                 Solicitante (ajuste de 2026-07-27: nao ha mais cadastro manual
+                                 "do zero") - recebimento automatico, sem e-mail/PDF original para
+                                 anexar e sem acao manual do operador. -->
+                            <p class="small text-muted mb-0">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                Esta solicitacao foi enviada diretamente pelo <strong>Portal do
+                                Solicitante</strong> — recebimento automatico, sem necessidade de
+                                confirmacao manual.
+                                <a th:if="${solicitacaoOnlineOrigemId != null}"
+                                   th:href="@{/processos/solicitacoes-online/{id}(id=${solicitacaoOnlineOrigemId})}">
+                                    Ver solicitacao original
+                                </a>
+                            </p>
                         </div>
 
-                        <!-- Finalizacao explicita da etapa (exige solicitacao original + capa no
-                             fluxo tradicional; automatica para processos vindos do Portal) -->
+                        <!-- Finalizacao explicita da etapa (sempre automatica) -->
                         <div th:if="${liberadoEnvio}" class="alert alert-success d-flex align-items-center justify-content-between py-3 mb-0">
                             <div>
                                 <i class="bi bi-check-circle-fill fs-5 me-2"></i>
                                 <strong>Recebimento concluido!</strong>
-                                <span class="text-muted small ms-2"
-                                      th:text="${processoVeioDoPortal}
-                                          ? 'Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).'
-                                          : 'Copia da solicitacao e capa do processo registradas.'">Copia da solicitacao e capa do processo registradas.</span>
+                                <span class="text-muted small ms-2">Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).</span>
                             </div>
                             <button type="button" class="btn btn-success btn-sm"
                                     data-goto-pane="pane-envio">

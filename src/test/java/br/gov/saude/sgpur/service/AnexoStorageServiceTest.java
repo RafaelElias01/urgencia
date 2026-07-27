@@ -83,11 +83,4 @@ class AnexoStorageServiceTest {
             .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test
-    void salvarRespostaAvaliadorRejeitaExtensaoNaoPermitida() {
-        MockMultipartFile arquivo = new MockMultipartFile(
-            "arquivo", "resposta.zip", "application/zip", "conteudo".getBytes());
-        assertThatThrownBy(() -> service.salvarRespostaAvaliador(processo(), null, "desc", arquivo))
-            .isInstanceOf(IllegalArgumentException.class);
-    }
 }

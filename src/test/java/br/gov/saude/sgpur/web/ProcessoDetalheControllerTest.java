@@ -9,7 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,10 +25,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Testes do ProcessoDetalheController: criacao (numeracao automatica vs
+ * Testes do ProcessoDetalheController: criacao (sempre a partir de uma
+ * SolicitacaoOnline - ajuste de 2026-07-27 -, numeracao automatica vs
  * manual, validacoes), a tela de detalhe (gating das abas 1-5 e o
- * sub-rotulo de status), edicao, reabertura, exclusao e o recebimento
- * (passo 1: solicitacao original + capa automatica).
+ * sub-rotulo de status), edicao, reabertura e exclusao. Recebimento (passo
+ * 1) e sempre automatico e nao tem mais endpoint proprio.
  */
 @WebMvcTest(ProcessoDetalheController.class)
 class ProcessoDetalheControllerTest {
@@ -45,7 +45,6 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private GeminiService geminiService;
     @MockitoBean private ConflitoEquipeMatcher conflitoEquipeMatcher;
-    @MockitoBean private RelatorioService relatorioService;
     @MockitoBean private br.gov.saude.sgpur.service.SolicitacaoOnlineService solicitacaoOnlineService;
     @MockitoBean private br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     // GlobalModelAdvice (@ControllerAdvice global) precisa dessas duas pro
@@ -80,9 +79,23 @@ class ProcessoDetalheControllerTest {
         when(fluxoService.calcularGating(any())).thenReturn(
             new FluxoProcessoService.GatingAbas(true, false, false, false, false));
         when(fluxoService.calcularSubrotuloStatus(any())).thenReturn(null);
-        // Por padrao nenhum processo veio do Portal do Solicitante (fluxo
-        // tradicional); testes especificos sobrescrevem quando precisarem.
-        when(fluxoService.veioDoPortal(any())).thenReturn(false);
+        // Todo processo hoje vem do Portal do Solicitante; testes especificos
+        // de detalhe sobrescrevem quando precisarem simular um processo
+        // legado sem esse vinculo.
+        when(fluxoService.veioDoPortal(any())).thenReturn(true);
+    }
+
+    /** SolicitacaoOnline valida (status ENVIADA, ainda nao triada) para os testes de novo/salvar. */
+    private SolicitacaoOnline solicitacaoValida(Long id) {
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setId(id);
+        s.setPacienteNome("Maria Silva");
+        s.setPacienteRgct("RGCT123");
+        s.setSolicitanteEquipe("Equipe A");
+        s.setSolicitanteEmail("equipe@ex.com");
+        s.setDataSituacaoEspecial(LocalDate.of(2026, 7, 1));
+        s.setJustificativaClinica("Justificativa");
+        return s;
     }
 
     private static MembroUrgenciaRenal membro(Long id, String instituicao, String nome) {
@@ -105,11 +118,38 @@ class ProcessoDetalheControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
+    void novoSemOrigemSolicitacaoOnlineRedirecionaParaTriagem() throws Exception {
+        // Desde 2026-07-27 nao ha mais cadastro manual "do zero" - sem o
+        // parametro, redireciona para a fila de triagem em vez de abrir o form.
+        mvc.perform(get("/processos/novo"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/solicitacoes-online"))
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("Portal do Solicitante")));
+
+        verify(processoService, never()).isNumeracaoAutomatica(anyInt());
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void novoComSolicitacaoJaTriadaRedirecionaParaODetalheDela() throws Exception {
+        SolicitacaoOnline s = solicitacaoValida(5L);
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(s);
+
+        mvc.perform(get("/processos/novo").param("origemSolicitacaoOnlineId", "5"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/solicitacoes-online/5"))
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("ja foi triada")));
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
     void novoComNumeracaoAutomaticaNaoSugereNumero() throws Exception {
         int ano = Year.now().getValue();
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(ano)).thenReturn(true);
 
-        mvc.perform(get("/processos/novo"))
+        mvc.perform(get("/processos/novo").param("origemSolicitacaoOnlineId", "5"))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"))
             .andExpect(model().attribute("numeracaoAutomatica", true));
@@ -121,10 +161,11 @@ class ProcessoDetalheControllerTest {
     @WithMockUser(roles = "OPERADOR")
     void novoComNumeracaoManualSugereOProximoNumero() throws Exception {
         int ano = Year.now().getValue();
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(ano)).thenReturn(false);
         when(processoService.proximoNumero(ano)).thenReturn("05/" + ano);
 
-        mvc.perform(get("/processos/novo"))
+        mvc.perform(get("/processos/novo").param("origemSolicitacaoOnlineId", "5"))
             .andExpect(status().isOk())
             .andExpect(model().attribute("numeracaoAutomatica", false));
 
@@ -141,12 +182,32 @@ class ProcessoDetalheControllerTest {
             .param("solicitanteEmail", "equipe@ex.com")
             .param("dataSituacaoEspecial", "2026-07-01")
             .param("medicoIds", "1", "2", "3")
+            .param("origemSolicitacaoOnlineId", "5")
             .with(csrf());
     }
 
     @Test
     @WithMockUser(roles = "OPERADOR")
+    void salvarSemOrigemSolicitacaoOnlineRedirecionaParaTriagem() throws Exception {
+        mvc.perform(post("/processos")
+                .param("pacienteNome", "Maria Silva")
+                .param("pacienteRgct", "RGCT123")
+                .param("solicitanteEquipe", "Equipe A")
+                .param("solicitanteEmail", "equipe@ex.com")
+                .param("dataSituacaoEspecial", "2026-07-01")
+                .param("medicoIds", "1", "2", "3")
+                .with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/solicitacoes-online"))
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("Portal do Solicitante")));
+
+        verify(processoService, never()).cadastrar(any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
     void salvarSemNumeroEmNumeracaoManualEhRejeitado() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
         when(membroService.listarAtivos()).thenReturn(List.of());
 
@@ -160,6 +221,7 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void salvarComNumeroEmFormatoInvalidoEhRejeitado() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
         when(membroService.listarAtivos()).thenReturn(List.of());
 
@@ -173,6 +235,7 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void salvarComNumeroDuplicadoEhRejeitado() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(false);
         when(processoService.numeroJaExiste("01/2026")).thenReturn(true);
         when(membroService.listarAtivos()).thenReturn(List.of());
@@ -187,6 +250,7 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void salvarComQuantidadeErradaDeMedicosEhRejeitado() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(true);
         when(membroService.listarAtivos()).thenReturn(List.of());
 
@@ -197,6 +261,7 @@ class ProcessoDetalheControllerTest {
                 .param("solicitanteEmail", "equipe@ex.com")
                 .param("dataSituacaoEspecial", "2026-07-01")
                 .param("medicoIds", "1", "2")
+                .param("origemSolicitacaoOnlineId", "5")
                 .with(csrf()))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"));
@@ -207,12 +272,14 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void salvarComCamposObrigatoriosEmBrancoEhRejeitadoPelaBeanValidation() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(true);
         when(membroService.listarAtivos()).thenReturn(List.of());
 
         mvc.perform(post("/processos")
                 .param("dataSituacaoEspecial", "2026-07-01")
                 .param("medicoIds", "1", "2", "3")
+                .param("origemSolicitacaoOnlineId", "5")
                 .with(csrf()))
             .andExpect(status().isOk())
             .andExpect(view().name("processos/form"));
@@ -223,6 +290,7 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void salvarComDadosValidosCadastraERedireciona() throws Exception {
+        when(solicitacaoOnlineService.buscar(5L)).thenReturn(solicitacaoValida(5L));
         when(processoService.isNumeracaoAutomatica(2026)).thenReturn(true);
         Processo salvo = new Processo();
         salvo.setId(9L);
@@ -236,6 +304,7 @@ class ProcessoDetalheControllerTest {
             .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("09/2026")));
 
         verify(auditoria).registrar(eq("PROCESSO_CADASTRADO"), anyString());
+        verify(solicitacaoOnlineService).converter(eq(5L), eq(salvo));
     }
 
     // ----- detalhe -----
@@ -257,12 +326,8 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void detalheLiberaEnvioQuandoRecebimentoFoiFeito() throws Exception {
-        Anexo solicitacao = new Anexo();
-        solicitacao.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        processo.addAnexo(solicitacao);
-        processo.addAnexo(capa);
+        // Recebimento e sempre automatico desde 2026-07-27 - o controller so
+        // repassa o gating calculado por FluxoProcessoService (mockado aqui).
         when(fluxoService.calcularGating(processo)).thenReturn(
             new FluxoProcessoService.GatingAbas(true, true, false, false, false));
 
@@ -298,15 +363,8 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void detalheLiberaDecisaoQuandoMaioriaFormadaESemAnexoPendente() throws Exception {
-        // liberadoRespostas exige recebimentoFeito (solicitacao + capa) E
-        // envioFeito (1o parecer com dataEnvio) - sem isso liberadoDecisao fica
-        // false mesmo com maioria formada.
-        Anexo solicitacao = new Anexo();
-        solicitacao.setTipo(TipoAnexo.SOLICITACAO_RECEBIDA);
-        Anexo capa = new Anexo();
-        capa.setTipo(TipoAnexo.CAPA_PROCESSO);
-        processo.addAnexo(solicitacao);
-        processo.addAnexo(capa);
+        // O gating real (FluxoProcessoService) e mockado aqui; o teste so
+        // confere que o controller repassa liberadoDecisao=true corretamente.
         MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
         MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
         MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
@@ -393,7 +451,11 @@ class ProcessoDetalheControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void detalheExpoeProcessoVeioDoPortalFalseNoFluxoTradicional() throws Exception {
+    void detalheExpoeProcessoVeioDoPortalFalseParaProcessoLegadoSemVinculo() throws Exception {
+        // Processo legado (anterior a 2026-07-27) sem SolicitacaoOnline de
+        // origem - caso raro hoje, mas veioDoPortal ainda pode retornar false.
+        when(fluxoService.veioDoPortal(processo)).thenReturn(false);
+
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
             .andExpect(model().attribute("processoVeioDoPortal", false))
@@ -405,9 +467,9 @@ class ProcessoDetalheControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void detalheExpoeProcessoVeioDoPortalTrueELinkDaOrigem() throws Exception {
-        when(fluxoService.veioDoPortal(processo)).thenReturn(true);
+        // fluxoService.veioDoPortal ja e true por padrao no setUp (todo
+        // processo hoje vem do Portal do Solicitante).
         when(solicitacaoOnlineRepository.findIdByProcessoGeradoId(1L)).thenReturn(Optional.of(42L));
-        // Passo 1 (Recebimento) so exige a capa quando veio do portal.
         when(fluxoService.calcularGating(processo)).thenReturn(
             new FluxoProcessoService.GatingAbas(true, true, false, false, false));
 
@@ -542,95 +604,5 @@ class ProcessoDetalheControllerTest {
 
         verify(processoService).excluir(1L);
         verify(anexoStorage).removerPastaProcesso(processo);
-    }
-
-    // ----- recebimento -----
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void recebimentoBloqueadoQuandoProcessoEncerrado() throws Exception {
-        when(processoService.edicaoBloqueada(processo)).thenReturn(true);
-
-        mvc.perform(multipart("/processos/1/recebimento").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#recebimento"))
-            .andExpect(flash().attribute("erro", ProcessoValidator.MSG_ENCERRADO));
-
-        verify(anexoStorage, never()).salvar(any(), any(), any(), any());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void recebimentoSemArquivoApenasGeraACapa() throws Exception {
-        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
-        when(relatorioService.gerarCapaProcesso(processo)).thenReturn("capa-fake".getBytes());
-        when(anexoStorage.salvarBytes(any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
-            Anexo a = new Anexo();
-            a.setId(77L);
-            return a;
-        });
-
-        mvc.perform(multipart("/processos/1/recebimento").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#recebimento"))
-            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("capa gerada")));
-
-        verify(anexoStorage, never()).salvar(any(), any(), any(), any());
-        verify(anexoStorage).salvarBytes(eq(processo), eq(TipoAnexo.CAPA_PROCESSO), anyString(),
-            eq("capa-processo-01-2026.pdf"), eq("application/pdf"), eq("capa-fake".getBytes()));
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.CAPA_PROCESSO, 77L);
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void recebimentoComArquivoAnexaESalvaACapa() throws Exception {
-        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
-        when(relatorioService.gerarCapaProcesso(processo)).thenReturn("capa-fake".getBytes());
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "solicitacao.pdf",
-            "application/pdf", "conteudo".getBytes());
-        when(anexoStorage.salvar(any(), any(), any(), any())).thenAnswer(inv -> {
-            Anexo a = new Anexo();
-            a.setId(88L);
-            return a;
-        });
-        when(anexoStorage.salvarBytes(any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
-            Anexo a = new Anexo();
-            a.setId(77L);
-            return a;
-        });
-
-        mvc.perform(multipart("/processos/1/recebimento").file(arquivo).with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("solicitacao original anexada")));
-
-        verify(anexoStorage).salvar(eq(processo), eq(TipoAnexo.SOLICITACAO_RECEBIDA), anyString(), eq(arquivo));
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.SOLICITACAO_RECEBIDA, 88L);
-        verify(auditoria, times(2)).registrar(eq("ANEXO_ADICIONADO"), anyString());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void recebimentoComFalhaAoAnexarNaoGeraACapa() throws Exception {
-        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "solicitacao.pdf",
-            "application/pdf", "conteudo".getBytes());
-        when(anexoStorage.salvar(any(), any(), any(), any())).thenThrow(new java.io.IOException("disco cheio"));
-
-        mvc.perform(multipart("/processos/1/recebimento").file(arquivo).with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("disco cheio")));
-
-        verify(relatorioService, never()).gerarCapaProcesso(any());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void recebimentoComFalhaAoGerarCapaAvisaSemQuebrar() throws Exception {
-        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
-        when(relatorioService.gerarCapaProcesso(processo)).thenThrow(new RuntimeException("template quebrado"));
-
-        mvc.perform(multipart("/processos/1/recebimento").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("template quebrado")));
     }
 }
