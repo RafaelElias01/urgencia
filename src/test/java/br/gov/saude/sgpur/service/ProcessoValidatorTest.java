@@ -339,6 +339,7 @@ class ProcessoValidatorTest {
     void validarRespostaSolicitanteExigeComprovanteSntSeDeferido() {
         Processo p = new Processo();
         p.setStatus(StatusProcesso.DEFERIDO);
+        p.setSolicitanteEmail("test@test.com");
         assertThat(validator.validarRespostaSolicitante(p)).isPresent();
 
         Anexo comprovante = new Anexo();
@@ -351,6 +352,7 @@ class ProcessoValidatorTest {
     void validarRespostaSolicitanteExigeOficioSeIndeferido() {
         Processo p = new Processo();
         p.setStatus(StatusProcesso.INDEFERIDO);
+        p.setSolicitanteEmail("test@test.com");
         assertThat(validator.validarRespostaSolicitante(p)).isPresent();
 
         Anexo oficio = new Anexo();
@@ -363,6 +365,7 @@ class ProcessoValidatorTest {
     void validarRespostaSolicitanteVazioForaDeStatusFinal() {
         Processo p = new Processo();
         p.setStatus(StatusProcesso.ENVIADO);
+        p.setSolicitanteEmail("test@test.com");
         assertThat(validator.validarRespostaSolicitante(p)).isEmpty();
     }
 }

@@ -5,6 +5,9 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
+import br.gov.saude.sgpur.service.email.EmailSenderService;
+import br.gov.saude.sgpur.service.email.EmailTemplateService;
+import br.gov.saude.sgpur.storage.AnexoStorageService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,13 +31,19 @@ class ProcessoServiceTest {
     ParecerRepository parecerRepository;
     @Mock
     SolicitacaoOnlineRepository solicitacaoOnlineRepository;
+    @Mock
+    EmailTemplateService emailTemplateService;
+    @Mock
+    EmailSenderService emailSenderService;
+    @Mock
+    AnexoStorageService anexoStorageService;
     ProcessoService service;
 
     // Usa o ProcessoValidator real (funcoes puras): as regras de negocio vivem
     // nele, e o servico apenas delega.
     @BeforeEach
     void setUp() {
-        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository);
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService, anexoStorageService);
     }
 
     private Parecer parecer(ResultadoParecer r) {

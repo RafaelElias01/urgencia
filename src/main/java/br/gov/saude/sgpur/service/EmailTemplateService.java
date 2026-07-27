@@ -225,7 +225,7 @@ public class EmailTemplateService {
             corpo);
     }
 
-    private EmailTemplate emailDeferido(Processo p) {
+    public EmailTemplate emailDeferido(Processo p) {
         String corpo = """
             Prezados(as),
 
@@ -247,7 +247,7 @@ public class EmailTemplateService {
             assunto("Processo " + p.getNumero() + " - DEFERIDO"), corpo);
     }
 
-    private EmailTemplate emailIndeferido(Processo p) {
+    public EmailTemplate emailIndeferido(Processo p) {
         String motivo = (p.getMotivoIndeferimento() == null || p.getMotivoIndeferimento().isBlank())
             ? "(informar o motivo do indeferimento)" : p.getMotivoIndeferimento();
 

@@ -99,6 +99,11 @@
         Seu pedido (processo <strong th:text="${solicitacao.processoGerado.numero}">00/0000</strong>) foi
         <strong>DEFERIDO</strong> pela Central de Transplantes do Estado do Rio Grande do Sul.
         A resposta oficial tambem foi enviada por e-mail.
+        <div th:if="${mensagemResposta != null}" class="mt-2 p-2 bg-white rounded border">
+            <small class="text-muted fw-semibold">Mensagem:</small>
+            <pre class="mb-0 small mt-1" style="white-space: pre-wrap; font-family: inherit;"
+                 th:text="${mensagemResposta}"></pre>
+        </div>
         <div class="mt-2">
             <a th:if="${comprovanteSntAnexo != null}"
                th:href="@{/solicitante/{id}/processo-anexo/{anexoId}(id=${solicitacao.id},anexoId=${comprovanteSntAnexo.id})}"
@@ -119,6 +124,11 @@
             <strong>Motivo:</strong> <span th:text="${solicitacao.processoGerado.motivoIndeferimento}"></span>
         </div>
         O oficio com a resposta oficial tambem foi enviado por e-mail.
+        <div th:if="${mensagemResposta != null}" class="mt-2 p-2 bg-white rounded border">
+            <small class="text-muted fw-semibold">Mensagem:</small>
+            <pre class="mb-0 small mt-1" style="white-space: pre-wrap; font-family: inherit;"
+                 th:text="${mensagemResposta}"></pre>
+        </div>
         <div class="mt-2">
             <a th:if="${oficioIndeferimentoAnexo != null}"
                th:href="@{/solicitante/{id}/processo-anexo/{anexoId}(id=${solicitacao.id},anexoId=${oficioIndeferimentoAnexo.id})}"

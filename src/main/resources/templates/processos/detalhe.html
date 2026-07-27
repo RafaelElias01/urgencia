@@ -782,59 +782,55 @@
                     <div class="border rounded p-3 bg-light">
                         <h6 class="mb-2"><i class="bi bi-envelope-check text-primary"></i> Resposta ao solicitante</h6>
 
-                        <!-- Comprovante de envio (print/PDF do e-mail enviado) -->
-                        <div th:if="${comprovanteEnvioSolicitante != null}" class="alert alert-success py-2 mb-2">
-                            <span th:replace="~{layout :: status(true)}"></span>
-                            Comprovante de envio anexado:
-                            <a th:href="@{/processos/anexos/{id}/download(id=${comprovanteEnvioSolicitante.id})}"
-                               th:text="${comprovanteEnvioSolicitante.nomeArquivo}">arquivo</a>
-                        </div>
-                        <div th:unless="${comprovanteEnvioSolicitante != null}" class="alert alert-warning py-2 mb-2">
-                            <span th:replace="~{layout :: status(false)}"></span>
-                            Comprovante de envio ao solicitante ainda nao anexado (obrigatorio para concluir).
-                        </div>
-                        <form th:action="@{/processos/{id}/comprovante-envio-solicitante(id=${processo.id})}"
-                              method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
-                            <div class="col-md-8">
-                                <label class="form-label small">
-                                    <span th:if="${comprovanteEnvioSolicitante != null}">Substituir comprovante de envio</span>
-                                    <span th:unless="${comprovanteEnvioSolicitante != null}">Anexar comprovante de envio (print/PDF do e-mail)</span>
-                                </label>
-                                <input type="file" name="arquivo" class="form-control form-control-sm"
-                                       accept=".pdf,.png,.jpg,.jpeg,.eml,.msg"
-                                       th:required="${comprovanteEnvioSolicitante == null}">
+                        <!-- Ja enviada -->
+                        <div th:if="${processo.emailEnviadoSolicitante}">
+                            <div class="alert alert-success py-2 mb-2">
+                                <span th:replace="~{layout :: status(true)}"></span>
+                                Resposta enviada ao solicitante em
+                                <span th:text="${#temporals.format(processo.dataDecisao, 'dd/MM/yyyy')}"></span>.
                             </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <button class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-upload"></i> Enviar comprovante
-                                </button>
+                            <div th:if="${processo.mensagemResposta}" class="border rounded p-2 bg-white mt-2">
+                                <small class="text-muted fw-semibold">Mensagem enviada:</small>
+                                <pre class="mb-0 small mt-1" style="white-space: pre-wrap; font-family: inherit;"
+                                     th:text="${processo.mensagemResposta}"></pre>
                             </div>
-                        </form>
+                        </div>
 
-                        <hr class="my-3">
+                        <!-- Nao enviada ainda -->
+                        <div th:unless="${processo.emailEnviadoSolicitante}">
+                            <!-- Alerta se documento obrigatorio faltando -->
+                            <div th:if="${processo.status.name() == 'DEFERIDO' and comprovanteSnT == null}"
+                                 class="alert alert-warning py-2 mb-2">
+                                <span th:replace="~{layout :: status(false)}"></span>
+                                Anexe o comprovante de insercao no SNT acima antes de enviar a resposta.
+                            </div>
+                            <div th:if="${processo.status.name() == 'INDEFERIDO' and oficioAnexo == null}"
+                                 class="alert alert-warning py-2 mb-2">
+                                <span th:replace="~{layout :: status(false)}"></span>
+                                Anexe o oficio de indeferimento acima antes de enviar a resposta.
+                            </div>
 
-                        <!-- Confirmacao de envio do e-mail de resposta -->
-                        <form th:action="@{/processos/{id}/resposta-solicitante(id=${processo.id})}" method="post">
-                            <div class="border rounded p-3 mb-3"
-                                 th:classappend="${processo.emailEnviadoSolicitante} ? 'border-success bg-success-subtle' : 'bg-white'">
-                                <div class="form-check mb-0">
-                                    <input type="checkbox" name="emailEnviadoSolicitante" value="true"
-                                           class="form-check-input" id="emailEnvSolicitante"
-                                           th:checked="${processo.emailEnviadoSolicitante}">
-                                    <label class="form-check-label fw-semibold d-flex align-items-center gap-1" for="emailEnvSolicitante">
-                                        <i class="bi" th:classappend="${processo.emailEnviadoSolicitante} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'"></i>
-                                        E-mail de resposta enviado ao solicitante
-                                    </label>
-                                    <div class="form-text ms-4 mb-0">
-                                        Marque quando o e-mail com a decisao (deferimento ou indeferimento) tiver
-                                        sido enviado a equipe solicitante, com o comprovante acima anexado.
-                                    </div>
+                            <!-- Previa do e-mail -->
+                            <div th:if="${emailRespostaPreview != null}" class="border rounded p-2 bg-white mb-2">
+                                <small class="text-muted fw-semibold">Previa do e-mail que sera enviado:</small>
+                                <div class="small mt-1">
+                                    <strong>Para:</strong> <span th:text="${processo.solicitanteEmail}"></span><br>
+                                    <strong>Assunto:</strong> <span th:text="${emailRespostaPreview.assunto()}"></span>
                                 </div>
+                                <pre class="mb-0 small mt-2" style="white-space: pre-wrap; font-family: inherit;"
+                                     th:text="${emailRespostaPreview.corpo()}"></pre>
                             </div>
-                            <button class="btn btn-primary btn-sm">
-                                <i class="bi bi-save"></i> Salvar finalizacao
-                            </button>
-                        </form>
+
+                            <!-- Botao unico de envio -->
+                            <form th:action="@{/processos/{id}/finalizar(id=${processo.id})}" method="post">
+                                <button type="submit" class="btn btn-success"
+                                        th:disabled="${(processo.status.name() == 'DEFERIDO' and comprovanteSnT == null)
+                                            or (processo.status.name() == 'INDEFERIDO' and oficioAnexo == null)
+                                            or (processo.status.name() == 'CANCELADO')}">
+                                    <i class="bi bi-envelope-check"></i> Enviar Resposta ao Solicitante
+                                </button>
+                            </form>
+                        </div>
                     </div>
 
                 </div>

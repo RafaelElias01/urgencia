@@ -36,17 +36,26 @@ public class ProcessoService {
     private final ProcessoValidator validator;
     private final ParecerRepository parecerRepository;
     private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
+    private final EmailTemplateService emailTemplateService;
+    private final EmailSenderService emailSenderService;
+    private final AnexoStorageService anexoStorage;
 
     public ProcessoService(ProcessoRepository processoRepository,
                            MembroUrgenciaRenalRepository membroRepository,
                            ProcessoValidator validator,
                            ParecerRepository parecerRepository,
-                           SolicitacaoOnlineRepository solicitacaoOnlineRepository) {
+                           SolicitacaoOnlineRepository solicitacaoOnlineRepository,
+                           EmailTemplateService emailTemplateService,
+                           EmailSenderService emailSenderService,
+                           AnexoStorageService anexoStorage) {
         this.processoRepository = processoRepository;
         this.membroRepository = membroRepository;
         this.validator = validator;
         this.parecerRepository = parecerRepository;
         this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
+        this.emailTemplateService = emailTemplateService;
+        this.emailSenderService = emailSenderService;
+        this.anexoStorage = anexoStorage;
     }
 
     public List<Processo> listarTodos() {
@@ -432,6 +441,53 @@ public class ProcessoService {
     }
 
     /**
+     * Finaliza a resposta ao solicitante de forma automatica: envia o e-mail
+     * com o template adequado (deferido/indeferido) + o anexo correspondente
+     * (COMPROVANTE_SNT / OFICIO_INDEFERIMENTO), salva o texto da mensagem no
+     * processo e marca emailEnviadoSolicitante=true. Exige que o documento
+     * obrigatorio ja esteja anexado (validado por ProcessoValidator).
+     */
+    @Transactional
+    public Processo finalizarResposta(Long id) {
+        Processo p = buscar(id);
+        if (!p.getStatus().isFinalizado()) {
+            throw new IllegalStateException("Processo ainda nao foi decidido.");
+        }
+        if (p.getStatus() == StatusProcesso.CANCELADO) {
+            throw new IllegalStateException("Processo cancelado nao gera resposta ao solicitante.");
+        }
+        if (p.isEmailEnviadoSolicitante()) {
+            throw new IllegalStateException("Resposta ja foi enviada ao solicitante.");
+        }
+        validator.validarRespostaSolicitante(p)
+            .ifPresent(msg -> { throw new IllegalStateException(msg); });
+
+        EmailTemplate template = (p.getStatus() == StatusProcesso.DEFERIDO)
+            ? emailTemplateService.emailDeferido(p)
+            : emailTemplateService.emailIndeferido(p);
+
+        TipoAnexo tipoAnexo = (p.getStatus() == StatusProcesso.DEFERIDO)
+            ? TipoAnexo.COMPROVANTE_SNT
+            : TipoAnexo.OFICIO_INDEFERIMENTO;
+        Anexo anexo = anexoStorage.buscarUltimoPorTipo(p.getId(), tipoAnexo);
+
+        boolean enviado = emailSenderService.enviarComAnexo(
+            p.getSolicitanteEmail(),
+            template.assunto(),
+            template.corpo(),
+            anexoStorage.resolverArquivo(anexo).toFile(),
+            anexo.getNomeArquivo());
+
+        if (!enviado) {
+            throw new IllegalStateException("Falha ao enviar e-mail para o solicitante. Verifique a configuracao de SMTP.");
+        }
+
+        p.setMensagemResposta(template.corpo());
+        p.setEmailEnviadoSolicitante(true);
+        return processoRepository.save(p);
+    }
+
+    /**
      * Reabre um processo ENCERRADO (Deferido/Indeferido/Cancelado), voltando-o
      * para {@link StatusProcesso#ENVIADO} para que o operador possa reavaliar e
      * decidir de novo. Limpa a decisao anterior (dataDecisao e motivo de
@@ -448,6 +504,8 @@ public class ProcessoService {
         p.setStatus(StatusProcesso.ENVIADO);
         p.setDataDecisao(null);
         p.setMotivoIndeferimento(null);
+        p.setEmailEnviadoSolicitante(false);
+        p.setMensagemResposta(null);
         return processoRepository.save(p);
     }
 

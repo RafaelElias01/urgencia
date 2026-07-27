@@ -215,6 +215,27 @@ public class ProcessoDecisaoController {
     }
 
     /**
+     * Finaliza a resposta ao solicitante de forma automatica: envia o e-mail
+     * com o template adequado (deferido/indeferido) + o anexo correspondente.
+     * Exige que o documento obrigatorio (COMPROVANTE_SNT / OFICIO_INDEFERIMENTO)
+     * ja esteja anexado. Nao e bloqueado por processo encerrado — esta etapa
+     * (5-6) e justamente a papelada pos-decisao.
+     */
+    @PostMapping("/{id}/finalizar")
+    public String finalizar(@PathVariable Long id, HttpServletRequest request, RedirectAttributes ra) {
+        try {
+            Processo p = processoService.finalizarResposta(id);
+            auditoria.registrar("RESPOSTA_ENVIADA_SOLICITANTE",
+                "Processo " + p.getNumero() + " - finalizacao automatica: " + p.getStatus().getDescricao(),
+                request.getRemoteAddr());
+            ra.addFlashAttribute("msg", "Resposta enviada ao solicitante com sucesso.");
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+        }
+        return "redirect:/processos/" + id + "#finalizacao";
+    }
+
+    /**
      * Sugere, via IA, um texto para o motivo do indeferimento com base nas
      * justificativas dos pareceres desfavoraveis. O operador revisa/edita
      * antes de registrar a decisao - a IA nao decide nada, so redige.

@@ -364,6 +364,14 @@ public class ProcessoDetalheController {
         // pronto para decidir"). Calculo centralizado em FluxoProcessoService.
         model.addAttribute("statusSubrotulo", fluxoService.calcularSubrotuloStatus(p));
 
+        // Previa do e-mail de resposta (deferido/indeferido) para exibir
+        // na aba Finalizacao antes do envio automatico.
+        if (p.getStatus() == StatusProcesso.DEFERIDO) {
+            model.addAttribute("emailRespostaPreview", emailTemplateService.emailDeferido(p));
+        } else if (p.getStatus() == StatusProcesso.INDEFERIDO) {
+            model.addAttribute("emailRespostaPreview", emailTemplateService.emailIndeferido(p));
+        }
+
         return "processos/detalhe";
     }
 

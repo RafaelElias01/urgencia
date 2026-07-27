@@ -50,6 +50,10 @@ public class Processo {
     @Column(name = "paciente_nome", nullable = false, length = 200)
     private String pacienteNome;
 
+    /** Texto da mensagem de resposta enviada ao solicitante (preenchido na finalizacao automatica). */
+    @Column(name = "mensagem_resposta", columnDefinition = "TEXT")
+    private String mensagemResposta;
+
     /** Registro RGCT / SNT do paciente. Obrigatorio via @NotBlank (validacao de formulario). */
     @NotBlank
     @Size(max = 60, message = "Registro RGCT/SNT muito longo (maximo 60 caracteres).")
@@ -250,6 +254,14 @@ public class Processo {
 
     public void setMotivoIndeferimento(String motivoIndeferimento) {
         this.motivoIndeferimento = motivoIndeferimento;
+    }
+
+    public String getMensagemResposta() {
+        return mensagemResposta;
+    }
+
+    public void setMensagemResposta(String mensagemResposta) {
+        this.mensagemResposta = mensagemResposta;
     }
 
     public LocalDate getDataEmissaoOficio() {
