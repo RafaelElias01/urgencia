@@ -6,7 +6,6 @@ import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -34,17 +33,18 @@ public class GlobalModelAdvice {
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
-    @Autowired(required = false)
-    private MensagemSolicitacaoService mensagemService;
+    private final MensagemSolicitacaoService mensagemService;
     private final boolean solicitanteHabilitado;
 
     public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo,
-                             SolicitacaoOnlineService solicitacaoOnlineService,
-                             @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
+            SolicitacaoOnlineService solicitacaoOnlineService,
+            @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado,
+            MensagemSolicitacaoService mensagemService) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
         this.solicitacaoOnlineService = solicitacaoOnlineService;
         this.solicitanteHabilitado = solicitanteHabilitado;
+        this.mensagemService = mensagemService;
     }
 
     /**
@@ -60,7 +60,8 @@ public class GlobalModelAdvice {
 
     // @Transactional necessario: par.getProcesso() em pendentesDoMembro() e LAZY
     // (Parecer.processo), e este @ModelAttribute de @ControllerAdvice roda fora
-    // do @Transactional do controller de destino. Sem isso, LazyInitializationException
+    // do @Transactional do controller de destino. Sem isso,
+    // LazyInitializationException
     // ("no session") em QUALQUER tela para um usuario AVALIADOR com pareceres
     // pendentes - com open-in-view=false nao ha sessao Hibernate aberta aqui.
     @ModelAttribute("pendentesAvaliador")
@@ -72,10 +73,10 @@ public class GlobalModelAdvice {
         }
 
         return usuarioRepo.findByUsername(auth.getName())
-            .map(Usuario::getMembro)
-            .map(MembroUrgenciaRenal::getId)
-            .map(membroId -> AvaliadorController.pendentesDoMembro(parecerRepo, membroId).size())
-            .orElse(0);
+                .map(Usuario::getMembro)
+                .map(MembroUrgenciaRenal::getId)
+                .map(membroId -> AvaliadorController.pendentesDoMembro(parecerRepo, membroId).size())
+                .orElse(0);
     }
 
     /**

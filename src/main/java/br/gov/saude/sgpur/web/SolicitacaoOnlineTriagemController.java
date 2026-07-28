@@ -15,10 +15,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
 import java.security.Principal;
-
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +43,8 @@ public class SolicitacaoOnlineTriagemController {
     private final UsuarioRepository usuarioRepo;
 
     public SolicitacaoOnlineTriagemController(SolicitacaoOnlineService service, AuditoriaService auditoria,
-                                              MensagemSolicitacaoService mensagemService,
-                                              UsuarioRepository usuarioRepo) {
+            MensagemSolicitacaoService mensagemService,
+            UsuarioRepository usuarioRepo) {
         this.service = service;
         this.auditoria = auditoria;
         this.mensagemService = mensagemService;
@@ -82,22 +79,25 @@ public class SolicitacaoOnlineTriagemController {
 
     @PostMapping("/{id}/mensagem")
     public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
-                                 Principal principal, RedirectAttributes ra) {
+            Principal principal, RedirectAttributes ra) {
         SolicitacaoOnline s = service.buscar(id);
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         if (texto == null || texto.isBlank()) {
             ra.addFlashAttribute("erro", "A mensagem nao pode estar em branco.");
             return "redirect:/processos/solicitacoes-online/" + id;
         }
         mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
         auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
-            "Solicitacao " + id + " - resposta do operador " + operador.getUsername());
+                "Solicitacao " + id + " - resposta do operador " + operador.getUsername());
         ra.addFlashAttribute("msg", "Resposta enviada ao solicitante.");
         return "redirect:/processos/solicitacoes-online/" + id;
     }
 
-    /** Encaminha para o formulario normal de cadastro, pre-preenchido com os dados do pedido. */
+    /**
+     * Encaminha para o formulario normal de cadastro, pre-preenchido com os dados
+     * do pedido.
+     */
     @GetMapping("/{id}/converter")
     public String converter(@PathVariable Long id) {
         return "redirect:/processos/novo?origemSolicitacaoOnlineId=" + id;
@@ -109,7 +109,7 @@ public class SolicitacaoOnlineTriagemController {
         try {
             service.devolver(id, observacoes);
             auditoria.registrar("SOLICITACAO_ONLINE_DEVOLVIDA",
-                "Solicitacao " + id + " - " + s.identificacao());
+                    "Solicitacao " + id + " - " + s.identificacao());
             ra.addFlashAttribute("msg", "Solicitacao devolvida para o solicitante.");
             return "redirect:/processos/solicitacoes-online";
         } catch (IllegalStateException e) {

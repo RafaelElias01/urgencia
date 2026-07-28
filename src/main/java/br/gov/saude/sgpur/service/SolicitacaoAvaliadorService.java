@@ -22,7 +22,8 @@ import java.util.List;
  * da equipe de Urgencia Renal). Aos documentos dirigidos a equipe SOLICITANTE
  * vai o nome completo do paciente.
  *
- * <p>{@code gerar} (folha-rosto legada, substituida pelos documentos
+ * <p>
+ * {@code gerar} (folha-rosto legada, substituida pelos documentos
  * clinicos consolidados desde a mudanca de fluxo de Envio) foi removido em
  * 2026-07-27 por falta de qualquer chamador - ver {@code consolidar}/
  * {@code carimbarCabecalho}, que continuam ativos.
@@ -54,21 +55,22 @@ public class SolicitacaoAvaliadorService {
      */
     public byte[] consolidar(List<byte[]> pdfs) {
         List<byte[]> validos = pdfs.stream()
-            .filter(b -> b != null && b.length > 0)
-            .toList();
+                .filter(b -> b != null && b.length > 0)
+                .toList();
         if (validos.isEmpty()) {
             throw new IllegalArgumentException("Nenhum PDF para consolidar.");
         }
         if (validos.size() == 1) {
-            // Valida se o PDF tem ao menos uma pagina (evita "The document has no pages" no carimbo)
+            // Valida se o PDF tem ao menos uma pagina (evita "The document has no pages" no
+            // carimbo)
             try {
                 PdfReader reader = new PdfReader(validos.get(0));
                 int paginas = reader.getNumberOfPages();
                 reader.close();
                 if (paginas == 0) {
                     throw new IllegalStateException(
-                        "O documento clinico anexado esta vazio (0 paginas). "
-                        + "Remova-o e anexe novamente o arquivo original.");
+                            "O documento clinico anexado esta vazio (0 paginas). "
+                                    + "Remova-o e anexe novamente o arquivo original.");
                 }
             } catch (java.io.IOException e) {
                 throw new IllegalStateException("Falha ao ler o documento clinico PDF: " + e.getMessage());
@@ -94,8 +96,8 @@ public class SolicitacaoAvaliadorService {
             if (!algumaPaginaAdicionada) {
                 doc.close();
                 throw new IllegalStateException(
-                    "Os PDFs anexados estao vazios (nenhuma pagina encontrada). "
-                    + "Remova-os e anexe novamente os documentos clinicos originais.");
+                        "Os PDFs anexados estao vazios (nenhuma pagina encontrada). "
+                                + "Remova-os e anexe novamente os documentos clinicos originais.");
             }
             doc.close();
             return out.toByteArray();
@@ -110,7 +112,10 @@ public class SolicitacaoAvaliadorService {
      * espaco para logo e numeracao de pagina) - aqui e so texto pequeno (8pt).
      */
     private static final float ALTURA_CARIMBO = 30f;
-    /** Margem lateral usada so para calcular a largura util do texto truncado do carimbo. */
+    /**
+     * Margem lateral usada so para calcular a largura util do texto truncado do
+     * carimbo.
+     */
     private static final float MARGEM_CARIMBO = 40f;
 
     /**
@@ -119,7 +124,8 @@ public class SolicitacaoAvaliadorService {
      * processo + INICIAIS do paciente (NUNCA o nome completo, para preservar a
      * imparcialidade do julgamento dos avaliadores).
      *
-     * <p>Em vez de desenhar por cima do conteudo original (o que podia deixar
+     * <p>
+     * Em vez de desenhar por cima do conteudo original (o que podia deixar
      * o carimbo sobreposto/ilegivel em documentos clinicos escaneados sem
      * margem superior), EXPANDE a pagina no topo - mesma tecnica ja usada por
      * {@link PdfCabecalhoStamper#estampar} via
@@ -144,8 +150,8 @@ public class SolicitacaoAvaliadorService {
             if (paginas == 0) {
                 reader.close();
                 throw new IllegalStateException(
-                    "O PDF consolidado esta vazio (0 paginas). "
-                    + "Verifique os documentos clinicos anexados e tente novamente.");
+                        "O PDF consolidado esta vazio (0 paginas). "
+                                + "Verifique os documentos clinicos anexados e tente novamente.");
             }
             PdfStamper stamper = new PdfStamper(reader, out);
             BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -165,11 +171,11 @@ public class SolicitacaoAvaliadorService {
                 over.saveState();
                 over.setColorFill(CINZA);
                 ColumnText.showTextAligned(over, Element.ALIGN_CENTER,
-                    new Phrase(linha1T, new Font(bf, 8, Font.NORMAL, CINZA)),
-                    xCentro, topo - 14, 0);
+                        new Phrase(linha1T, new Font(bf, 8, Font.NORMAL, CINZA)),
+                        xCentro, topo - 14, 0);
                 ColumnText.showTextAligned(over, Element.ALIGN_CENTER,
-                    new Phrase(linha2T, new Font(bf, 8, Font.NORMAL, CINZA)),
-                    xCentro, topo - 24, 0);
+                        new Phrase(linha2T, new Font(bf, 8, Font.NORMAL, CINZA)),
+                        xCentro, topo - 24, 0);
                 over.restoreState();
             }
             stamper.close();
