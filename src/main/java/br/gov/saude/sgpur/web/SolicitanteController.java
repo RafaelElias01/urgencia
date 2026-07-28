@@ -235,7 +235,6 @@ public class SolicitanteController {
         mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, usuario.getId());
         auditoria.registrar("MENSAGEM_SOLICITANTE_ENVIADA",
             "Solicitacao " + id + " - " + s.identificacao());
-        ra.addFlashAttribute("msg", "Mensagem enviada para a equipe de Urgencia Renal.");
         return "redirect:/solicitante/" + id;
     }
 

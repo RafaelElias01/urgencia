@@ -98,7 +98,6 @@ public class SolicitacaoOnlineTriagemController {
         mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
         auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
                 "Solicitacao " + id + " - resposta do operador " + operador.getUsername());
-        ra.addFlashAttribute("msg", "Resposta enviada ao solicitante.");
         return "redirect:/processos/solicitacoes-online/" + id;
     }
 
