@@ -609,6 +609,46 @@ SMTP isolada (sem depender do Java) com `getpass`.
    minúscula + número + especial). Testes `UsuarioServiceTest` atualizados.
    `AdminBootstrapTest` corrigido. 526 testes, 0 falhas.
 
+10. **Fix notificação falsa positiva (2026-07-28)**: notificação (som+toast)
+    disparava em toda visita ao detalhe mesmo sem mensagens novas. Causas e
+    correções:
 
+    **Hipótese A — BFcache (back-forward cache):** navegador restaura HTML
+    cacheado com `temMsgNaoLida=true` estale ao voltar (back/forward).
+    *Correção:* `pageshow` + `location.reload()` força reload do servidor
+    quando `event.persisted` é true, garantindo estado fresco.
 
+    **Hipótese B — sessionStorage sem limpeza:** chave `notif_*` no
+    `sessionStorage` nunca era limpa em carregamentos frescos, suprimindo
+    notificações de mensagens realmente novas.
+    *Correção:* `PerformanceNavigationTiming.type` detecta carregamento
+    fresco (`type !== 'back_forward'`) e limpa a chave antes de checar
+    `temMsgNaoLida`; em BFcache (`type === 'back_forward'`) a chave é
+    preservada para suprimir notificação estale até o reload.
+
+    **Hipótese C — JPQL separada para `temMsgNaoLida`:** controlador
+    computava `temMsgNaoLida` via `idsSolicitacoesComMsgNaoLidaSolicitante()
+    .contains(id)` — JPQL independente que podia divergir da lista de
+    mensagens carregada na mesma requisição.
+    *Correção:* `temMsgNaoLida` é computado em Java a partir da mesma
+    `List<MensagemSolicitacao>` carregada via `listarPorSolicitacao(id)`,
+    garantindo consistência com as mensagens exibidas no chat.
+
+    **Hipótese D — `th:if` impedia registro de handler:** o script de
+    notificação estava envolvido em `<script th:if="${temMsgNaoLida}">`,
+    então o handler `pageshow` (quando existia) só era registrado se
+    houvesse mensagem não lida no momento do carregamento — em BFcache
+    o script nem existia no HTML para reagir.
+    *Correção:* `<script>` agora SEMPRE renderizado (sem `th:if`), usa
+    Thymeleaf inlining (`/*[[${temMsgNaoLida}]]*/`) para condicionar
+    apenas o disparo da notificação, mantendo handlers e lógica BFcache
+    ativos em qualquer estado.
+
+    **Padrão para futuras páginas sensíveis a BFcache:** sempre usar
+    `PerformanceNavigationTiming` (fresh vs BFcache) + `pageshow` reload
+    como segurança suplementar; NUNCA usar `th:if` em scripts que
+    registram event listeners; computar flags de estado no servidor a
+    partir dos mesmos dados carregados (evitar JPQLs independentes).
+    Ver templates `solicitacoes-online-detalhe.html` e `detalhe.html`
+    (solicitante) para o padrão completo.
 

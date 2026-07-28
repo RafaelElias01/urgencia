@@ -169,8 +169,12 @@ public class SolicitanteController {
             model.addAttribute("oficioIndeferimentoAnexo",
                 anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.OFICIO_INDEFERIMENTO));
         }
-        model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
-        model.addAttribute("temMsgNaoLida", mensagemService.contarNaoLidasSolicitantePorSolicitacao(id, usuario.getId()) > 0);
+        List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(id);
+        model.addAttribute("mensagens", mensagens);
+        boolean temMsgNaoLida = mensagens.stream()
+            .anyMatch(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.OPERADOR
+                && !m.getRemetenteId().equals(usuario.getId()));
+        model.addAttribute("temMsgNaoLida", temMsgNaoLida);
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
     }

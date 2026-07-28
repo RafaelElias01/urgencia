@@ -345,9 +345,22 @@
 <script th:replace="~{layout :: scripts}"></script>
 <script th:replace="~{layout :: confirmarAcaoScript}"></script>
 <script th:replace="~{layout :: notificacaoSonora}"></script>
-<script th:if="${temMsgNaoLida}">
-    tocarNotificacao();
-    mostrarToast('Nova mensagem recebida da equipe CET-RS.', 'info');
+<script>
+    var chave_notif = 'notif_solic_' + /*[[${solicitacao.id}]]*/ '0';
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) { location.reload(); return; }
+        sessionStorage.removeItem(chave_notif);
+    });
+    var isBfcache = false;
+    try { isBfcache = performance.getEntriesByType('navigation')[0].type === 'back_forward'; } catch(e) {}
+    if (!isBfcache) {
+        sessionStorage.removeItem(chave_notif);
+        if (/*[[${temMsgNaoLida}]]*/ false) {
+            tocarNotificacao();
+            mostrarToast('Nova mensagem recebida da equipe CET-RS.', 'info');
+            sessionStorage.setItem(chave_notif, '1');
+        }
+    }
 </script>
 <script>
     var chatBox = document.getElementById('chatBox');
