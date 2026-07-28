@@ -51,13 +51,18 @@ public class RelatorioController {
 
     @GetMapping("/anual/{ano}/pdf")
     public ResponseEntity<byte[]> anualPdf(@PathVariable int ano) {
-        List<Processo> processos = processoRepository.findByAnoComPareceres(ano);
-        byte[] pdf = relatorioAnualService.gerar(ano, processos);
-        String nome = "relatorio-" + ano + ".pdf";
-        return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
-            .body(pdf);
+        try {
+            List<Processo> processos = processoRepository.findByAnoComPareceres(ano);
+            byte[] pdf = relatorioAnualService.gerar(ano, processos);
+            String nome = "relatorio-" + ano + ".pdf";
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
+                .body(pdf);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Erro ao gerar relatorio: " + e.getMessage());
+        }
     }
 
     /**
@@ -81,12 +86,17 @@ public class RelatorioController {
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Avaliador nao encontrado.");
         }
-        List<Processo> processos = processoRepository.findByAnoComPareceres(ano);
-        byte[] pdf = relatorioAvaliadorService.gerar(ano, membro, processos);
-        String nome = "relatorio-avaliador-" + ano + "-" + membroId + ".pdf";
-        return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
-            .body(pdf);
+        try {
+            List<Processo> processos = processoRepository.findByAnoComPareceres(ano);
+            byte[] pdf = relatorioAvaliadorService.gerar(ano, membro, processos);
+            String nome = "relatorio-avaliador-" + ano + "-" + membroId + ".pdf";
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
+                .body(pdf);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Erro ao gerar relatorio: " + e.getMessage());
+        }
     }
 }

@@ -271,11 +271,26 @@ public class AvaliadorController {
         }
 
         // Atualiza o status do processo (pode ir para SOLICITA_INFORMACAO)
-        processoService.atualizarStatusPorPareceres(processoId);
+        try {
+            processoService.atualizarStatusPorPareceres(processoId);
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("aviso",
+                "Voto registrado, mas houve um conflito ao atualizar o status do processo: "
+                + e.getMessage());
+            return "redirect:/avaliador";
+        }
 
         // Decisao automatica: se a maioria foi atingida e nao ha pareceres sem
         // anexo pendentes (AVALIADOR_SISTEMA dispensa o anexo), decide imediatamente.
-        Processo pDecidido = processoService.tentarDecisaoAutomatica(processoId);
+        Processo pDecidido;
+        try {
+            pDecidido = processoService.tentarDecisaoAutomatica(processoId);
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("aviso",
+                "Voto registrado, mas nao foi possivel decidir automaticamente: "
+                + e.getMessage());
+            return "redirect:/avaliador";
+        }
         if (pDecidido.getStatus().isFinalizado()) {
             try { decisaoFinalService.gerarDocumentos(pDecidido); }
             catch (IllegalStateException e) {

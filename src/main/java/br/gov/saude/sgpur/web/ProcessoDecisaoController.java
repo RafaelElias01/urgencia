@@ -89,12 +89,23 @@ public class ProcessoDecisaoController {
                 return "redirect:/processos/" + id + "#respostas";
             }
         }
-        processoService.retomarAposInformacao(id);
+        try {
+            processoService.retomarAposInformacao(id);
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/processos/" + id + "#respostas";
+        }
         auditoria.registrar("ANALISE_RETOMADA",
             "Processo " + p.getNumero() + " - pareceres em 'Solicita informacao' reabertos como pendencia limpa");
         // Apos retomar, tenta decisao automatica caso os votos ja formem maioria
         // (pode ocorrer quando so um medico havia pedido info e os demais ja votaram).
-        Processo pRetomado = processoService.tentarDecisaoAutomatica(id);
+        Processo pRetomado;
+        try {
+            pRetomado = processoService.tentarDecisaoAutomatica(id);
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+            return "redirect:/processos/" + id + "#respostas";
+        }
         if (pRetomado.getStatus().isFinalizado()) {
             try { decisaoFinalService.gerarDocumentos(pRetomado); }
             catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
@@ -247,7 +258,9 @@ public class ProcessoDecisaoController {
         if (!geminiService.isDisponivel()) {
             return IaTextoResponse.erro("Assistencia por IA nao configurada.");
         }
-        Processo p = processoService.buscar(id);
+        Processo p;
+        try { p = processoService.buscar(id); }
+        catch (RuntimeException e) { return IaTextoResponse.erro("Processo nao encontrado."); }
         String justificativas = p.getPareceres().stream()
             .filter(par -> par.getResultado() == ResultadoParecer.NAO_FAVORAVEL)
             .map(Parecer::getJustificativa)
@@ -277,7 +290,9 @@ public class ProcessoDecisaoController {
     // Sem readOnly: grava auditoria (INSERT) apos o envio - herda o
     // @Transactional (leitura-escrita) da classe.
     public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
-        Processo p = processoService.buscar(id);
+        Processo p;
+        try { p = processoService.buscar(id); }
+        catch (RuntimeException e) { return AcaoResponse.erro("Processo nao encontrado."); }
         if (validator.edicaoBloqueada(p)) {
             return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
         }
@@ -313,7 +328,9 @@ public class ProcessoDecisaoController {
     // Sem readOnly: grava auditoria (INSERT) por avaliador - herda o
     // @Transactional (leitura-escrita) da classe.
     public AcaoResponse lembretePendentes(@PathVariable Long id) {
-        Processo p = processoService.buscar(id);
+        Processo p;
+        try { p = processoService.buscar(id); }
+        catch (RuntimeException e) { return AcaoResponse.erro("Processo nao encontrado."); }
         if (validator.edicaoBloqueada(p)) {
             return AcaoResponse.erro(ProcessoValidator.MSG_ENCERRADO);
         }
@@ -432,7 +449,9 @@ public class ProcessoDecisaoController {
                                             @RequestParam(required = false) String assunto,
                                             @RequestParam(required = false) String corpo,
                                             @RequestParam(required = false) Long parecerId) {
-        Processo p = processoService.buscar(id);
+        Processo p;
+        try { p = processoService.buscar(id); }
+        catch (RuntimeException e) { return EmailPreviewResponse.erro("Processo nao encontrado."); }
         switch (tipo) {
             case "pronto" -> {
                 EmailPreparado prep = prepararEmailPronto(p, chave, assunto, corpo);

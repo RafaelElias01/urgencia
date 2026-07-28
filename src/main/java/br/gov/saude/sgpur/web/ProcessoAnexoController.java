@@ -13,6 +13,8 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -267,43 +269,57 @@ public class ProcessoAnexoController {
     @GetMapping("/{id}/relatorio")
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> relatorio(@PathVariable Long id) {
-        Processo p = processoService.buscar(id);
-        byte[] pdf = relatorioService.gerar(p);
-        String nome = "relatorio-processo-" + p.getNumero().replace("/", "-") + ".pdf";
-        return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
-            .body(pdf);
+        try {
+            Processo p = processoService.buscar(id);
+            byte[] pdf = relatorioService.gerar(p);
+            String nome = "relatorio-processo-" + p.getNumero().replace("/", "-") + ".pdf";
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
+                .body(pdf);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
     @GetMapping("/{id}/oficio")
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> oficio(@PathVariable Long id) {
-        Processo p = processoService.buscar(id);
-        byte[] pdf = oficioService.gerar(p);
-        String nome = "oficio-indeferimento-" + p.getNumero().replace("/", "-") + ".pdf";
-        return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
-            .body(pdf);
+        try {
+            Processo p = processoService.buscar(id);
+            byte[] pdf = oficioService.gerar(p);
+            String nome = "oficio-indeferimento-" + p.getNumero().replace("/", "-") + ".pdf";
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nome + "\"")
+                .body(pdf);
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
     }
 
     @GetMapping("/anexos/{anexoId}/download")
     @Transactional(readOnly = true)
-    public ResponseEntity<Resource> baixarAnexo(@PathVariable Long anexoId) throws MalformedURLException {
-        Anexo anexo = anexoStorage.buscar(anexoId);
-        Path arquivo = anexoStorage.resolverArquivo(anexo);
-        Resource resource = new UrlResource(arquivo.toUri());
-        if (!resource.exists() || !resource.isReadable()) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<Resource> baixarAnexo(@PathVariable Long anexoId) {
+        try {
+            Anexo anexo = anexoStorage.buscar(anexoId);
+            Path arquivo = anexoStorage.resolverArquivo(anexo);
+            Resource resource = new UrlResource(arquivo.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+            String contentType = anexo.getContentType() != null
+                ? anexo.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
+                .body(resource);
+        } catch (java.net.MalformedURLException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao processar o arquivo.");
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Anexo nao encontrado.");
         }
-        String contentType = anexo.getContentType() != null
-            ? anexo.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(contentType))
-            .header(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + anexo.getNomeArquivo() + "\"")
-            .body(resource);
     }
 
     /**
@@ -318,7 +334,9 @@ public class ProcessoAnexoController {
         if (!geminiService.isDisponivel()) {
             return IaTextoResponse.erro("Assistencia por IA nao configurada.");
         }
-        Anexo anexo = anexoStorage.buscar(anexoId);
+        Anexo anexo;
+        try { anexo = anexoStorage.buscar(anexoId); }
+        catch (RuntimeException e) { return IaTextoResponse.erro("Anexo nao encontrado."); }
         if (anexo.getContentType() == null
                 || !anexo.getContentType().toLowerCase(java.util.Locale.ROOT).contains("application/pdf")) {
             return IaTextoResponse.erro("Resumo por IA disponivel apenas para anexos em PDF.");

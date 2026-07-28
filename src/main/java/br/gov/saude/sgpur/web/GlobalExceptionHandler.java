@@ -47,8 +47,10 @@ public class GlobalExceptionHandler {
      */
     private String rotaDeRetorno(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        if (uri != null && uri.startsWith(request.getContextPath() + "/solicitante")) {
-            return "redirect:/solicitante";
+        String ctx = request.getContextPath();
+        if (uri != null) {
+            if (uri.startsWith(ctx + "/solicitante")) return "redirect:/solicitante";
+            if (uri.startsWith(ctx + "/avaliador")) return "redirect:/avaliador";
         }
         return "redirect:/processos";
     }
@@ -101,12 +103,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
     public String handleOptimisticLock(
-            org.springframework.orm.ObjectOptimisticLockingFailureException ex, RedirectAttributes ra) {
+            org.springframework.orm.ObjectOptimisticLockingFailureException ex,
+            HttpServletRequest request, RedirectAttributes ra) {
         log.warn("Conflito de escrita concorrente: {}", ex.getMessage());
         ra.addFlashAttribute("erro",
             "Este processo foi atualizado por outra pessoa enquanto voce editava. "
             + "Recarregue a pagina e tente novamente.");
-        return "redirect:/processos";
+        return rotaDeRetorno(request);
     }
 
     /**
