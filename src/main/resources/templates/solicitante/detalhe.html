@@ -59,13 +59,7 @@
                         A equipe confere os dados e os documentos anexados antes de prosseguir.
                     </div>
                 </div>
-                <div class="timeline-item"
-                     th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : 
-                       (${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? 
-                         (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa') : 
-                       (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : 
-                       (${solicitacao.status.name() == 'APROVADA'} ? 'concluida' : 
-                       (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida'))))">
+                <div class="timeline-item" th:with="decStatus=${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa') : null" th:classappend="${decStatus} ?: (${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida')))">
                     <div class="timeline-dot" th:switch="${solicitacao.status.name()}">
                         <i th:case="'CONVERTIDA'"
                            th:classappend="${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? 

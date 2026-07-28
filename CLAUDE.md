@@ -401,6 +401,7 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
 - Entidades JPA em `domain/` com getters/setters simples (sem Lombok).
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
 - Templates Thymeleaf usam os fragments de `templates/layout.html`.
+- **NUNCA aninhar expressoes ternarias em mais de 3 niveis** em atributos Thymeleaf (`th:classappend`, `th:class`, `th:style`). O parser do Thymeleaf quebra com multi-line ternaries aninhados. Preferir `th:switch` ou `th:with` para pre-calcular valores complexos. Exemplo RUIM: `th:classappend="${a} ? x : (${b} ? y : (${c} ? z : w))"` (4 niveis, risco de quebra). Exemplo BOM: `th:classappend="${a} ? x : (${b} ? y : 'default')"` (max 2 niveis, seguro). **Nunca** usar `th:if` + `th:unless` no mesmo elemento — combinar numa unica expressao `th:if="${cond and !outra}"`.
 - Não commitar segredos: `application-local.yml`, `deploy/sgpur.env` e `/dist/`
   estão no `.gitignore`.
 - Testes `@WebMvcTest` usam `@MockitoBean` (import

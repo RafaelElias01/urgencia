@@ -178,8 +178,7 @@
                             <th:block th:if="${c.definido}">
                                 <div class="fw-medium text-truncate" style="font-size:.8rem;max-width:12rem;"
                                      th:text="${c.medico}" th:title="${c.medico}">Medico</div>
-                                <span class="badge rounded-1 mt-1"
-                                      th:classappend="${c.cor == 'success'} ? 'text-bg-success' : (${c.cor == 'danger'} ? 'text-bg-danger' : (${c.cor == 'warning'} ? 'text-bg-warning text-dark' : (${c.cor == 'info'} ? 'text-bg-info' : 'text-bg-light text-muted')))">
+                                <span class="badge rounded-1 mt-1" th:classappend="${c.cor} == 'success' ? 'text-bg-success' : (${c.cor} == 'danger' ? 'text-bg-danger' : (${c.cor} == 'warning' ? 'text-bg-warning text-dark' : (${c.cor} == 'info' ? 'text-bg-info' : 'text-bg-light text-muted')))">
                                     <i class="bi" th:classappend="'bi-' + ${c.icone}"></i>
                                     <span th:text="${c.texto}">situacao</span>
                                 </span>
