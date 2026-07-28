@@ -176,8 +176,26 @@ public class SolicitanteController {
                 && !m.getRemetenteId().equals(usuario.getId()))
             .count();
         model.addAttribute("msgNaoLidas", msgNaoLidas);
+        // Evita notificacao duplicada: esta tela ja tem seu proprio poll de chat
+        // (chat-solicitacao.js), entao o poll GLOBAL da navbar (layout.html) fica
+        // desligado aqui.
+        model.addAttribute("chatAtivoNestaTela", true);
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
+    }
+
+    /**
+     * Contagem global de respostas do operador ainda nao lidas (somando
+     * todas as solicitacoes deste solicitante), pra notificacao
+     * sonora/toast em QUALQUER tela do portal (layout.html) - a tela de
+     * detalhe (/solicitante/{id}) ja tem seu proprio poll especifico e nao
+     * usa este endpoint (ver chatAtivoNestaTela).
+     */
+    @GetMapping("/nao-lidas-count")
+    @ResponseBody
+    public Map<String, Object> naoLidasCount(Principal principal) {
+        Usuario usuario = resolverUsuario(principal);
+        return Map.of("total", mensagemService.contarNaoLidasParaSolicitante(usuario.getId()));
     }
 
     /**

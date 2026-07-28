@@ -274,6 +274,10 @@ public class ProcessoDetalheController {
     public String detalhe(@PathVariable Long id, Model model, Principal principal) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);
+        // Evita notificacao duplicada: esta tela ja tem seu proprio poll de chat
+        // (chat-solicitacao.js), entao o poll GLOBAL da navbar (layout.html) fica
+        // desligado aqui.
+        model.addAttribute("chatAtivoNestaTela", true);
         // Nome da pasta que o operador vera ao descompactar o dossie
         // (botao "Baixar processo completo (ZIP)" no card de Atalhos).
         model.addAttribute("nomePastaExportacao", ExportacaoProcessoService.nomePasta(p));

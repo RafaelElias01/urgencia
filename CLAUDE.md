@@ -810,3 +810,43 @@ página ainda pode tocar sem som (só o toast visual aparece) — é uma
 restrição de segurança do navegador, não contornável em JS; a partir do
 primeiro clique/tecla na página, todo som seguinte funciona normalmente.
 
+**Bug reportado logo em seguida (mesmo dia): notificação só existia DENTRO
+das 3 telas de chat.** Em qualquer outra tela (Painel, listas), pra
+qualquer um dos dois lados (operador OU solicitante), nada disparava —
+porque `iniciarChatSolicitacao()` só era chamado nessas 3 telas. Resolvido
+com um poll GLOBAL, leve (só contagem, a cada 20s, nunca marca como lida —
+isso continua sendo exclusivo de abrir a conversa de fato):
+- Novo endpoint `GET /processos/solicitacoes-online/nao-lidas-count`
+  (`{"total": N}`, reaproveita `contarNaoLidasOperador()` já usado pelo
+  badge estático da navbar) e `GET /solicitante/nao-lidas-count` (novo
+  método `MensagemSolicitacaoService.contarNaoLidasParaSolicitante` +
+  `MensagemSolicitacaoRepository.
+  countByRemetenteAndLidaFalseAndSolicitacaoOnlineUsuarioSolicitanteId` —
+  soma TODAS as solicitações do usuário, não só uma).
+- Dois blocos `<script>` novos em `layout.html`, dentro do fragment
+  `navbar` (não depois dele — fragments do Thymeleaf só copiam o elemento
+  marcado com `th:fragment`, não os irmãos seguintes; erro cometido e
+  corrigido na hora antes de subir), um por papel
+  (`sec:authorize="hasAnyRole('ADMIN','OPERADOR')"` /
+  `sec:authorize="hasRole('SOLICITANTE')"`), comparando a contagem contra
+  `sessionStorage` a cada poll — só notifica se **subiu** desde o poll
+  anterior (primeiro poll da sessão só define a base, nunca notifica
+  sozinho, mesmo padrão do `chat-solicitacao.js`).
+- `layout :: notificacaoSonora` passou a ser incluído automaticamente
+  dentro do fragment `navbar` (antes cada uma das 3 telas de chat incluía
+  na mão) — as 25 telas que já usam `layout :: navbar` ganham
+  `tocarNotificacao()`/`mostrarToast()` de graça.
+- **Evita notificação duplicada**: as 3 telas de chat (que já têm seu
+  próprio poll de 5s) setam `model.addAttribute("chatAtivoNestaTela",
+  true)`, e os dois scripts globais usam `th:unless="${chatAtivoNestaTela}"`
+  pra não rodar nelas.
+- Badge da navbar (`#navBadgeMsgNaoLida`, ao lado de "Solicitações online")
+  atualiza ao vivo pro lado do operador junto com o poll global; o lado do
+  solicitante não tem badge equivalente na navbar (não criado, fora de
+  escopo — só som/toast).
+- **Validado manualmente** (não só pelos 526 testes) com `mvn spring-boot:run`
+  real: mensagem do solicitante → contador do operador sobe em qualquer
+  tela E fica parado (não marca lida) até abrir o detalhe de fato; mesma
+  coisa na direção operador→solicitante; as 3 telas de chat confirmadas
+  SEM o script global (evita duplicar) mas COM `tocarNotificacao` definido.
+

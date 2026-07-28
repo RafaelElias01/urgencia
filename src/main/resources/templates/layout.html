@@ -83,7 +83,7 @@
                               class="badge rounded-pill bg-danger"
                               style="font-size:.65rem;"
                               th:text="${pendentesTriagemOnline}">0</span>
-                        <span th:if="${mensagensNaoLidasOperador > 0}"
+                        <span id="navBadgeMsgNaoLida" th:if="${mensagensNaoLidasOperador > 0}"
                               class="badge rounded-pill bg-warning text-dark"
                               style="font-size:.65rem;"
                               th:text="${mensagensNaoLidasOperador}">0</span>
@@ -135,6 +135,71 @@
             </ul>
         </div>
     </div>
+
+<!-- tocarNotificacao()/mostrarToast() ficam disponiveis em toda tela que
+     inclui a navbar (bundlado aqui em vez de cada template incluir
+     "notificacaoSonora" na mao) - as 3 telas de chat especifico que ja
+     incluiam esse fragmento tiveram o include redundante removido. -->
+<script th:replace="~{layout :: notificacaoSonora}"></script>
+
+<!-- Notificacao global de chat: roda em toda tela que inclui a navbar
+     (praticamente todas, exceto login/erro), EXCETO nas 3 telas que ja tem
+     seu proprio poll de chat especifico (chatAtivoNestaTela=true), pra nao
+     duplicar som/toast. So checa contagem (nunca marca como lida) - abrir a
+     conversa de fato continua sendo o que marca como lida. -->
+<script th:if="${solicitanteHabilitado}" th:unless="${chatAtivoNestaTela}"
+        sec:authorize="hasAnyRole('ADMIN','OPERADOR')" th:inline="javascript">
+    (function () {
+        var url = /*[[@{/processos/solicitacoes-online/nao-lidas-count}]]*/ '';
+        var chave = 'saur_nl_operador';
+        var anterior = sessionStorage.getItem(chave);
+        function poll() {
+            fetch(url, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+                .then(function (data) {
+                    var atual = data.total;
+                    if (anterior !== null && atual > parseInt(anterior, 10)) {
+                        if (typeof tocarNotificacao === 'function') tocarNotificacao();
+                        if (typeof mostrarToast === 'function') mostrarToast('Nova mensagem de um solicitante.', 'info');
+                    }
+                    anterior = String(atual);
+                    sessionStorage.setItem(chave, anterior);
+                    var badge = document.getElementById('navBadgeMsgNaoLida');
+                    if (badge) {
+                        badge.textContent = atual;
+                        badge.classList.toggle('d-none', atual <= 0);
+                    }
+                })
+                .catch(function () { /* falha pontual de rede - proxima tentativa em breve */ });
+        }
+        poll();
+        setInterval(poll, 20000);
+    })();
+</script>
+<script th:if="${solicitanteHabilitado}" th:unless="${chatAtivoNestaTela}"
+        sec:authorize="hasRole('SOLICITANTE')" th:inline="javascript">
+    (function () {
+        var url = /*[[@{/solicitante/nao-lidas-count}]]*/ '';
+        var chave = 'saur_nl_solicitante';
+        var anterior = sessionStorage.getItem(chave);
+        function poll() {
+            fetch(url, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+                .then(function (data) {
+                    var atual = data.total;
+                    if (anterior !== null && atual > parseInt(anterior, 10)) {
+                        if (typeof tocarNotificacao === 'function') tocarNotificacao();
+                        if (typeof mostrarToast === 'function') mostrarToast('Nova mensagem da equipe CET-RS.', 'info');
+                    }
+                    anterior = String(atual);
+                    sessionStorage.setItem(chave, anterior);
+                })
+                .catch(function () { /* falha pontual de rede - proxima tentativa em breve */ });
+        }
+        poll();
+        setInterval(poll, 20000);
+    })();
+</script>
 </nav>
 
 <div th:fragment="flash" class="container mt-3">

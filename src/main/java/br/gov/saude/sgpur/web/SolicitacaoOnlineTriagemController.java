@@ -78,10 +78,27 @@ public class SolicitacaoOnlineTriagemController {
             .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
             .count();
         model.addAttribute("msgNaoLidas", msgNaoLidas);
+        // Evita notificacao duplicada: esta tela ja tem seu proprio poll de chat
+        // (chat-solicitacao.js), entao o poll GLOBAL da navbar (layout.html) fica
+        // desligado aqui - ver "chatAtivoNestaTela" em layout.html.
+        model.addAttribute("chatAtivoNestaTela", true);
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
         return "processos/solicitacoes-online-detalhe";
+    }
+
+    /**
+     * Contagem global de mensagens de solicitante ainda nao lidas, pra
+     * notificacao sonora/toast em QUALQUER tela do operador (layout.html) -
+     * as 3 telas de chat (aqui, /processos/{id}, /solicitante/{id}) ja tem
+     * seu proprio poll especifico e nao usam este endpoint (ver
+     * chatAtivoNestaTela).
+     */
+    @GetMapping("/nao-lidas-count")
+    @ResponseBody
+    public Map<String, Object> naoLidasCount() {
+        return Map.of("total", mensagemService.contarNaoLidasOperador());
     }
 
     @PostMapping("/{id}/mensagem")

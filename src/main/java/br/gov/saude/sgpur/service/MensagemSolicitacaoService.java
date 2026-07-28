@@ -58,6 +58,13 @@ public class MensagemSolicitacaoService {
         return repository.countByLidaFalseAndRemetente(RemetenteMensagem.SOLICITANTE);
     }
 
+    /** Total de respostas do OPERADOR ainda nao lidas por um solicitante, somando todas as solicitacoes dele. */
+    @Transactional(readOnly = true)
+    public long contarNaoLidasParaSolicitante(Long usuarioSolicitanteId) {
+        return repository.countByRemetenteAndLidaFalseAndSolicitacaoOnlineUsuarioSolicitanteId(
+            RemetenteMensagem.OPERADOR, usuarioSolicitanteId);
+    }
+
     @Transactional(readOnly = true)
     public Set<Long> idsSolicitacoesComMsgNaoLidaSolicitante() {
         return repository.findDistinctSolicitacaoOnlineIdsByLidaFalseAndRemetente(RemetenteMensagem.SOLICITANTE);
