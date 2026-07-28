@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -57,6 +59,11 @@ class SolicitacaoOnlineTriagemControllerTest {
         solicitacao.setDataSituacaoEspecial(LocalDate.now());
         solicitacao.setJustificativaClinica("Quadro grave.");
         solicitacao.setStatus(StatusSolicitacaoOnline.ENVIADA);
+
+        Usuario operador = new Usuario();
+        operador.setId(1L);
+        operador.setUsername("user");
+        when(usuarioRepo.findByUsername("user")).thenReturn(Optional.of(operador));
     }
 
     @Test

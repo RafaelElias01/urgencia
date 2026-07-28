@@ -69,11 +69,14 @@ public class SolicitacaoOnlineTriagemController {
     }
 
     @GetMapping("/{id}")
-    @Transactional(readOnly = true)
-    public String detalhe(@PathVariable Long id, Model model) {
+    @Transactional
+    public String detalhe(@PathVariable Long id, Principal principal, Model model) {
         model.addAttribute("solicitacao", service.buscarParaDetalhe(id));
         model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
         model.addAttribute("temMsgNaoLida", mensagemService.idsSolicitacoesComMsgNaoLidaSolicitante().contains(id));
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
         return "processos/solicitacoes-online-detalhe";
     }
 

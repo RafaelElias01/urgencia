@@ -7,7 +7,6 @@ import br.gov.saude.sgpur.domain.StatusProcesso;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
-import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,8 +38,6 @@ class GlobalModelAdviceTest {
     private ParecerRepository parecerRepo;
     @Mock
     private SolicitacaoOnlineService solicitacaoOnlineService;
-    @Mock
-    private MensagemSolicitacaoService mensagemService;
 
     private GlobalModelAdvice advice;
 
@@ -50,7 +47,7 @@ class GlobalModelAdviceTest {
         // sao injetados pelo MockitoExtension DEPOIS que o construtor da
         // classe de teste roda, entao usuarioRepo/parecerRepo ainda estariam
         // null se "advice" fosse montado ali.
-        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, true, mensagemService);
+        advice = new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, true);
     }
 
     @AfterEach
@@ -131,7 +128,7 @@ class GlobalModelAdviceTest {
     @Test
     void pendentesTriagemOnlineRetornaZeroQuandoModuloDesabilitado() {
         GlobalModelAdvice adviceDesabilitado =
-            new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, false, mensagemService);
+            new GlobalModelAdvice(usuarioRepo, parecerRepo, solicitacaoOnlineService, false);
         SecurityContextHolder.getContext().setAuthentication(
             new TestingAuthenticationToken("op1", "senha", "ROLE_OPERADOR"));
 

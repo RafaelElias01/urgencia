@@ -155,7 +155,7 @@ public class SolicitanteController {
     }
 
     @GetMapping("/{id}")
-    @Transactional(readOnly = true)
+    @Transactional
     public String detalhe(@PathVariable Long id, Principal principal, Model model) {
         Usuario usuario = resolverUsuario(principal);
         SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);

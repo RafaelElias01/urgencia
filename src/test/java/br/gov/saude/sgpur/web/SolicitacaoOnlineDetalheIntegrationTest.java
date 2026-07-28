@@ -62,6 +62,15 @@ class SolicitacaoOnlineDetalheIntegrationTest {
         anexoRepo.deleteAll();
         solicitacaoRepo.deleteAll();
 
+        if (usuarioRepo.findByUsername("user").isEmpty()) {
+            Usuario operador = new Usuario();
+            operador.setUsername("user");
+            operador.setSenha("{noop}x");
+            operador.setNome("Operador Teste");
+            operador.setPerfil(Perfil.OPERADOR);
+            usuarioRepo.save(operador);
+        }
+
         Usuario dono = usuarioRepo.findByUsername("solicitante-it").orElseGet(() -> {
             Usuario u = new Usuario();
             u.setUsername("solicitante-it");
