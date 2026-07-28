@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,7 @@ import org.springframework.security.web.header.writers.DelegatingRequestMatcherH
 import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
 import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter.XFrameOptionsMode;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -45,6 +47,23 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Sem isso, o controle de sessao concorrente (maximumSessions(1)) nunca
+     * fica sabendo quando uma HttpSession morre (timeout do servidor,
+     * navegador fechado sem logout, etc.) - o SessionRegistry continua
+     * contando a sessao antiga como ativa para sempre, e qualquer login
+     * seguinte do mesmo usuario esbarra no limite. Registrar
+     * HttpSessionEventPublisher como listener do servlet container (via
+     * ServletListenerRegistrationBean - um @Bean simples do publisher NAO
+     * e auto-registrado como listener pelo Spring Boot) resolve isso: toda
+     * destruicao de sessao passa a remover a entrada correspondente do
+     * registry.
+     */
+    @Bean
+    public ServletListenerRegistrationBean<HttpSessionEventPublisher> httpSessionEventPublisher() {
+        return new ServletListenerRegistrationBean<>(new HttpSessionEventPublisher());
     }
 
     /**
@@ -139,7 +158,19 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session
                 .maximumSessions(1)
-                .maxSessionsPreventsLogin(true)
+                // false: um novo login com senha correta EXPIRA a sessao antiga em vez
+                // de ser rejeitado. Antes era true (rejeitava o login novo) - isso
+                // travava o usuario de fora quando a sessao anterior ficava "presa"
+                // no SessionRegistry (navegador fechado sem logout, restart do
+                // servico, timeout do lado do servidor) porque nao existia
+                // HttpSessionEventPublisher (ver bean logo abaixo) avisando o
+                // Spring Security que aquela sessao morreu - o registry continuava
+                // contando ela pro limite de 1 indefinidamente. Com
+                // HttpSessionEventPublisher registrado, sessoes expiradas/invalidadas
+                // agora saem do registry corretamente; ainda assim mantemos false
+                // por seguranca (senha certa nunca deve travar o dono legitimo fora
+                // da propria conta).
+                .maxSessionsPreventsLogin(false)
             )
             .csrf(csrf -> {
                 // H2 console usa frames e nao envia CSRF token - excecao so em dev

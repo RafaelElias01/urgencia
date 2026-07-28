@@ -841,6 +841,32 @@ tr.linha-inativa > td:first-child {
     transform: rotate(180deg);
 }
 
+/* === Chat: botao de apagar mensagem (renderizado via chat-solicitacao.js) ===
+   Antes vinha com opacity:0.3 inline (quase invisivel, sem contraste na
+   bolha azul "de voce") - agora um estado padrao legivel + hover/focus a
+   100% de opacidade. Tamanho um pouco maior que o texto ao redor (small)
+   pra nao virar um alvo de clique minusculo. */
+.btn-apagar-msg-chat {
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+.btn-apagar-msg-chat:hover,
+.btn-apagar-msg-chat:focus-visible {
+    opacity: 1;
+}
+/* Na bolha "de voce" (bg-primary, fundo azul) o vermelho padrao some contra
+   o azul - usa um vermelho claro (contraste alto sobre --rs-blue) que fica
+   branco puro no hover/focus. */
+.bg-primary .btn-apagar-msg-chat {
+    color: #ffc9c9;
+}
+.bg-primary .btn-apagar-msg-chat:hover,
+.bg-primary .btn-apagar-msg-chat:focus-visible {
+    color: #fff;
+}
+
 /* === Acessibilidade: respeita 'reduzir movimento' do sistema ===
    Desliga a animacao infinita (pulse-ring) e neutraliza as entradas com fade. */
 @media (prefers-reduced-motion: reduce) {

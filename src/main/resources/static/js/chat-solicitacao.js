@@ -64,7 +64,7 @@ function iniciarChatSolicitacao(cfg) {
             var apagarBtn = '';
             if (msg.podeApagar) {
                 apagarBtn = '<button type="button" class="btn btn-sm p-0 border-0 bg-transparent text-danger btn-apagar-msg-chat" '
-                    + 'data-id="' + msg.id + '" style="opacity:0.3;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.3">'
+                    + 'data-id="' + msg.id + '" title="Apagar mensagem" aria-label="Apagar mensagem">'
                     + '<i class="bi bi-trash"></i></button>';
             }
             var check = '';
