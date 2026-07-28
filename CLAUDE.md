@@ -503,7 +503,10 @@ autenticação, exposição de dados, IDOR e configuração. 6 correções aplic
 - Password policy: mínimo 8 chars + maiúscula + minúscula + número + especial
   (aplicado em criar, editar e alterar própria senha)
 - Login audit trail: toda tentativa de login (sucesso e falha) logada com IP
-  (antes só logava o bloqueio de 15 min)
+  (antes só logava o bloqueio de 15 min). **Atualização mesmo dia (commit
+  `cfc9f86`): o bloqueio de 15 min foi removido** — decisão deliberada de
+  produto (não bug), o log de auditoria com IP continua sendo a defesa
+  usada. `LoginAttemptService.estaBloqueado` agora sempre retorna `false`.
 - LogAuditoria.PROCESSO_CADASTRADO: usa `Iniciais.de()` (antes nome completo
   do paciente no detalhe, visível na tela de auditoria ADMIN)
 - Session management: timeout 30m explícito + `maxSessions=1` (concorrência
@@ -671,4 +674,41 @@ SMTP isolada (sem depender do Java) com `getpass`.
    processo (`/processos/{id}`), com campo de resposta e badge de não lidas.
 6. **Badge e chevron**: os 3 templates de chat ganharam badge de contagem de mensagens
    e classe `chevron-collapse` para animação do chevron ao recolher.
+7. **Fix scroll do chat ao enviar mensagem** (commit `3ba402f`): o scroll suave
+   simples (`chatBox.scrollTo(...)`) rodava só no load inicial e não
+   sobrevivia ao POST+redirect do formulário de mensagem, deixando o chat
+   "pulando" pro topo depois de enviar. Substituído por um mecanismo baseado
+   em `sessionStorage` nos 3 templates de chat
+   (`processos/detalhe.html`, `processos/solicitacoes-online-detalhe.html`,
+   `solicitante/detalhe.html`): ao submeter o form de mensagem, salva se o
+   usuário estava perto do fim (`estaProximoDoFim`, threshold 80px) e a
+   posição de scroll da página; no próximo load (`load` + `pageshow`, cobre
+   BFcache — mesmo padrão da Hipótese A/D da seção de notificação acima)
+   restaura scroll pro fim do chat se estava seguindo a conversa, ou
+   preserva a posição se o usuário tinha rolado pra cima pra ler histórico.
+   `history.scrollRestoration = 'manual'` evita o navegador brigar com essa
+   lógica.
+
+## Sessão de 2026-07-28 (ajustes finais do dia)
+
+1. **Fix N+1 evitável no detalhe do processo** (commit `9989945`):
+   `ProcessoDetalheController` buscava a `SolicitacaoOnline` de origem
+   (`findByProcessoGeradoId`, entidade completa) incondicionalmente pra
+   achar só o ID a exibir no link "Ver solicitação original" — mesmo em
+   processos que não vieram do portal. Trocado por
+   `findIdByProcessoGeradoId` (projeção só do ID) e a query só roda quando
+   `processoVeioDoPortal` é `true`.
+2. **Fix: chat da tela de detalhe do processo não notificava (som/toast)**.
+   Quando o chat foi trazido pra `/processos/{id}` na sessão anterior (ver
+   "logo Gota+Cruz + chat" acima), só o badge de contagem
+   (`msgNaoLidas`) foi portado — `temMsgNaoLida`, o fragmento
+   `layout :: notificacaoSonora` e a chamada de `tocarNotificacao()`/
+   `mostrarToast()` nunca foram adicionados a essa tela (só existiam em
+   `solicitacoes-online-detalhe.html` e `solicitante/detalhe.html`).
+   `ProcessoDetalheController.detalhe` agora seta `temMsgNaoLida` (mesmo
+   padrão das outras duas telas: `msgNaoLidas > 0`, calculado a partir da
+   mesma lista de mensagens já carregada, `false` nos ramos sem origem de
+   portal) e `processos/detalhe.html` ganhou o mesmo script anti-BFcache
+   (`pageshow` + `PerformanceNavigationTiming` + `sessionStorage`) das
+   outras duas telas de chat.
 

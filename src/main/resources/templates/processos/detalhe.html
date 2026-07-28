@@ -969,6 +969,24 @@
     </div>
 </div>
 
+<script th:replace="~{layout :: notificacaoSonora}"></script>
+<script>
+    var chave_notif = 'notif_proc_detalhe_' + /*[[${processo.id}]]*/ '0';
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) { location.reload(); return; }
+        sessionStorage.removeItem(chave_notif);
+    });
+    var isBfcacheProcesso = false;
+    try { isBfcacheProcesso = performance.getEntriesByType('navigation')[0].type === 'back_forward'; } catch(e) {}
+    if (!isBfcacheProcesso) {
+        sessionStorage.removeItem(chave_notif);
+        if (/*[[${temMsgNaoLida}]]*/ false) {
+            tocarNotificacao();
+            mostrarToast('Nova mensagem recebida do solicitante.', 'info');
+            sessionStorage.setItem(chave_notif, '1');
+        }
+    }
+</script>
 <script>
     (function () {
         var chatBox = document.getElementById('chatBox');

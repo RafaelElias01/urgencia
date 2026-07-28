@@ -319,11 +319,14 @@ public class ProcessoDetalheController {
                     .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
                     .count();
                 model.addAttribute("msgNaoLidas", msgNaoLidas);
+                model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
             } else {
                 model.addAttribute("solicitacaoOnlineOrigemId", null);
+                model.addAttribute("temMsgNaoLida", false);
             }
         } else {
             model.addAttribute("solicitacaoOnlineOrigemId", null);
+            model.addAttribute("temMsgNaoLida", false);
         }
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()
