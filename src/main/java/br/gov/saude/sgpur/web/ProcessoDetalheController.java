@@ -26,6 +26,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -267,10 +268,10 @@ public class ProcessoDetalheController {
     }
 
     @GetMapping("/{id}")
-    @Transactional(readOnly = true)
-    // Sobrescreve o @Transactional (read-write) da classe so nesta rota:
-    // e a unica leitura pura do controller, as demais escrevem anexo/estado.
-    public String detalhe(@PathVariable Long id, Model model) {
+    // Usa o @Transactional (read-write) padrao da classe: desde a correcao do
+    // bug do marcarComoLidas (2026-07-28) esta rota tambem escreve (marca
+    // mensagens do solicitante como lidas), entao nao pode mais ser readOnly.
+    public String detalhe(@PathVariable Long id, Model model, Principal principal) {
         Processo p = processoService.buscar(id);
         model.addAttribute("processo", p);
         // Nome da pasta que o operador vera ao descompactar o dossie
@@ -319,14 +320,19 @@ public class ProcessoDetalheController {
                     .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
                     .count();
                 model.addAttribute("msgNaoLidas", msgNaoLidas);
-                model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
+                // Bug corrigido em 2026-07-28: faltava marcar como lidas aqui (unica
+                // das 3 telas de chat que nao chamava isso) - o badge/notificacao
+                // ficava preso pra sempre pra quem so usa esta tela. Ver CLAUDE.md.
+                Usuario operadorLogado = usuarioRepo.findByUsername(principal.getName()).orElse(null);
+                if (operadorLogado != null) {
+                    mensagemService.marcarComoLidas(solicitacaoOrigemId,
+                        MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operadorLogado.getId());
+                }
             } else {
                 model.addAttribute("solicitacaoOnlineOrigemId", null);
-                model.addAttribute("temMsgNaoLida", false);
             }
         } else {
             model.addAttribute("solicitacaoOnlineOrigemId", null);
-            model.addAttribute("temMsgNaoLida", false);
         }
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()
@@ -489,6 +495,63 @@ public class ProcessoDetalheController {
             ra.addFlashAttribute("erro", e.getMessage());
         }
         return "redirect:/processos/" + id;
+    }
+
+    /** Polling do chat (AJAX) - equivalente ao usado nas outras 2 telas de chat. */
+    @GetMapping("/{id}/mensagens")
+    @ResponseBody
+    public java.util.Map<String, Object> mensagensJson(@PathVariable Long id, Principal principal) {
+        Processo p = processoService.buscar(id);
+        Long solicitacaoOrigemId = solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null);
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<>();
+        if (solicitacaoOrigemId == null) {
+            resp.put("mensagens", java.util.List.of());
+            resp.put("podeEnviar", false);
+            return resp;
+        }
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        mensagemService.marcarComoLidas(solicitacaoOrigemId, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
+        resp.put("mensagens", mensagemService.paraChat(
+            solicitacaoOrigemId, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId(), "Voce", "Solicitante"));
+        resp.put("podeEnviar", true);
+        return resp;
+    }
+
+    @PostMapping("/{id}/mensagem/ajax")
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> enviarMensagemAjax(@PathVariable Long id,
+            @RequestParam String texto, Principal principal) {
+        Processo p = processoService.buscar(id);
+        Long solicitacaoOrigemId = solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null);
+        if (solicitacaoOrigemId == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("erro",
+                "Este processo nao possui solicitacao de origem vinculada."));
+        }
+        if (texto == null || texto.isBlank()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("erro", "A mensagem nao pode estar em branco."));
+        }
+        SolicitacaoOnline s = solicitacaoOnlineService.buscar(solicitacaoOrigemId);
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
+        auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
+            "Processo " + p.getNumero() + " - resposta do operador " + operador.getUsername());
+        return ResponseEntity.ok(java.util.Map.of("ok", true));
+    }
+
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar/ajax")
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> apagarMensagemAjax(@PathVariable Long id,
+            @PathVariable Long mensagemId, Principal principal) {
+        try {
+            Usuario operador = usuarioRepo.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+            mensagemService.apagar(mensagemId, operador.getId(), MensagemSolicitacao.RemetenteMensagem.OPERADOR);
+            return ResponseEntity.ok(java.util.Map.of("ok", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("erro", e.getMessage()));
+        }
     }
 
     @LogAuditoria(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")

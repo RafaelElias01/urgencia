@@ -176,7 +176,6 @@ public class SolicitanteController {
                 && !m.getRemetenteId().equals(usuario.getId()))
             .count();
         model.addAttribute("msgNaoLidas", msgNaoLidas);
-        model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
     }
@@ -248,6 +247,59 @@ public class SolicitanteController {
             ra.addFlashAttribute("erro", e.getMessage());
         }
         return "redirect:/solicitante/" + id;
+    }
+
+    /**
+     * Polling do chat (AJAX, chamado a cada poucos segundos pelo
+     * chat-solicitacao.js) - devolve as mensagens ja projetadas pra tela e
+     * marca como lidas, sem recarregar a pagina inteira.
+     */
+    @GetMapping("/{id}/mensagens")
+    @ResponseBody
+    public Map<String, Object> mensagensJson(@PathVariable Long id, Principal principal) {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = resolverPropria(id, usuario);
+        mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
+        List<MensagemSolicitacaoService.MensagemChatView> mensagens = mensagemService.paraChat(
+            id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, usuario.getId(), "Voce", "Equipe CET-RS");
+        boolean podeEnviar = s.getStatus() != StatusSolicitacaoOnline.CANCELADA
+            && s.getStatus() != StatusSolicitacaoOnline.PROCESSO_EXCLUIDO;
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("mensagens", mensagens);
+        resp.put("podeEnviar", podeEnviar);
+        return resp;
+    }
+
+    @PostMapping("/{id}/mensagem/ajax")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> enviarMensagemAjax(@PathVariable Long id, @RequestParam String texto,
+                                                                    Principal principal) {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = conferirPosse(solicitacaoService.buscar(id), usuario);
+        if (texto == null || texto.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "A mensagem nao pode estar em branco."));
+        }
+        if (s.getStatus() == StatusSolicitacaoOnline.CANCELADA || s.getStatus() == StatusSolicitacaoOnline.PROCESSO_EXCLUIDO) {
+            return ResponseEntity.badRequest().body(Map.of("erro",
+                "Nao e possivel enviar mensagem para esta solicitacao no estado atual."));
+        }
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, usuario.getId());
+        auditoria.registrar("MENSAGEM_SOLICITANTE_ENVIADA",
+            "Solicitacao " + id + " - " + s.identificacao());
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar/ajax")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> apagarMensagemAjax(@PathVariable Long id, @PathVariable Long mensagemId,
+                                                                    Principal principal) {
+        Usuario usuario = resolverUsuario(principal);
+        try {
+            mensagemService.apagar(mensagemId, usuario.getId(), MensagemSolicitacao.RemetenteMensagem.SOLICITANTE);
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        }
     }
 
     /**

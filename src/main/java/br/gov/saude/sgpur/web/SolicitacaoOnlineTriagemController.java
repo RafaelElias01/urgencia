@@ -78,7 +78,6 @@ public class SolicitacaoOnlineTriagemController {
             .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
             .count();
         model.addAttribute("msgNaoLidas", msgNaoLidas);
-        model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
@@ -112,6 +111,51 @@ public class SolicitacaoOnlineTriagemController {
             ra.addFlashAttribute("erro", e.getMessage());
         }
         return "redirect:/processos/solicitacoes-online/" + id;
+    }
+
+    /** Polling do chat (AJAX) - equivalente ao usado nas outras 2 telas de chat. */
+    @GetMapping("/{id}/mensagens")
+    @ResponseBody
+    public Map<String, Object> mensagensJson(@PathVariable Long id, Principal principal) {
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("mensagens", mensagemService.paraChat(
+            id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId(), "Voce", "Solicitante"));
+        resp.put("podeEnviar", true);
+        return resp;
+    }
+
+    @PostMapping("/{id}/mensagem/ajax")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<Map<String, Object>> enviarMensagemAjax(@PathVariable Long id,
+            @RequestParam String texto, Principal principal) {
+        SolicitacaoOnline s = service.buscar(id);
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        if (texto == null || texto.isBlank()) {
+            return org.springframework.http.ResponseEntity.badRequest()
+                .body(Map.of("erro", "A mensagem nao pode estar em branco."));
+        }
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
+        auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
+            "Solicitacao " + id + " - resposta do operador " + operador.getUsername());
+        return org.springframework.http.ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar/ajax")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<Map<String, Object>> apagarMensagemAjax(@PathVariable Long id,
+            @PathVariable Long mensagemId, Principal principal) {
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        try {
+            mensagemService.apagar(mensagemId, operador.getId(), MensagemSolicitacao.RemetenteMensagem.OPERADOR);
+            return org.springframework.http.ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException e) {
+            return org.springframework.http.ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        }
     }
 
     /**

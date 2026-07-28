@@ -911,52 +911,20 @@
              data-bs-toggle="collapse" data-bs-target="#chatBodyProcesso" aria-expanded="true">
             <span><i class="bi bi-chat-dots"></i> Conversa com o solicitante</span>
             <span class="d-flex align-items-center gap-1">
-                <span th:if="${msgNaoLidas > 0}" class="badge bg-warning text-dark"
+                <span id="chatBadgeNaoLida" th:if="${msgNaoLidas > 0}" class="badge bg-warning text-dark"
                       th:text="${msgNaoLidas} + ' nova(s)'">0</span>
-                <span th:if="${#lists.size(mensagens) > 0}" class="badge bg-secondary ms-1"
+                <span id="chatBadgeTotal" th:classappend="${#lists.size(mensagens) == 0} ? 'd-none'" class="badge bg-secondary ms-1"
                       th:text="${#lists.size(mensagens)} + ' total'">0</span>
                 <i class="bi bi-chevron-up chevron-collapse ms-2"></i>
             </span>
         </div>
         <div class="card-body collapse show" id="chatBodyProcesso">
-            <div th:if="${mensagens.isEmpty()}" class="text-muted small text-center py-3">
+            <div id="chatVazio" th:classappend="${!mensagens.isEmpty()} ? 'd-none'" class="text-muted small text-center py-3">
                 Nenhuma mensagem ainda.
             </div>
-            <div id="chatBox" th:unless="${mensagens.isEmpty()}" class="mb-3" style="max-height:250px;overflow-y:auto;">
-                <div th:each="msg : ${mensagens}" class="mb-2 d-flex"
-                     th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'justify-content-end' : 'justify-content-start'">
-                    <div th:if="${msg.deletada}" class="rounded-3 px-3 py-2 small text-muted fst-italic border"
-                         style="max-width:80%;">
-                        <span th:text="${msg.remetente.name() == 'OPERADOR'} ? 'Voce apagou esta mensagem.' : 'Mensagem apagada pelo solicitante.'"></span>
-                    </div>
-                    <div th:unless="${msg.deletada}" class="rounded-3 px-3 py-2 position-relative"
-                         style="max-width:80%;"
-                         th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'bg-primary text-white' : 'bg-light border'">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
-                            <div class="small fw-semibold" th:classappend="${msg.remetente.name() == 'OPERADOR'} ? '' : 'text-muted'"
-                                 th:text="${msg.remetente.name() == 'OPERADOR'} ? 'Voce' : 'Solicitante'"></div>
-                            <form th:action="@{/processos/{id}/mensagem/{mid}/apagar(id=${processo.id}, mid=${msg.id})}"
-                                  method="post" th:if="${msg.remetente.name() == 'OPERADOR'}"
-                                  class="m-0" style="opacity:0.3;" onmouseover="this.style.opacity=1"
-                                  onmouseout="this.style.opacity=0.3">
-                                <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent text-danger"
-                                        onclick="return confirm('Apagar esta mensagem?')">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
-                        </div>
-                        <div class="small" style="white-space: pre-wrap;" th:text="${msg.texto}"></div>
-                        <div class="small opacity-75 mt-1 d-flex align-items-center gap-1"
-                             th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'text-white-50' : 'text-muted'">
-                            <span class="ts-relative" th:attr="data-ts=${#temporals.format(msg.dataEnvio, 'yyyy-MM-dd HH:mm:ss')}"
-                                  th:text="${#temporals.format(msg.dataEnvio, 'dd/MM/yyyy HH:mm')}"></span>
-                            <i th:if="${msg.lida and msg.remetente.name() == 'OPERADOR'}" class="bi bi-check-all" style="font-size:.75rem;"></i>
-                            <i th:if="${!msg.lida and msg.remetente.name() == 'OPERADOR'}" class="bi bi-check" style="font-size:.75rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <form th:action="@{/processos/{id}/mensagem(id=${processo.id})}" method="post">
+            <!-- Renderizado por chat-solicitacao.js (poll AJAX). -->
+            <div id="chatBox" th:classappend="${mensagens.isEmpty()} ? 'd-none'" class="mb-3" style="max-height:250px;overflow-y:auto;"></div>
+            <form id="chatForm" th:action="@{/processos/{id}/mensagem/ajax(id=${processo.id})}" method="post">
                 <div class="input-group">
                     <input type="text" name="texto" class="form-control" placeholder="Responder ao solicitante..."
                            required maxlength="2000">
@@ -970,92 +938,21 @@
 </div>
 
 <script th:replace="~{layout :: notificacaoSonora}"></script>
-<script>
-    var chave_notif = 'notif_proc_detalhe_' + /*[[${processo.id}]]*/ '0';
-    window.addEventListener('pageshow', function(e) {
-        if (e.persisted) { location.reload(); return; }
-        sessionStorage.removeItem(chave_notif);
-    });
-    var isBfcacheProcesso = false;
-    try { isBfcacheProcesso = performance.getEntriesByType('navigation')[0].type === 'back_forward'; } catch(e) {}
-    if (!isBfcacheProcesso) {
-        sessionStorage.removeItem(chave_notif);
-        if (/*[[${temMsgNaoLida}]]*/ false) {
-            tocarNotificacao();
-            mostrarToast('Nova mensagem recebida do solicitante.', 'info');
-            sessionStorage.setItem(chave_notif, '1');
-        }
-    }
-</script>
-<script>
-    (function () {
-        var chatBox = document.getElementById('chatBox');
-        var chatScrollKey = 'chat-scroll-' + window.location.pathname;
-        var chatPendingKey = chatScrollKey + '-pending';
-
-        if (history.scrollRestoration) {
-            history.scrollRestoration = 'manual';
-        }
-
-        function estaProximoDoFim() {
-            if (!chatBox) return true;
-            return (chatBox.scrollHeight - chatBox.clientHeight - chatBox.scrollTop) < 80;
-        }
-
-        document.querySelectorAll('form').forEach(function (form) {
-            if (!form.querySelector('input[name="texto"]')) return;
-            form.addEventListener('submit', function () {
-                var seguirFim = estaProximoDoFim() ? 'bottom' : 'preserve';
-                sessionStorage.setItem(chatPendingKey, seguirFim);
-                sessionStorage.setItem(chatScrollKey, String(Math.max(window.scrollY || 0, 0)));
-            });
-        });
-
-        function restaurarScroll() {
-            var pending = sessionStorage.getItem(chatPendingKey);
-            if (pending === 'bottom') {
-                if (chatBox) {
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
-                window.scrollTo(0, document.documentElement.scrollHeight);
-            } else if (pending === 'preserve') {
-                var savedScroll = parseInt(sessionStorage.getItem(chatScrollKey), 10);
-                if (!isNaN(savedScroll) && savedScroll >= 0) {
-                    window.scrollTo(0, savedScroll);
-                }
-            } else if (chatBox) {
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            sessionStorage.removeItem(chatPendingKey);
-            sessionStorage.removeItem(chatScrollKey);
-        }
-
-        window.addEventListener('load', function () {
-            setTimeout(restaurarScroll, 0);
-            setTimeout(restaurarScroll, 100);
-        });
-
-        window.addEventListener('pageshow', function () {
-            setTimeout(restaurarScroll, 0);
-            setTimeout(restaurarScroll, 100);
-        });
-    })();
-
-    // Timestamp relativo
-    document.querySelectorAll('.ts-relative').forEach(function(el) {
-        var data = el.getAttribute('data-ts');
-        if (!data) return;
-        var partes = data.split(/[-\s:]/);
-        var d = new Date(partes[0], partes[1]-1, partes[2], partes[3], partes[4], partes[5]);
-        var diff = Math.floor((Date.now() - d.getTime()) / 1000);
-        var texto;
-        if (diff < 60) texto = 'agora';
-        else if (diff < 3600) texto = Math.floor(diff/60) + ' min atras';
-        else if (diff < 86400) texto = Math.floor(diff/3600) + ' h atras';
-        else if (diff < 172800) texto = 'ontem';
-        else texto = el.textContent;
-        el.textContent = texto;
+<script th:src="@{/js/chat-solicitacao.js}"></script>
+<script th:inline="javascript">
+    iniciarChatSolicitacao({
+        pollUrl: /*[[@{/processos/{id}/mensagens(id=${processo.id})}]]*/ '',
+        sendUrl: /*[[@{/processos/{id}/mensagem/ajax(id=${processo.id})}]]*/ '',
+        deleteUrlBase: /*[[@{/processos/{id}/mensagem/(id=${processo.id})}]]*/ '',
+        formSelector: '#chatForm',
+        inputSelector: 'input[name="texto"]',
+        chatBoxSelector: '#chatBox',
+        emptySelector: '#chatVazio',
+        badgeTotalSelector: '#chatBadgeTotal',
+        badgeNaoLidaSelector: '#chatBadgeNaoLida',
+        notifMensagem: 'Nova mensagem recebida do solicitante.',
+        labelApagadaOutro: 'pelo solicitante',
+        intervaloMs: 5000
     });
 </script>
 

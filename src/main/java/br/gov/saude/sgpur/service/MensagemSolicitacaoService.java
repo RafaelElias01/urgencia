@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
@@ -93,5 +94,43 @@ public class MensagemSolicitacaoService {
     @Transactional
     public void excluirPorSolicitacao(Long solicitacaoOnlineId) {
         repository.deleteBySolicitacaoOnlineId(solicitacaoOnlineId);
+    }
+
+    private static final DateTimeFormatter ISO_CHAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * Mensagem projetada pro chat, ja relativa a quem esta vendo (usada pelo
+     * polling AJAX das 3 telas de chat - solicitante, triagem e detalhe do
+     * processo). {@code deVoce} e {@code podeApagar} sao calculados aqui pra
+     * evitar duplicar a logica de "de quem e essa mensagem" em 3 templates.
+     */
+    public record MensagemChatView(Long id, boolean deVoce, String nomeRemetente, String texto,
+                                    String dataEnvioIso, String dataEnvioFormatada,
+                                    boolean lida, boolean deletada, boolean podeApagar) {}
+
+    /**
+     * @param remetenteAtual   papel de quem esta vendo o chat (OPERADOR nas telas do operador, SOLICITANTE no portal)
+     * @param remetenteAtualId id do usuario logado (so importa pra decidir se PODE apagar uma mensagem propria)
+     * @param labelEu          rotulo pras mensagens do proprio papel ("Voce")
+     * @param labelOutro       rotulo pras mensagens do outro lado ("Solicitante" ou "Equipe CET-RS")
+     */
+    @Transactional(readOnly = true)
+    public List<MensagemChatView> paraChat(Long solicitacaoOnlineId, RemetenteMensagem remetenteAtual,
+                                            Long remetenteAtualId, String labelEu, String labelOutro) {
+        return listarPorSolicitacao(solicitacaoOnlineId).stream()
+            .map(m -> {
+                boolean deVoce = m.getRemetente() == remetenteAtual;
+                return new MensagemChatView(
+                    m.getId(),
+                    deVoce,
+                    deVoce ? labelEu : labelOutro,
+                    m.getTexto(),
+                    m.getDataEnvio().format(ISO_CHAT),
+                    m.getDataEnvio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
+                    m.isLida(),
+                    m.isDeletada(),
+                    deVoce && m.getRemetenteId().equals(remetenteAtualId));
+            })
+            .toList();
     }
 }

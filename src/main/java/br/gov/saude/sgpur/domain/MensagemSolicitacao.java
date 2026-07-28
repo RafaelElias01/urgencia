@@ -26,7 +26,12 @@ public class MensagemSolicitacao {
     @Column(name = "remetente_id", nullable = false)
     private Long remetenteId;
 
-    @Column(name = "texto", columnDefinition = "TEXT", nullable = false)
+    // Nullable: MensagemSolicitacaoService.apagar() zera o texto ao apagar
+    // (soft delete visivel via 'deletada') - antes disso a coluna era
+    // NOT NULL e apagar mensagem quebrava com constraint violation (bug real
+    // achado em 2026-07-28 rodando o fluxo AJAX contra um H2 de verdade; os
+    // testes usam mock e nunca bateram nessa constraint).
+    @Column(name = "texto", columnDefinition = "TEXT")
     private String texto;
 
     @Column(name = "data_envio", nullable = false)

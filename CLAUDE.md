@@ -402,6 +402,7 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
 - Templates Thymeleaf usam os fragments de `templates/layout.html`.
 - **NUNCA aninhar expressoes ternarias em mais de 3 niveis** em atributos Thymeleaf (`th:classappend`, `th:class`, `th:style`). O parser do Thymeleaf quebra com multi-line ternaries aninhados. Preferir `th:switch` ou `th:with` para pre-calcular valores complexos. Exemplo RUIM: `th:classappend="${a} ? x : (${b} ? y : (${c} ? z : w))"` (4 niveis, risco de quebra). Exemplo BOM: `th:classappend="${a} ? x : (${b} ? y : 'default')"` (max 2 niveis, seguro). **Nunca** usar `th:if` + `th:unless` no mesmo elemento — combinar numa unica expressao `th:if="${cond and !outra}"`.
+- **`/*[[expr]]*/` (natural templating em JS) EXIGE `th:inline="javascript"` na tag `<script>`.** Sem esse atributo, Thymeleaf NAO reconhece o padrao de comentario e so substitui o `[[expr]]` interno, deixando os delimitadores `/* */` como comentario JS literal ao redor — o navegador enxerga so o fallback depois do comentario (`/*valorreal*/ 'fallback'` vira, na pratica, `'fallback'`, porque o `/* ... */` vira comentario de verdade e e ignorado). Bug real descoberto em 2026-07-28 rodando o chat AJAX contra um servidor de verdade: `pollUrl: /*[[@{...}]]*/ ''` estava renderizando como string vazia (fallback) em produtos, nao a URL real, porque as 3 tags `<script>` do chat nao tinham `th:inline="javascript"`. Corrigido nas 3. **Suspeita:** o mesmo padrao usado antes (`/*[[${temMsgNaoLida}]]*/ false` da vistoria de notificacao de 2026-07-28, ja removido/substituido nesta sessao) tambem nunca tinha `th:inline="javascript"` — a feature de notificacao ao carregar a pagina pode nunca ter disparado de verdade em producao, sempre caindo no fallback `false`. Nenhum teste (`@WebMvcTest`/`MockMvc`) pega isso porque eles testam status/model attributes, nao o JS renderizado de fato.
 - Não commitar segredos: `application-local.yml`, `deploy/sgpur.env` e `/dist/`
   estão no `.gitignore`.
 - Testes `@WebMvcTest` usam `@MockitoBean` (import
@@ -711,4 +712,84 @@ SMTP isolada (sem depender do Java) com `getpass`.
    portal) e `processos/detalhe.html` ganhou o mesmo script anti-BFcache
    (`pageshow` + `PerformanceNavigationTiming` + `sessionStorage`) das
    outras duas telas de chat.
+   **Superado pelo rework abaixo, no mesmo dia** — o mecanismo baseado em
+   `temMsgNaoLida`/recarregar página inteira foi inteiramente substituído
+   por polling AJAX; ver próxima seção.
+
+## Sessão de 2026-07-28 (rework do chat: polling AJAX)
+
+Usuário reportou o chat "horrível, demora, sem notificação" nas 3 telas
+(`solicitante/detalhe.html`, `processos/detalhe.html`,
+`processos/solicitacoes-online-detalhe.html`). Causa raiz: o chat era
+**100% server-rendered** — cada mensagem enviada/apagada era um
+`<form method="post">` clássico (POST + redirect + GET da página inteira,
+não só do chat) e a notificação só rodava uma vez no `load` da página.
+Não existia polling nem WebSocket — só recarregando manualmente é que uma
+mensagem nova aparecia.
+
+**Reescrito para polling AJAX** (sem WebSocket, ~5s de intervalo):
+- `MensagemSolicitacaoService.MensagemChatView` (record) + `paraChat(...)`:
+  projeta as mensagens já relativas a quem está vendo (`deVoce`,
+  `nomeRemetente`, `podeApagar` calculados no service, evitando duplicar
+  "de quem é essa mensagem" em 3 templates). `podeApagar` agora exige
+  `remetenteId` exato (antes o botão de apagar aparecia pra qualquer
+  OPERADOR em mensagem de outro operador e falhava no clique — corrigido
+  de graça por essa reprojeção).
+- Cada controller (`SolicitanteController`, `ProcessoDetalheController`,
+  `SolicitacaoOnlineTriagemController`) ganhou 3 endpoints novos, paralelos
+  aos clássicos (que continuam existindo, sem uso pelo JS novo):
+  `GET .../mensagens` (JSON, poll — já marca como lida),
+  `POST .../mensagem/ajax` e `POST .../mensagem/{id}/apagar/ajax`
+  (`ResponseEntity<Map>`, 200/400 JSON em vez de redirect).
+- `static/js/chat-solicitacao.js` (novo, `iniciarChatSolicitacao(cfg)`):
+  módulo único usado pelas 3 telas — poll periódico, renderiza os balões via
+  JS (nada de `th:each` de mensagem nos templates agora — só um `<div
+  id="chatBox">` vazio), detecta mensagem nova do outro lado comparando IDs
+  entre polls pra disparar `tocarNotificacao()`/`mostrarToast()` **mesmo com
+  a aba já aberta** (o problema original), envia/apaga via `fetch` com o
+  header CSRF (mesmo padrão de `processo-detalhe.js`), pausa o poll com
+  `visibilitychange` quando a aba fica em background.
+- Os 3 templates perderam o JS duplicado inline (scroll anti-BFcache,
+  ts-relative, notificação por load) — tudo isso morreu junto com o
+  mecanismo antigo, substituído pela única chamada a
+  `iniciarChatSolicitacao({...})`.
+
+**Bug real corrigido (achado pela auditoria, não pelo usuário):**
+`ProcessoDetalheController.detalhe()` era a ÚNICA das 3 telas que carregava
+as mensagens mas nunca chamava `marcarComoLidas` — o badge/notificação
+ficava preso pra sempre em quem só usa essa tela. A rota deixou de poder
+ser `@Transactional(readOnly = true)` (só liberado antes por ser "a única
+leitura pura do controller" — comentário desatualizado, removido).
+
+**Bug real corrigido (achado rodando o fluxo contra um H2 de verdade, não
+pelos 526 testes — eles usam `@MockitoBean`, nunca tocam o banco real):**
+`MensagemSolicitacao.texto` era `nullable = false`, mas
+`MensagemSolicitacaoService.apagar()` sempre fazia `msg.setTexto(null)` no
+soft-delete — **apagar mensagem sempre quebrava** com
+`DataIntegrityViolationException` (23502, "NULL not allowed"), nas 3 telas,
+nos endpoints clássicos E nos novos. Corrigido tirando `nullable = false` da
+entidade. **Pendência de produção:** `ddl-auto: update` não relaxa
+constraint `NOT NULL` em coluna já existente (mesma classe de pitfall do
+`@Version`/CHECK de enum documentados acima) — se a coluna já existir como
+NOT NULL no Postgres de prod, rodar manualmente após o deploy:
+`ALTER TABLE mensagem_solicitacao ALTER COLUMN texto DROP NOT NULL;`
+(usuário deve rodar — ver `saur-oracle-vm`/DDL de produção).
+
+**Gotcha do Thymeleaf que causou uma segunda rodada de bug** (ver também a
+entrada em "Convenções de código"): as 3 chamadas
+`iniciarChatSolicitacao({pollUrl: /*[[@{...}]]*/ '', ...})` só funcionaram
+depois de adicionar `th:inline="javascript"` na tag `<script>` — sem isso,
+Thymeleaf não reconhece o padrão de comentário e as URLs renderizavam como
+string vazia (o fallback), não a URL real. Só foi percebido inspecionando o
+HTML renderizado via `curl`, não pelos testes automatizados nem pela
+primeira rodada de testes manuais (que só bateu nos endpoints JSON
+diretamente, não no HTML final).
+
+**Validação:** 526 testes (suite completa, sem regressão) + fluxo manual
+completo via `curl` contra um `mvn spring-boot:run` real (H2 de arquivo
+limpo): criar usuário SOLICITANTE, enviar solicitação, poll, enviar
+mensagem AJAX, poll do lado do operador (confirma `marcarComoLidas`),
+responder, poll do solicitante, apagar mensagem, converter solicitação em
+processo e repetir o poll em `/processos/{id}` (confirma o fix do
+`marcarComoLidas` que faltava nessa tela especificamente).
 
