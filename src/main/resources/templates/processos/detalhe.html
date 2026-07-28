@@ -970,9 +970,59 @@
 </div>
 
 <script>
-    // Scroll suave para o final
-    var chatBox = document.getElementById('chatBox');
-    if (chatBox) { chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' }); }
+    (function () {
+        var chatBox = document.getElementById('chatBox');
+        var chatScrollKey = 'chat-scroll-' + window.location.pathname;
+        var chatPendingKey = chatScrollKey + '-pending';
+
+        if (history.scrollRestoration) {
+            history.scrollRestoration = 'manual';
+        }
+
+        function estaProximoDoFim() {
+            if (!chatBox) return true;
+            return (chatBox.scrollHeight - chatBox.clientHeight - chatBox.scrollTop) < 80;
+        }
+
+        document.querySelectorAll('form').forEach(function (form) {
+            if (!form.querySelector('input[name="texto"]')) return;
+            form.addEventListener('submit', function () {
+                var seguirFim = estaProximoDoFim() ? 'bottom' : 'preserve';
+                sessionStorage.setItem(chatPendingKey, seguirFim);
+                sessionStorage.setItem(chatScrollKey, String(Math.max(window.scrollY || 0, 0)));
+            });
+        });
+
+        function restaurarScroll() {
+            var pending = sessionStorage.getItem(chatPendingKey);
+            if (pending === 'bottom') {
+                if (chatBox) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+                window.scrollTo(0, document.documentElement.scrollHeight);
+            } else if (pending === 'preserve') {
+                var savedScroll = parseInt(sessionStorage.getItem(chatScrollKey), 10);
+                if (!isNaN(savedScroll) && savedScroll >= 0) {
+                    window.scrollTo(0, savedScroll);
+                }
+            } else if (chatBox) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            sessionStorage.removeItem(chatPendingKey);
+            sessionStorage.removeItem(chatScrollKey);
+        }
+
+        window.addEventListener('load', function () {
+            setTimeout(restaurarScroll, 0);
+            setTimeout(restaurarScroll, 100);
+        });
+
+        window.addEventListener('pageshow', function () {
+            setTimeout(restaurarScroll, 0);
+            setTimeout(restaurarScroll, 100);
+        });
+    })();
 
     // Timestamp relativo
     document.querySelectorAll('.ts-relative').forEach(function(el) {
