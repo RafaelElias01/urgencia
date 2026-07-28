@@ -93,14 +93,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="s : ${solicitacoes}">
-                        <td>
-                            <span th:text="${s.pacienteNome}">Paciente</span>
-                            <span th:if="${mensagensNaoLidas.get(s.id)}"
-                                  class="badge bg-warning text-dark ms-1"
-                                  title="Nova resposta da equipe">
-                                <i class="bi bi-chat-dots-fill"></i>
-                            </span>
-                        </td>
+                        <td th:text="${s.pacienteNome}">Paciente</td>
                         <td th:text="${s.pacienteRgct}">RGCT</td>
                         <td class="small text-muted">
                             <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>
@@ -123,6 +116,11 @@
                             </span>
                         </td>
                         <td class="text-end">
+                            <span th:if="${mensagensNaoLidas.get(s.id)}"
+                                  class="badge bg-warning text-dark me-1"
+                                  title="Nova resposta da equipe">
+                                <i class="bi bi-chat-dots-fill"></i>
+                            </span>
                             <a th:href="@{/solicitante/{id}(id=${s.id})}" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i> Ver
                             </a>
