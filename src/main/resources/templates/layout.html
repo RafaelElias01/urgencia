@@ -213,9 +213,39 @@
 <script th:fragment="confirmarAcaoScript" th:src="@{/js/confirmar-acao.js}"></script>
 <script th:fragment="relatorioPdfScript" th:src="@{/js/relatorio-pdf.js}"></script>
 <script th:fragment="notificacaoSonora">
+    // AudioContext compartilhada e "destravada" no 1o gesto do usuario
+    // (clique/tecla/toque) na pagina. Necessario porque a notificacao do chat
+    // dispara sozinha via polling (setInterval), sem gesto nenhum no momento -
+    // navegadores mantem o audio suspenso ate um gesto direto, e sem isso
+    // tocarNotificacao() rodava sem erro (o catch abaixo mascarava) mas sem
+    // som nenhum. Ver CLAUDE.md.
+    var _audioCtxNotificacao = null;
+    function _obterAudioCtx() {
+        if (!_audioCtxNotificacao) {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            _audioCtxNotificacao = new Ctx();
+        }
+        return _audioCtxNotificacao;
+    }
+    ['click', 'keydown', 'touchstart'].forEach(function (evento) {
+        document.addEventListener(evento, function () {
+            var ctx = _obterAudioCtx();
+            if (ctx && ctx.state === 'suspended') ctx.resume();
+        }, {once: true, passive: true});
+    });
+
     function tocarNotificacao() {
         try {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var ctx = _obterAudioCtx();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') {
+                // Ainda sem gesto do usuario nesta pagina - resume() so
+                // funciona de dentro de um handler de gesto, entao aqui so
+                // tentamos mesmo assim (navegadores variam) em vez de travar
+                // o som ate o proximo evento.
+                ctx.resume();
+            }
             var g = ctx.createGain();
             g.connect(ctx.destination);
             g.gain.value = 0.3;

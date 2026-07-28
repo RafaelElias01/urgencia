@@ -795,3 +795,18 @@ responder, poll do solicitante, apagar mensagem, converter solicitação em
 processo e repetir o poll em `/processos/{id}` (confirma o fix do
 `marcarComoLidas` que faltava nessa tela especificamente).
 
+**Bug pós-deploy (2026-07-28, mesmo dia): som da notificação não tocava do
+lado do operador.** A notificação (toast + som) do polling dispara sozinha
+via `setInterval`, sem nenhum gesto do usuário no momento — navegadores
+mantêm a Web Audio API (`AudioContext`) suspensa até um clique/tecla/toque
+direto na página, e `tocarNotificacao()` rodava sem erro (o `catch`
+mascarava) mas sem som nenhum. Corrigido em `layout.html`
+(`notificacaoSonora`): uma `AudioContext` compartilhada é criada e
+"destravada" (`ctx.resume()`) no primeiro gesto do usuário na página
+(`click`/`keydown`/`touchstart`, listener `{once:true}`), reaproveitada em
+vez de criar uma nova a cada notificação. **Limitação que continua
+existindo:** a notificação que chega ANTES de qualquer gesto do usuário na
+página ainda pode tocar sem som (só o toast visual aparece) — é uma
+restrição de segurança do navegador, não contornável em JS; a partir do
+primeiro clique/tecla na página, todo som seguinte funciona normalmente.
+
