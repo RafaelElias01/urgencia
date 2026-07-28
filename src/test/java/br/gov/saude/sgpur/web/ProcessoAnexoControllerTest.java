@@ -271,6 +271,42 @@ class ProcessoAnexoControllerTest {
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void uploadComprovanteSntComAnexoAntigoQuebradoNaoQuebraOUpload() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
+        Anexo anexoAntigo = new Anexo();
+        anexoAntigo.setId(10L);
+        anexoAntigo.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        processo.setAnexos(java.util.List.of(anexoAntigo));
+        when(anexoStorage.resolverArquivo(anexoAntigo)).thenThrow(new NullPointerException("caminho nulo"));
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "snt.pdf",
+            "application/pdf", "conteudo".getBytes());
+
+        mvc.perform(multipart("/processos/1/comprovante-snt").file(arquivo).with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", "Comprovante SNT anexado."));
+    }
+
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void uploadComprovanteSntComErroRuntimeNoCleanupNaoQuebraOUpload() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
+        Anexo anexoAntigo = new Anexo();
+        anexoAntigo.setId(10L);
+        anexoAntigo.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        processo.setAnexos(java.util.List.of(anexoAntigo));
+        when(anexoStorage.resolverArquivo(anexoAntigo)).thenThrow(new RuntimeException("erro de storage"));
+
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "snt.pdf",
+            "application/pdf", "conteudo".getBytes());
+
+        mvc.perform(multipart("/processos/1/comprovante-snt").file(arquivo).with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", "Comprovante SNT anexado."));
+    }
+
     // ----- anexos (upload generico) -----
 
     @Test

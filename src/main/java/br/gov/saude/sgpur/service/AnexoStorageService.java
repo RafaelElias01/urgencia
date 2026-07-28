@@ -176,7 +176,7 @@ public class AnexoStorageService {
             }
             try {
                 Files.deleteIfExists(resolverArquivo(a));
-            } catch (IOException ignored) {
+            } catch (RuntimeException | IOException ignored) {
                 // best-effort
             }
             anexoRepository.delete(a);
@@ -190,13 +190,20 @@ public class AnexoStorageService {
      * cobre ambos os casos - este metodo existe para clareza e eventual extensao.
      */
     public Path resolverArquivo(Anexo anexo) {
+        if (anexo == null) {
+            throw new IllegalArgumentException("Anexo invalido.");
+        }
+        String caminho = anexo.getCaminhoArmazenado();
+        if (caminho == null || caminho.isBlank()) {
+            throw new IllegalArgumentException("Caminho de anexo invalido (sem caminho gravado).");
+        }
         // Normaliza \ para / ANTES de resolver: no Linux (producao) a barra
         // invertida nao e separador de caminho, entao um valor gravado como
         // ..\..\Windows\win.ini viraria so um nome de arquivo literal e nunca
         // escaparia da raiz - a checagem abaixo so pega esse ataque em
         // qualquer SO se a barra invertida for tratada como separador antes.
-        String caminho = anexo.getCaminhoArmazenado().replace('\\', '/');
-        Path resolvido = raiz.resolve(caminho).normalize();
+        String caminhoNormalizado = caminho.replace('\\', '/');
+        Path resolvido = raiz.resolve(caminhoNormalizado).normalize();
         // Defesa em profundidade: garante que o caminho resolvido continua
         // dentro da raiz de anexos, mesmo que caminhoArmazenado seja corrompido
         // (nunca deveria escapar, pois e gravado pelo proprio sistema).
@@ -229,7 +236,7 @@ public class AnexoStorageService {
         Long processoId = a.getProcesso().getId();
         try {
             Files.deleteIfExists(resolverArquivo(a));
-        } catch (IOException ignored) {
+        } catch (RuntimeException | IOException ignored) {
             // best-effort
         }
         anexoRepository.delete(a);

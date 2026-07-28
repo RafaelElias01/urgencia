@@ -1,5 +1,6 @@
 package br.gov.saude.sgpur.service;
 
+import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
 import br.gov.saude.sgpur.repository.AnexoRepository;
@@ -14,8 +15,10 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -81,6 +84,22 @@ class AnexoStorageServiceTest {
             "arquivo", "documento-clinico.html", "text/html", "<script>alert(1)</script>".getBytes());
         assertThatThrownBy(() -> service.salvar(processo(), TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR, "desc", arquivo))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void removerAntigosDoTipoIgnoraAnexoComCaminhoInvalido() {
+        Anexo antigo = new Anexo();
+        antigo.setId(10L);
+        antigo.setProcesso(processo());
+        antigo.setTipo(TipoAnexo.COMPROVANTE_SNT);
+        antigo.setCaminhoArmazenado(null);
+        when(anexoRepository.findByProcessoIdAndTipo(1L, TipoAnexo.COMPROVANTE_SNT))
+            .thenReturn(java.util.List.of(antigo));
+
+        assertThatCode(() -> service.removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_SNT, 99L))
+            .doesNotThrowAnyException();
+
+        verify(anexoRepository).delete(antigo);
     }
 
 }
