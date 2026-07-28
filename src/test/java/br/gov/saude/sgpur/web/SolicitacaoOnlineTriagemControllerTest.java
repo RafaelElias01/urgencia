@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ class SolicitacaoOnlineTriagemControllerTest {
 
     @MockitoBean private SolicitacaoOnlineService service;
     @MockitoBean private AuditoriaService auditoria;
+    @MockitoBean private MensagemSolicitacaoService mensagemService;
     @MockitoBean private UsuarioRepository usuarioRepo;
     @MockitoBean private ParecerRepository parecerRepo;
 

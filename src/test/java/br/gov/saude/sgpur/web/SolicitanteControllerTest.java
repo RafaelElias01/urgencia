@@ -11,6 +11,7 @@ import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,7 @@ class SolicitanteControllerTest {
     @MockitoBean private UsuarioRepository usuarioRepo;
     @MockitoBean private SolicitacaoOnlineService solicitacaoService;
     @MockitoBean private AuditoriaService auditoria;
+    @MockitoBean private MensagemSolicitacaoService mensagemService;
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private AnexoSolicitacaoOnlineRepository anexoRepo;
     @MockitoBean private AnexoSolicitacaoOnlineStorageService anexoStorage;
@@ -119,6 +121,7 @@ class SolicitanteControllerTest {
         when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
         when(solicitacaoService.diasEspera(solicitacaoDoDono))
             .thenReturn(new SolicitacaoOnlineService.DiasEspera(0, "bg-secondary"));
+        when(mensagemService.listarPorSolicitacao(50L)).thenReturn(java.util.List.of());
 
         mvc.perform(get("/solicitante/50"))
             .andExpect(status().isOk())
@@ -147,6 +150,7 @@ class SolicitanteControllerTest {
         when(solicitacaoService.listarMinhas(1L)).thenReturn(java.util.List.of(solicitacaoDoDono));
         when(solicitacaoService.resumir(java.util.List.of(solicitacaoDoDono)))
             .thenReturn(new br.gov.saude.sgpur.service.SolicitacaoOnlineService.Resumo(1, 1, 0, 0, 0));
+        when(mensagemService.contarNaoLidasSolicitantePorSolicitacao(any(), any())).thenReturn(0L);
         when(solicitacaoService.diasEspera(solicitacaoDoDono))
             .thenReturn(new SolicitacaoOnlineService.DiasEspera(2, "bg-secondary"));
 

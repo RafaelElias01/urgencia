@@ -23,7 +23,7 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
 ```
 - App em http://localhost:3000 (porta trocada de 8080 para 3000 no commit
   `93debdf`, 2026-07-21; `start.ps1` **não abre o navegador sozinho**, precisa
-  acessar manualmente após o boot) · login inicial `admin` / `admin123`
+  acessar manualmente após o boot) · login inicial `admin` / `Admin123!`
   (criado automaticamente por `AdminBootstrap` só quando a tabela `usuario`
   está vazia; em prod exige `SGPUR_ADMIN_PASSWORD` via env var, sem default).
 - Testes: `.\test.ps1` (ou `mvn test`) — **144 testes**, sempre com **JDK 21**.

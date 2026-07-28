@@ -285,7 +285,7 @@ class UsuarioServiceTest {
     void criarComPerfilSolicitanteSemEquipeLancaExcecao() {
         when(repo.existsByUsername("solicitante1")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.criar(formSolicitante(null), "senha123"))
+        assertThatThrownBy(() -> service.criar(formSolicitante(null), "Senha123!"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("equipe/hospital solicitante");
     }
@@ -294,7 +294,7 @@ class UsuarioServiceTest {
     void criarComPerfilSolicitanteComEquipeEmBrancoLancaExcecao() {
         when(repo.existsByUsername("solicitante1")).thenReturn(false);
 
-        assertThatThrownBy(() -> service.criar(formSolicitante("   "), "senha123"))
+        assertThatThrownBy(() -> service.criar(formSolicitante("   "), "Senha123!"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("equipe/hospital solicitante");
     }
@@ -305,7 +305,7 @@ class UsuarioServiceTest {
         when(encoder.encode(any())).thenReturn("hash-fake");
         when(repo.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Usuario salvo = service.criar(formSolicitante("  HCPA  "), "senha123");
+        Usuario salvo = service.criar(formSolicitante("  HCPA  "), "Senha123!");
 
         // Equipe e sempre trim()ada antes de salvar.
         assertThat(salvo.getEquipeSolicitante()).isEqualTo("HCPA");

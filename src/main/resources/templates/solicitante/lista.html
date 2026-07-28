@@ -20,8 +20,8 @@
         Envie sua solicitacao pelo sistema — nossa equipe vai analisar e retornar por e-mail.
     </p>
 
-    <!-- Cards de resumo por status, mesmo padrao visual do Painel (stat-card / --rs-*) -->
-    <div class="row row-cols-2 row-cols-sm-4 g-3 mb-4">
+    <!-- Cards de resumo por status -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 g-3 mb-4">
         <div class="col">
             <div class="stat-card stat-card-total"
                  style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
@@ -37,7 +37,7 @@
             <div class="stat-card stat-card-andamento"
                  style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
                 <div class="d-flex align-items-center justify-content-between">
-                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.aguardando()}">0</span>
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.aguardandoTriagem()}">0</span>
                     <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
                         <i class="bi bi-hourglass-split"></i></span>
                 </div>
@@ -45,14 +45,25 @@
             </div>
         </div>
         <div class="col">
+            <div class="stat-card stat-card-andamento"
+                 style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.emAnalise()}">0</span>
+                    <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
+                        <i class="bi bi-search"></i></span>
+                </div>
+                <div class="stat-label" style="color:var(--stat-text);">Em analise</div>
+            </div>
+        </div>
+        <div class="col">
             <div class="stat-card stat-card-deferido"
                  style="background:var(--stat-bg);border:1px solid var(--stat-border);border-radius:16px;box-shadow:var(--rs-shadow);">
                 <div class="d-flex align-items-center justify-content-between">
-                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.convertidas()}">0</span>
+                    <span class="stat-number" style="color:var(--stat-text);" th:text="${resumo.decididas()}">0</span>
                     <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
                         <i class="bi bi-check-circle-fill"></i></span>
                 </div>
-                <div class="stat-label" style="color:var(--stat-text);">Convertida em processo / Decidida</div>
+                <div class="stat-label" style="color:var(--stat-text);">Decididas</div>
             </div>
         </div>
         <div class="col">
@@ -63,7 +74,7 @@
                     <span class="stat-icon" style="background:var(--stat-icon-bg);color:var(--stat-icon-color);">
                         <i class="bi bi-arrow-return-left"></i></span>
                 </div>
-                <div class="stat-label" style="color:var(--stat-text);">Devolvidas p/ correcao</div>
+                <div class="stat-label" style="color:var(--stat-text);">Devolvidas</div>
             </div>
         </div>
     </div>
@@ -82,7 +93,14 @@
                 </thead>
                 <tbody>
                     <tr th:each="s : ${solicitacoes}">
-                        <td th:text="${s.pacienteNome}">Paciente</td>
+                        <td>
+                            <span th:text="${s.pacienteNome}">Paciente</span>
+                            <span th:if="${mensagensNaoLidas.get(s.id)}"
+                                  class="badge bg-warning text-dark ms-1"
+                                  title="Nova resposta da equipe">
+                                <i class="bi bi-chat-dots-fill"></i>
+                            </span>
+                        </td>
                         <td th:text="${s.pacienteRgct}">RGCT</td>
                         <td class="small text-muted">
                             <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy HH:mm')}">-</span>

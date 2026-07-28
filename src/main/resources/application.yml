@@ -78,7 +78,7 @@ app:
   # var e falha o boot se ela nao existir.
   admin:
     username: ${SGPUR_ADMIN_USER:admin}
-    password: ${SGPUR_ADMIN_PASSWORD:admin123}
+    password: ${SGPUR_ADMIN_PASSWORD:Admin123!}
   # URL base da aplicacao, usada nos links do Portal do Avaliador nos e-mails.
   # Sobrescreva em producao com a URL publica real (ex.: https://saur.saude.rs.gov.br).
   base-url: ${SGPUR_BASE_URL:http://localhost:3000}

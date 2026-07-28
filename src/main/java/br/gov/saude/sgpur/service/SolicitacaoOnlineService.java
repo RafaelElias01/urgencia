@@ -194,23 +194,29 @@ public class SolicitacaoOnlineService {
      * adicional, para nao acoplar a tela a uma nova consulta ao banco.
      */
     public Resumo resumir(List<SolicitacaoOnline> solicitacoes) {
-        long aguardando = 0;
-        long convertidas = 0;
+        long aguardandoTriagem = 0;
+        long emAnalise = 0;
+        long decididas = 0;
         long devolvidas = 0;
-        long canceladas = 0;
         for (SolicitacaoOnline s : solicitacoes) {
             switch (s.getStatus()) {
-                case ENVIADA -> aguardando++;
-                case CONVERTIDA, APROVADA, REPROVADA -> convertidas++;
+                case ENVIADA -> aguardandoTriagem++;
+                case CONVERTIDA -> {
+                    if (s.getProcessoGerado() != null && s.getProcessoGerado().getStatus().isFinalizado()) {
+                        decididas++;
+                    } else {
+                        emAnalise++;
+                    }
+                }
+                case APROVADA, REPROVADA, CANCELADA, PROCESSO_EXCLUIDO -> decididas++;
                 case DEVOLVIDA -> devolvidas++;
-                case CANCELADA, PROCESSO_EXCLUIDO -> canceladas++;
             }
         }
-        return new Resumo(solicitacoes.size(), aguardando, convertidas, devolvidas, canceladas);
+        return new Resumo(solicitacoes.size(), aguardandoTriagem, emAnalise, decididas, devolvidas);
     }
 
     /** Resumo por status para os cards de estatistica da tela "Minhas solicitacoes". */
-    public record Resumo(long total, long aguardando, long convertidas, long devolvidas, long canceladas) {
+    public record Resumo(long total, long aguardandoTriagem, long emAnalise, long decididas, long devolvidas) {
     }
 
     /**

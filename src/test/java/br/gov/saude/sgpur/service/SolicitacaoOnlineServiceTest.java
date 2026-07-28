@@ -219,10 +219,10 @@ class SolicitacaoOnlineServiceTest {
         SolicitacaoOnlineService.Resumo resumo = service.resumir(solicitacoes);
 
         assertThat(resumo.total()).isEqualTo(5);
-        assertThat(resumo.aguardando()).isEqualTo(2);
-        assertThat(resumo.convertidas()).isEqualTo(1);
+        assertThat(resumo.aguardandoTriagem()).isEqualTo(2);
+        assertThat(resumo.emAnalise()).isEqualTo(1);
+        assertThat(resumo.decididas()).isEqualTo(1);
         assertThat(resumo.devolvidas()).isEqualTo(1);
-        assertThat(resumo.canceladas()).isEqualTo(1);
     }
 
     @Test
@@ -230,10 +230,10 @@ class SolicitacaoOnlineServiceTest {
         SolicitacaoOnlineService.Resumo resumo = service.resumir(java.util.List.of());
 
         assertThat(resumo.total()).isZero();
-        assertThat(resumo.aguardando()).isZero();
-        assertThat(resumo.convertidas()).isZero();
+        assertThat(resumo.aguardandoTriagem()).isZero();
+        assertThat(resumo.emAnalise()).isZero();
+        assertThat(resumo.decididas()).isZero();
         assertThat(resumo.devolvidas()).isZero();
-        assertThat(resumo.canceladas()).isZero();
     }
 
     private Processo processoComStatus(StatusProcesso status) {

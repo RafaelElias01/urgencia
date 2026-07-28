@@ -4,7 +4,9 @@ import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -32,6 +34,8 @@ public class GlobalModelAdvice {
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
+    @Autowired(required = false)
+    private MensagemSolicitacaoService mensagemService;
     private final boolean solicitanteHabilitado;
 
     public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo,
@@ -92,6 +96,23 @@ public class GlobalModelAdvice {
             return 0;
         }
         return solicitacaoOnlineService.contarPendentesTriagem();
+    }
+
+    /**
+     * Contagem de mensagens de solicitantes ainda nao lidas por nenhum
+     * ADMIN/OPERADOR, para o badge do link "Solicitacoes online" na navbar.
+     */
+    @ModelAttribute("mensagensNaoLidasOperador")
+    @Transactional(readOnly = true)
+    public long mensagensNaoLidasOperador() {
+        if (mensagemService == null || !solicitanteHabilitado) {
+            return 0;
+        }
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !temPapelOperadorOuAdmin(auth)) {
+            return 0;
+        }
+        return mensagemService.contarNaoLidasOperador();
     }
 
     private boolean temPapelOperadorOuAdmin(Authentication auth) {

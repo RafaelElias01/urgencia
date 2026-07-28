@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.AnexoSolicitacaoOnline;
+import br.gov.saude.sgpur.domain.MensagemSolicitacao;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
 import br.gov.saude.sgpur.domain.TipoAnexo;
@@ -11,6 +12,7 @@ import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoSolicitacaoOnlineStorageService;
 import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
@@ -62,19 +64,22 @@ public class SolicitanteController {
     private final AnexoSolicitacaoOnlineRepository anexoRepo;
     private final AnexoSolicitacaoOnlineStorageService anexoStorage;
     private final AnexoStorageService anexoStorageProcesso;
+    private final MensagemSolicitacaoService mensagemService;
 
     public SolicitanteController(UsuarioRepository usuarioRepo,
                                  SolicitacaoOnlineService solicitacaoService,
                                  AuditoriaService auditoria,
                                  AnexoSolicitacaoOnlineRepository anexoRepo,
                                  AnexoSolicitacaoOnlineStorageService anexoStorage,
-                                 AnexoStorageService anexoStorageProcesso) {
+                                 AnexoStorageService anexoStorageProcesso,
+                                 MensagemSolicitacaoService mensagemService) {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
         this.anexoStorageProcesso = anexoStorageProcesso;
         this.anexoRepo = anexoRepo;
         this.anexoStorage = anexoStorage;
+        this.mensagemService = mensagemService;
     }
 
     /**
@@ -100,20 +105,20 @@ public class SolicitanteController {
         List<SolicitacaoOnline> minhas = solicitacaoService.listarMinhas(usuario.getId());
         model.addAttribute("solicitacoes", minhas);
         model.addAttribute("resumo", solicitacaoService.resumir(minhas));
-        // Dias de espera so faz sentido para quem ainda aguarda triagem (ENVIADA);
-        // reaproveita o mesmo calculo/formatacao ja usado na fila do operador.
         Map<Long, SolicitacaoOnlineService.DiasEspera> diasEspera = new LinkedHashMap<>();
-        // Se true, o processo gerado esta pausado aguardando informacao complementar
-        // do solicitante - a lista destaca com um badge de "Acao necessaria".
         Map<Long, Boolean> acaoNecessaria = new LinkedHashMap<>();
+        Map<Long, Boolean> mensagensNaoLidas = new LinkedHashMap<>();
         for (SolicitacaoOnline s : minhas) {
             if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
                 diasEspera.put(s.getId(), solicitacaoService.diasEspera(s));
             }
             acaoNecessaria.put(s.getId(), solicitacaoService.precisaInformacaoComplementar(s));
+            mensagensNaoLidas.put(s.getId(),
+                mensagemService.contarNaoLidasSolicitantePorSolicitacao(s.getId(), usuario.getId()) > 0);
         }
         model.addAttribute("diasEspera", diasEspera);
         model.addAttribute("acaoNecessaria", acaoNecessaria);
+        model.addAttribute("mensagensNaoLidas", mensagensNaoLidas);
         model.addAttribute("equipe", usuario.getEquipeSolicitante());
         return "solicitante/lista";
     }
@@ -153,13 +158,8 @@ public class SolicitanteController {
     @Transactional(readOnly = true)
     public String detalhe(@PathVariable Long id, Principal principal, Model model) {
         Usuario usuario = resolverUsuario(principal);
-        // buscarParaDetalhe (e nao buscar) porque o template mostra anexos e o
-        // processo gerado, ambos LAZY - com open-in-view: false o Thymeleaf
-        // roda fora da transacao e um proxy nao inicializado vira 500.
         SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
         model.addAttribute("solicitacao", s);
-        // Tempo decorrido desde o envio, sempre (independente do status) - contexto
-        // util pro solicitante entender ha quanto tempo o pedido esta parado/foi resolvido.
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
         model.addAttribute("jaEnviouInfoComplementar", solicitacaoService.jaEnviouInformacaoComplementarNestaRodada(s));
@@ -169,6 +169,8 @@ public class SolicitanteController {
             model.addAttribute("oficioIndeferimentoAnexo",
                 anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.OFICIO_INDEFERIMENTO));
         }
+        model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
+        mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
     }
 
@@ -208,6 +210,26 @@ public class SolicitanteController {
             ra.addFlashAttribute("erro", e.getMessage());
         }
         return "redirect:/solicitante";
+    }
+
+    @PostMapping("/{id}/mensagem")
+    public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
+                                 Principal principal, RedirectAttributes ra) {
+        Usuario usuario = resolverUsuario(principal);
+        SolicitacaoOnline s = conferirPosse(solicitacaoService.buscar(id), usuario);
+        if (texto == null || texto.isBlank()) {
+            ra.addFlashAttribute("erro", "A mensagem nao pode estar em branco.");
+            return "redirect:/solicitante/" + id;
+        }
+        if (s.getStatus() == StatusSolicitacaoOnline.CANCELADA || s.getStatus() == StatusSolicitacaoOnline.PROCESSO_EXCLUIDO) {
+            ra.addFlashAttribute("erro", "Nao e possivel enviar mensagem para esta solicitacao no estado atual.");
+            return "redirect:/solicitante/" + id;
+        }
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, usuario.getId());
+        auditoria.registrar("MENSAGEM_SOLICITANTE_ENVIADA",
+            "Solicitacao " + id + " - " + s.identificacao());
+        ra.addFlashAttribute("msg", "Mensagem enviada para a equipe de Urgencia Renal.");
+        return "redirect:/solicitante/" + id;
     }
 
     /**

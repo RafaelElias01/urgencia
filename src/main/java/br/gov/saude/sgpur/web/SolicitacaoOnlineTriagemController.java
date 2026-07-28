@@ -1,14 +1,22 @@
 package br.gov.saude.sgpur.web;
 
+import br.gov.saude.sgpur.domain.MensagemSolicitacao;
 import br.gov.saude.sgpur.domain.SolicitacaoOnline;
+import br.gov.saude.sgpur.domain.Usuario;
+import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AuditoriaService;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.security.Principal;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,10 +40,16 @@ public class SolicitacaoOnlineTriagemController {
 
     private final SolicitacaoOnlineService service;
     private final AuditoriaService auditoria;
+    private final MensagemSolicitacaoService mensagemService;
+    private final UsuarioRepository usuarioRepo;
 
-    public SolicitacaoOnlineTriagemController(SolicitacaoOnlineService service, AuditoriaService auditoria) {
+    public SolicitacaoOnlineTriagemController(SolicitacaoOnlineService service, AuditoriaService auditoria,
+                                              MensagemSolicitacaoService mensagemService,
+                                              UsuarioRepository usuarioRepo) {
         this.service = service;
         this.auditoria = auditoria;
+        this.mensagemService = mensagemService;
+        this.usuarioRepo = usuarioRepo;
     }
 
     @GetMapping
@@ -56,11 +70,26 @@ public class SolicitacaoOnlineTriagemController {
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     public String detalhe(@PathVariable Long id, Model model) {
-        // buscarParaDetalhe (e nao buscar): o template lista os anexos, que sao
-        // LAZY - com open-in-view: false o Thymeleaf renderiza fora da
-        // transacao e o proxy nao inicializado vira 500 (bug de 2026-07-26).
         model.addAttribute("solicitacao", service.buscarParaDetalhe(id));
+        model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
         return "processos/solicitacoes-online-detalhe";
+    }
+
+    @PostMapping("/{id}/mensagem")
+    public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
+                                 Principal principal, RedirectAttributes ra) {
+        SolicitacaoOnline s = service.buscar(id);
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        if (texto == null || texto.isBlank()) {
+            ra.addFlashAttribute("erro", "A mensagem nao pode estar em branco.");
+            return "redirect:/processos/solicitacoes-online/" + id;
+        }
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
+        auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
+            "Solicitacao " + id + " - resposta do operador " + operador.getUsername());
+        ra.addFlashAttribute("msg", "Resposta enviada ao solicitante.");
+        return "redirect:/processos/solicitacoes-online/" + id;
     }
 
     /** Encaminha para o formulario normal de cadastro, pre-preenchido com os dados do pedido. */
