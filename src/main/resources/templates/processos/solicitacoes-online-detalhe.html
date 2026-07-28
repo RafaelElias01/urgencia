@@ -57,14 +57,16 @@
     <div class="card mt-3">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-chat-dots"></i> Conversa com o solicitante</span>
-            <span th:if="${#lists.size(mensagens) > 0}" class="badge bg-secondary"
-                  th:text="${#lists.size(mensagens)} + ' mensagen(s)'">0</span>
+            <span th:if="${msgNaoLidas > 0}" class="badge bg-warning text-dark"
+                  th:text="${msgNaoLidas} + ' nova(s)'">0</span>
+            <span th:if="${#lists.size(mensagens) > 0}" class="badge bg-secondary ms-1"
+                  th:text="${#lists.size(mensagens)} + ' total'">0</span>
         </div>
         <div class="card-body">
             <div th:if="${mensagens.isEmpty()}" class="text-muted small text-center py-3">
                 Nenhuma mensagem do solicitante ainda.
             </div>
-            <div id="chatBox" th:unless="${mensagens.isEmpty()}" class="mb-3" style="max-height:400px;overflow-y:auto;">
+            <div id="chatBox" th:unless="${mensagens.isEmpty()}" class="mb-3" style="max-height:250px;overflow-y:auto;">
                 <div th:each="msg : ${mensagens}" class="mb-2 d-flex"
                      th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'justify-content-end' : 'justify-content-start'">
                     <div class="rounded-3 px-3 py-2" style="max-width:80%;"

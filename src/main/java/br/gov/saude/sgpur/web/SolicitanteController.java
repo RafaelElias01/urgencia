@@ -171,10 +171,12 @@ public class SolicitanteController {
         }
         List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(id);
         model.addAttribute("mensagens", mensagens);
-        boolean temMsgNaoLida = mensagens.stream()
-            .anyMatch(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.OPERADOR
-                && !m.getRemetenteId().equals(usuario.getId()));
-        model.addAttribute("temMsgNaoLida", temMsgNaoLida);
+        long msgNaoLidas = mensagens.stream()
+            .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.OPERADOR
+                && !m.getRemetenteId().equals(usuario.getId()))
+            .count();
+        model.addAttribute("msgNaoLidas", msgNaoLidas);
+        model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
     }

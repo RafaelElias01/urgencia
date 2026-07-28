@@ -74,9 +74,11 @@ public class SolicitacaoOnlineTriagemController {
         model.addAttribute("solicitacao", service.buscarParaDetalhe(id));
         List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(id);
         model.addAttribute("mensagens", mensagens);
-        boolean temMsgNaoLida = mensagens.stream()
-            .anyMatch(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE);
-        model.addAttribute("temMsgNaoLida", temMsgNaoLida);
+        long msgNaoLidas = mensagens.stream()
+            .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
+            .count();
+        model.addAttribute("msgNaoLidas", msgNaoLidas);
+        model.addAttribute("temMsgNaoLida", msgNaoLidas > 0);
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.SOLICITANTE, operador.getId());
