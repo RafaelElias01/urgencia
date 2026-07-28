@@ -347,6 +347,7 @@
 <script th:replace="~{layout :: notificacaoSonora}"></script>
 <script th:if="${temMsgNaoLida}">
     tocarNotificacao();
+    mostrarToast('Nova mensagem recebida da equipe CET-RS.', 'info');
 </script>
 <script>
     var chatBox = document.getElementById('chatBox');

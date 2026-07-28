@@ -128,9 +128,9 @@
 <script th:replace="~{layout :: notificacaoSonora}"></script>
 <script th:if="${temMsgNaoLida}">
     tocarNotificacao();
+    mostrarToast('Nova mensagem recebida do solicitante.', 'info');
 </script>
 <script>
-    // Auto-scroll da conversa para a mensagem mais recente
     var chatBox = document.getElementById('chatBox');
     if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
 </script>

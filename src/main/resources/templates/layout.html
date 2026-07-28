@@ -192,24 +192,48 @@
             var g = ctx.createGain();
             g.connect(ctx.destination);
             g.gain.value = 0.3;
-
-            // Dois tons rapidos (notificacao classica)
             var o1 = ctx.createOscillator();
             o1.type = 'sine';
             o1.frequency.value = 600;
             o1.connect(g);
             o1.start(ctx.currentTime);
             o1.stop(ctx.currentTime + 0.1);
-
             var o2 = ctx.createOscillator();
             o2.type = 'sine';
             o2.frequency.value = 900;
             o2.connect(g);
             o2.start(ctx.currentTime + 0.12);
             o2.stop(ctx.currentTime + 0.22);
-        } catch(e) {
-            // fallback silencioso se Audio API nao estiver disponivel
+        } catch(e) { /* fallback silencioso */ }
+    }
+    function mostrarToast(mensagem, tipo) {
+        tipo = tipo || 'info';
+        var container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container-sgpur';
+            container.setAttribute('role', 'status');
+            container.setAttribute('aria-live', 'polite');
+            document.body.appendChild(container);
         }
+        var icones = {success: 'bi-check-circle-fill text-success', error: 'bi-exclamation-triangle-fill text-danger', info: 'bi-info-circle-fill text-primary'};
+        var toast = document.createElement('div');
+        toast.className = 'toast-sgpur toast-' + tipo;
+        var icone = document.createElement('i');
+        icone.className = 'bi toast-icon ' + (icones[tipo] || icones.info);
+        var corpo = document.createElement('div');
+        corpo.className = 'toast-body';
+        corpo.textContent = mensagem;
+        var fechar = document.createElement('button');
+        fechar.className = 'toast-close';
+        fechar.innerHTML = '&times;';
+        fechar.onclick = function() { toast.remove(); };
+        toast.appendChild(icone);
+        toast.appendChild(corpo);
+        toast.appendChild(fechar);
+        container.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) { toast.remove(); } }, 5000);
     }
 </script>
 </body>
