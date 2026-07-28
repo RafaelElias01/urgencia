@@ -305,19 +305,23 @@ public class ProcessoDetalheController {
         // solicitacao original" na tela de detalhe. Ver FluxoProcessoService.veioDoPortal.
         boolean processoVeioDoPortal = fluxoService.veioDoPortal(p);
         model.addAttribute("processoVeioDoPortal", processoVeioDoPortal); // Mantem para o link "Ver solicitacao original"
-        // Carrega a solicitacao de origem e o chat. Mesmo que todo processo
-        // deva ter uma origem, uma verificacao de nulidade aqui protege contra
-        // inconsistencias de dados (ex.: solicitacao de origem deletada).
-        Optional<SolicitacaoOnline> solicitacaoOrigemOpt = solicitacaoOnlineRepository.findByProcessoGeradoId(p.getId());
-        if (solicitacaoOrigemOpt.isPresent()) {
-            SolicitacaoOnline solicitacaoOrigem = solicitacaoOrigemOpt.get();
-            model.addAttribute("solicitacaoOnlineOrigemId", solicitacaoOrigem.getId());
-            java.util.List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(solicitacaoOrigem.getId());
-            model.addAttribute("mensagens", mensagens);
-            long msgNaoLidas = mensagens.stream()
-                .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
-                .count();
-            model.addAttribute("msgNaoLidas", msgNaoLidas);
+        if (processoVeioDoPortal) {
+            // Carrega o ID da solicitacao de origem e o chat. Mesmo que todo processo
+            // deva ter uma origem, uma verificacao de nulidade aqui protege contra
+            // inconsistencias de dados (ex.: solicitacao de origem deletada).
+            Optional<Long> solicitacaoOrigemIdOpt = solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId());
+            if (solicitacaoOrigemIdOpt.isPresent()) {
+                Long solicitacaoOrigemId = solicitacaoOrigemIdOpt.get();
+                model.addAttribute("solicitacaoOnlineOrigemId", solicitacaoOrigemId);
+                java.util.List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(solicitacaoOrigemId);
+                model.addAttribute("mensagens", mensagens);
+                long msgNaoLidas = mensagens.stream()
+                    .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
+                    .count();
+                model.addAttribute("msgNaoLidas", msgNaoLidas);
+            } else {
+                model.addAttribute("solicitacaoOnlineOrigemId", null);
+            }
         } else {
             model.addAttribute("solicitacaoOnlineOrigemId", null);
         }
