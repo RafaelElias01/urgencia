@@ -102,13 +102,18 @@ public class LoginAttemptService implements Filter {
     @EventListener
     public void aoFalhar(AbstractAuthenticationFailureEvent evento) {
         String username = String.valueOf(evento.getAuthentication().getPrincipal());
-        registrarFalha(username, ipDaAutenticacao(evento.getAuthentication()));
+        String ip = ipDaAutenticacao(evento.getAuthentication());
+        log.warn("Login falhou para usuario '{}' (ip {}): {}", username, ip,
+            evento.getException().getMessage());
+        registrarFalha(username, ip);
     }
 
     @EventListener
     public void aoLogarComSucesso(AuthenticationSuccessEvent evento) {
         String username = evento.getAuthentication().getName();
-        tentativasPorUsuario.remove(chave(username, ipDaAutenticacao(evento.getAuthentication())));
+        String ip = ipDaAutenticacao(evento.getAuthentication());
+        log.info("Login bem-sucedido para usuario '{}' (ip {})", username, ip);
+        tentativasPorUsuario.remove(chave(username, ip));
     }
 
     private void registrarFalha(String username, String ip) {

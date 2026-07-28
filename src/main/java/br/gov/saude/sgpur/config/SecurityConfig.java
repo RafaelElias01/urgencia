@@ -137,6 +137,10 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/login?logout")
                 .permitAll()
             )
+            .sessionManagement(session -> session
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(true)
+            )
             .csrf(csrf -> {
                 // H2 console usa frames e nao envia CSRF token - excecao so em dev
                 if (dev) {

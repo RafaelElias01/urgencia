@@ -37,7 +37,7 @@ public class GeminiService {
 
     public GeminiService(@Value("${app.gemini.api-key:}") String apiKey,
                          @Value("${app.gemini.model:gemini-2.0-flash}") String model,
-                         @Value("${app.gemini.enabled:true}") boolean enabled) {
+                         @Value("${app.gemini.enabled:false}") boolean enabled) {
         this.apiKey = apiKey;
         this.model = model;
         // Kill-switch de protecao de dados: em producao o padrao e DESLIGADO

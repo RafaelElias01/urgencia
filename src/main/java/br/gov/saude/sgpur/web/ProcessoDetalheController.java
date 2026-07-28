@@ -8,6 +8,7 @@ import br.gov.saude.sgpur.service.EmailTemplateService;
 import br.gov.saude.sgpur.service.ExportacaoProcessoService;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.GeminiService;
+import br.gov.saude.sgpur.service.Iniciais;
 import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
@@ -233,7 +234,7 @@ public class ProcessoDetalheController {
         }
         Processo salvo = processoService.cadastrar(processo, medicoIds);
         auditoria.registrar("PROCESSO_CADASTRADO",
-            "Processo " + salvo.getNumero() + " - " + salvo.getPacienteNome());
+            "Processo " + salvo.getNumero() + " - " + Iniciais.de(salvo.getPacienteNome()));
         // Fecha o vinculo com a solicitacao online de origem - copia os
         // documentos clinicos anexados pelo solicitante para o processo e
         // marca a solicitacao como CONVERTIDA. Feito DEPOIS do cadastro ja

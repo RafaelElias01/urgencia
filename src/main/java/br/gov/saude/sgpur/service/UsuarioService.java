@@ -70,6 +70,7 @@ public class UsuarioService {
             throw new IllegalArgumentException("Ja existe um usuario com este login.");
         }
         u.setId(null);
+        validarSenha(senhaPura);
         aplicarMembro(u, membroId);
         aplicarEquipeSolicitante(u, equipeSolicitante);
         u.setSenha(encoder.encode(senhaPura));
@@ -110,6 +111,7 @@ public class UsuarioService {
         aplicarMembro(u, membroId);
         aplicarEquipeSolicitante(u, equipeSolicitante);
         if (senhaPura != null && !senhaPura.isBlank()) {
+            validarSenha(senhaPura);
             u.setSenha(encoder.encode(senhaPura));
         }
         return repo.save(u);
@@ -248,9 +250,7 @@ public class UsuarioService {
         if (senhaAtual == null || !encoder.matches(senhaAtual, u.getSenha())) {
             throw new IllegalArgumentException("Senha atual incorreta.");
         }
-        if (novaSenha == null || novaSenha.length() < 6) {
-            throw new IllegalArgumentException("A nova senha deve ter ao menos 6 caracteres.");
-        }
+        validarSenha(novaSenha);
         if (!novaSenha.equals(confirmacao)) {
             throw new IllegalArgumentException("A confirmacao nao confere com a nova senha.");
         }
@@ -259,6 +259,24 @@ public class UsuarioService {
         }
         u.setSenha(encoder.encode(novaSenha));
         repo.save(u);
+    }
+
+    private void validarSenha(String senha) {
+        if (senha == null || senha.length() < 8) {
+            throw new IllegalArgumentException("A senha deve ter ao menos 8 caracteres.");
+        }
+        if (!senha.matches(".*[A-Z].*")) {
+            throw new IllegalArgumentException("A senha deve conter ao menos uma letra maiuscula.");
+        }
+        if (!senha.matches(".*[a-z].*")) {
+            throw new IllegalArgumentException("A senha deve conter ao menos uma letra minuscula.");
+        }
+        if (!senha.matches(".*\\d.*")) {
+            throw new IllegalArgumentException("A senha deve conter ao menos um numero.");
+        }
+        if (!senha.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
+            throw new IllegalArgumentException("A senha deve conter ao menos um caractere especial.");
+        }
     }
 
     private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
