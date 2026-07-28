@@ -900,10 +900,6 @@
     </div>
 </div>
 
-<div th:replace="~{layout :: footer}"></div>
-
-<div th:replace="~{layout :: confirmModal}"></div>
-
 <!-- Chat com o solicitante (visivel apenas se veio do portal) -->
 <div th:if="${solicitacaoOnlineOrigemId != null}" class="container my-4">
     <div class="card">
@@ -954,6 +950,10 @@
         intervaloMs: 5000
     });
 </script>
+
+<div th:replace="~{layout :: footer}"></div>
+
+<div th:replace="~{layout :: confirmModal}"></div>
 
 <!-- Modal de confirmacao de envio de e-mail: NENHUM e-mail e enviado sem que
      este modal exiba antes os destinatarios e o conteudo completo. -->
