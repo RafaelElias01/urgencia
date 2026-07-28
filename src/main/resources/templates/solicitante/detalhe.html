@@ -136,7 +136,7 @@
         </div>
     </div>
 
-    <div th:if="${solicitacao.status.name() == 'CONVERTIDA' and !precisaInformacaoComplementar and !solicitacao.processoGerado.status.isFinalizado()}"
+    <div th:if="${solicitacao.status.name() == 'CONVERTIDA' and !precisaInformacaoComplementar and solicitacao.processoGerado != null and !solicitacao.processoGerado.status.isFinalizado()}"
          class="alert alert-success">
         <i class="bi bi-check-circle-fill"></i>
         Seu pedido foi aceito e virou o processo
