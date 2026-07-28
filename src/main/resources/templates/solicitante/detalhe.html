@@ -10,7 +10,16 @@
         <h1 class="h3 mb-0" th:text="${solicitacao.pacienteNome}">Paciente</h1>
         <span th:switch="${solicitacao.status.name()}">
             <span th:case="'ENVIADA'" class="badge bg-warning text-dark fs-6">Aguardando triagem</span>
-            <span th:case="'CONVERTIDA'" class="badge bg-success fs-6">Convertida em processo</span>
+            <span th:case="'CONVERTIDA'">
+                <span th:if="${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                      th:switch="${solicitacao.processoGerado.status.name()}">
+                    <span th:case="'DEFERIDO'" class="badge bg-success fs-6">Aprovada</span>
+                    <span th:case="'INDEFERIDO'" class="badge bg-danger fs-6">Reprovada</span>
+                    <span th:case="'CANCELADO'" class="badge bg-secondary fs-6">Cancelado</span>
+                </span>
+                <span th:unless="${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                      class="badge bg-success fs-6">Convertida em processo</span>
+            </span>
             <span th:case="'APROVADA'" class="badge bg-success fs-6">Aprovada</span>
             <span th:case="'REPROVADA'" class="badge bg-danger fs-6">Reprovada</span>
             <span th:case="'DEVOLVIDA'" class="badge bg-danger fs-6">Devolvida</span>
@@ -51,74 +60,83 @@
                     </div>
                 </div>
                 <div class="timeline-item"
-                     th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : (${solicitacao.status.name() == 'APROVADA'} ? 'concluida' : (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida')))">
-                    <div class="timeline-dot" th:switch="${solicitacao.status.name()}">
-                        <i th:case="'CONVERTIDA'" class="bi bi-hourglass-split"></i>
-                        <i th:case="'APROVADA'" class="bi bi-check"></i>
-                        <i th:case="'REPROVADA'" class="bi bi-x-lg"></i>
-                        <i th:case="'DEVOLVIDA'" class="bi bi-arrow-return-left"></i>
-                        <i th:case="'CANCELADA'" class="bi bi-x-lg"></i>
-                        <i th:case="'PROCESSO_EXCLUIDO'" class="bi bi-exclamation-triangle-fill"></i>
-                        <i th:case="*"></i>
-                    </div>
-                    <div class="timeline-title" th:switch="${solicitacao.status.name()}">
-                        <span th:case="'CONVERTIDA'">Aguardando decisao</span>
-                        <span th:case="'APROVADA'">Deferido — Urgencia renal reconhecida</span>
-                        <span th:case="'REPROVADA'">Indeferido — Urgencia renal nao reconhecida</span>
-                        <span th:case="'DEVOLVIDA'">Devolvida para correcao</span>
-                        <span th:case="'CANCELADA'">Cancelada por voce</span>
-                        <span th:case="'PROCESSO_EXCLUIDO'">Processo excluido</span>
-                        <span th:case="*">Aguardando decisao</span>
-                    </div>
-                    <div class="timeline-desc" th:switch="${solicitacao.status.name()}">
-                        <span th:case="'CONVERTIDA'">
-                            Seu pedido virou um processo oficial e esta em analise pelos medicos avaliadores.
-                        </span>
-                        <span th:case="'APROVADA'">
-                            A equipe de Urgencia Renal aprovou o pedido. O comprovante de insercao no SNT
-                            segue disponivel para download e foi enviado por e-mail a sua equipe.
-                        </span>
-                        <span th:case="'REPROVADA'">
-                            A equipe de Urgencia Renal nao reconheceu a urgencia para este caso.
-                            O oficio com os detalhes foi enviado por e-mail a sua equipe.
-                        </span>
-                        <span th:case="'DEVOLVIDA'">
-                            Precisa de um ajuste antes de seguir — veja o motivo abaixo.
-                        </span>
-                        <span th:case="'CANCELADA'">Voce cancelou este pedido antes da triagem.</span>
-                        <span th:case="'PROCESSO_EXCLUIDO'">
-                            O processo gerado a partir deste pedido foi excluido pela equipe de Urgencia Renal.
-                        </span>
-                        <span th:case="*">
-                            Assim que a triagem terminar, o pedido vira um processo ou e devolvido
-                            para correcao.
-                        </span>
-                    </div>
-                </div>
-                <!-- Nao exibe o 4o passo duplicado se o status ja for APROVADA/REPROVADA -->
-                <div class="timeline-item"
-                     th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
-                     th:classappend="${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa'">
+                     th:classappend="${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : 
+                       (${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? 
+                         (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa') : 
+                       (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : 
+                       (${solicitacao.status.name() == 'APROVADA'} ? 'concluida' : 
+                       (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida'))))">
                     <div class="timeline-dot">
-                        <i class="bi" th:classappend="${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg'"></i>
+                        <i th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                           th:classappend="${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg'" class="bi"></i>
+                        <i th:unless="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                           th:switch="${solicitacao.status.name()}"
+                           th:classappend="${solicitacao.status.name() == 'CONVERTIDA'} ? 'bi-hourglass-split' : 
+                             (${solicitacao.status.name() == 'APROVADA'} ? 'bi-check' : 
+                             (${solicitacao.status.name() == 'REPROVADA'} ? 'bi-x-lg' : 
+                             (${solicitacao.status.name() == 'DEVOLVIDA'} ? 'bi-arrow-return-left' : 
+                             (${solicitacao.status.name() == 'CANCELADA'} ? 'bi-x-lg' : 
+                             (${solicitacao.status.name() == 'PROCESSO_EXCLUIDO'} ? 'bi-exclamation-triangle-fill' : ''))))))" class="bi">
+                        </i>
                     </div>
-                    <div class="timeline-title" th:switch="${solicitacao.processoGerado.status.name()}">
-                        <span th:case="'DEFERIDO'"><strong>Deferido</strong> — Urgencia renal reconhecida</span>
-                        <span th:case="'INDEFERIDO'"><strong>Indeferido</strong> — Urgencia renal nao reconhecida</span>
-                        <span th:case="'CANCELADO'">Processo cancelado</span>
+                    <div class="timeline-title">
+                        <th:block th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                                  th:switch="${solicitacao.processoGerado.status.name()}">
+                            <span th:case="'DEFERIDO'"><strong>Deferido</strong> — Urgencia renal reconhecida</span>
+                            <span th:case="'INDEFERIDO'"><strong>Indeferido</strong> — Urgencia renal nao reconhecida</span>
+                            <span th:case="'CANCELADO'">Processo cancelado</span>
+                        </th:block>
+                        <th:block th:unless="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                                  th:switch="${solicitacao.status.name()}">
+                            <span th:case="'CONVERTIDA'">Aguardando decisao</span>
+                            <span th:case="'APROVADA'"><strong>Deferido</strong> — Urgencia renal reconhecida</span>
+                            <span th:case="'REPROVADA'"><strong>Indeferido</strong> — Urgencia renal nao reconhecida</span>
+                            <span th:case="'DEVOLVIDA'">Devolvida para correcao</span>
+                            <span th:case="'CANCELADA'">Cancelada por voce</span>
+                            <span th:case="'PROCESSO_EXCLUIDO'">Processo excluido</span>
+                            <span th:case="*">Aguardando decisao</span>
+                        </th:block>
                     </div>
-                    <div class="timeline-desc" th:switch="${solicitacao.processoGerado.status.name()}">
-                        <span th:case="'DEFERIDO'">
-                            A equipe de Urgencia Renal aprovou o pedido. O comprovante de insercao no SNT
-                            segue disponivel para download e foi enviado por e-mail a sua equipe.
-                        </span>
-                        <span th:case="'INDEFERIDO'">
-                            A equipe de Urgencia Renal nao reconheceu a urgencia para este caso.
-                            O oficio com os detalhes foi enviado por e-mail a sua equipe.
-                        </span>
-                        <span th:case="'CANCELADO'">
-                            O processo foi cancelado pela equipe de Urgencia Renal.
-                        </span>
+                    <div class="timeline-desc">
+                        <th:block th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                                  th:switch="${solicitacao.processoGerado.status.name()}">
+                            <span th:case="'DEFERIDO'">
+                                A equipe de Urgencia Renal aprovou o pedido. O comprovante de insercao no SNT
+                                segue disponivel para download e foi enviado por e-mail a sua equipe.
+                            </span>
+                            <span th:case="'INDEFERIDO'">
+                                A equipe de Urgencia Renal nao reconheceu a urgencia para este caso.
+                                O oficio com os detalhes foi enviado por e-mail a sua equipe.
+                            </span>
+                            <span th:case="'CANCELADO'">
+                                O processo foi cancelado pela equipe de Urgencia Renal.
+                            </span>
+                        </th:block>
+                        <th:block th:unless="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
+                                  th:switch="${solicitacao.status.name()}">
+                            <span th:case="'CONVERTIDA'">
+                                Seu pedido virou um processo oficial e esta em analise pelos medicos avaliadores.
+                            </span>
+                            <span th:case="'APROVADA'">
+                                A equipe de Urgencia Renal aprovou o pedido. O comprovante de insercao no SNT
+                                segue disponivel para download e foi enviado por e-mail a sua equipe.
+                            </span>
+                            <span th:case="'REPROVADA'">
+                                A equipe de Urgencia Renal nao reconheceu a urgencia para este caso.
+                                O oficio com os detalhes foi enviado por e-mail a sua equipe.
+                            </span>
+                            <span th:case="'DEVOLVIDA'">
+                                Precisa de um ajuste antes de seguir — veja o motivo abaixo.
+                            </span>
+                            <span th:case="'CANCELADA'">Voce cancelou este pedido antes da triagem.</span>
+                            <span th:case="'PROCESSO_EXCLUIDO'">
+                                O processo gerado a partir deste pedido foi excluido pela equipe de Urgencia Renal.
+                            </span>
+                            <span th:case="*">
+                                Assim que a triagem terminar, o pedido vira um processo ou e devolvido
+                                para correcao.
+                            </span>
+                        </th:block>
                     </div>
                 </div>
             </div>
