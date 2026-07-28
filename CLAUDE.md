@@ -590,10 +590,11 @@ SMTP isolada (sem depender do Java) com `getpass`.
 4. **Cards separados "Em análise" / "Decididas"**: `SolicitacaoOnlineService.Resumo`
    record alterado de 4 campos para 5 (`aguardandoTriagem`, `emAnalise`,
    `decididas`, `devolvidas`). Solicitante vê 5 cards no dashboard.
-5. **Sound notification (Web Audio API)**: fragmento `notificacaoSonora` no
-   `layout.html` — função `tocarNotificacao()` que gera 2 tons (600Hz + 900Hz)
-   via AudioContext. Disparada nos templates de detalhe quando `temMsgNaoLida`
-   é true (mensagens não lidas da outra parte).
+5. **Sound + Toast notification**: fragmento `notificacaoSonora` no
+   `layout.html` — função `tocarNotificacao()` (2 tons, 600Hz+900Hz, Web Audio
+   API) + `mostrarToast()` que exibe toast não intrusivo. Disparados nos
+   templates de detalhe quando `temMsgNaoLida` é true (mensagens não lidas da
+   outra parte — só ao *receber*, nunca ao enviar). Toast some em 5s.
 6. **Auto-scroll chat**: `id="chatBox"` nos dois detalhes + JS
    `chatBox.scrollTop = chatBox.scrollHeight` no final da página.
 7. **Chat melhorado**: balões com nome do remetente ("Você"/"Solicitante"/
