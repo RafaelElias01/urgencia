@@ -51,6 +51,7 @@ class ProcessoDetalheControllerTest {
     // contexto do @WebMvcTest subir - ver ArquivoControllerTest.
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
+    @MockitoBean private MensagemSolicitacaoService mensagemSolicitacaoService;
 
     private Processo processo;
 

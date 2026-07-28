@@ -101,6 +101,19 @@ public class SolicitacaoOnlineTriagemController {
         return "redirect:/processos/solicitacoes-online/" + id;
     }
 
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
+    public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
+                                  Principal principal, RedirectAttributes ra) {
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        try {
+            mensagemService.apagar(mensagemId, operador.getId(), MensagemSolicitacao.RemetenteMensagem.OPERADOR);
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+        }
+        return "redirect:/processos/solicitacoes-online/" + id;
+    }
+
     /**
      * Encaminha para o formulario normal de cadastro, pre-preenchido com os dados
      * do pedido.

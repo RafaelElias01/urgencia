@@ -35,6 +35,12 @@ public class MensagemSolicitacao {
     @Column(name = "lida", nullable = false)
     private boolean lida;
 
+    @Column(name = "deletada", nullable = false)
+    private boolean deletada;
+
+    @Column(name = "deletada_em")
+    private LocalDateTime deletadaEm;
+
     @Version
     private Long versao;
 
@@ -95,6 +101,22 @@ public class MensagemSolicitacao {
 
     public void setLida(boolean lida) {
         this.lida = lida;
+    }
+
+    public boolean isDeletada() {
+        return deletada;
+    }
+
+    public void setDeletada(boolean deletada) {
+        this.deletada = deletada;
+    }
+
+    public LocalDateTime getDeletadaEm() {
+        return deletadaEm;
+    }
+
+    public void setDeletadaEm(LocalDateTime deletadaEm) {
+        this.deletadaEm = deletadaEm;
     }
 
     public Long getVersao() {

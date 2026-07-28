@@ -238,6 +238,18 @@ public class SolicitanteController {
         return "redirect:/solicitante/" + id;
     }
 
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
+    public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
+                                  Principal principal, RedirectAttributes ra) {
+        Usuario usuario = resolverUsuario(principal);
+        try {
+            mensagemService.apagar(mensagemId, usuario.getId(), MensagemSolicitacao.RemetenteMensagem.SOLICITANTE);
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+        }
+        return "redirect:/solicitante/" + id;
+    }
+
     /**
      * Download do proprio documento anexado. Busca o anexo PELO ID persistido
      * (nunca aceita caminho vindo do request) e so serve o arquivo se ele

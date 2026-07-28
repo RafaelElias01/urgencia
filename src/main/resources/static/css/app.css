@@ -833,6 +833,14 @@ tr.linha-inativa > td:first-child {
     .badge.fs-5 { font-size: 1rem !important; }
 }
 
+/* === Chat recolhivel: chevron gira ao colapsar === */
+[data-bs-toggle="collapse"] .chevron-collapse {
+    transition: transform 0.2s ease;
+}
+[data-bs-toggle="collapse"].collapsed .chevron-collapse {
+    transform: rotate(180deg);
+}
+
 /* === Acessibilidade: respeita 'reduzir movimento' do sistema ===
    Desliga a animacao infinita (pulse-ring) e neutraliza as entradas com fade. */
 @media (prefers-reduced-motion: reduce) {

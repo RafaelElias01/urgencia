@@ -652,3 +652,23 @@ SMTP isolada (sem depender do Java) com `getpass`.
     Ver templates `solicitacoes-online-detalhe.html` e `detalhe.html`
     (solicitante) para o padrão completo.
 
+## Sessão de 2026-07-28 (logo Gota+Cruz + chat)
+
+1. **Logo Gota+Cruz implementado**: substituiu `bi-droplet-fill` por SVG próprio
+   nos templates. Gota dourada (`--rs-gold`) com cruz ao centro. Onde:
+   - `layout.html` — navbar (20×20, cruz `--rs-blue-dark`)
+   - `login.html` e `esqueci-senha.html` — telas de login (36×36, cruz `rgba(255,255,255,.2)`)
+2. **Chat recolhível**: cabeçalho do chat clicável com `data-bs-toggle="collapse"`,
+   chevron com `rotate(180deg)` via classe `.chevron-collapse` em `app.css`.
+3. **Apagar mensagem**: endpoint `POST /{id}/mensagem/{mensagemId}/apagar` nos
+   3 controllers (`ProcessoDetalheController`, `SolicitacaoOnlineTriagemController`,
+   `SolicitanteController`). `MensagemSolicitacao` ganhou campos `deletada`/`deletadaEm`
+   (soft delete): texto apagado (vira `null`), mas a mensagem permanece na base.
+4. **Timestamps relativos**: todas as mensagens exibem "agora", "X min atras",
+   "X h atras", "ontem" ou a data normal via JS `ts-relative` nos 3 templates de chat.
+5. **Chat no detalhe do processo**: `ProcessoDetalheController` passou a carregar
+   as mensagens da `SolicitacaoOnline` de origem e exibir o chat na tela de detalhe do
+   processo (`/processos/{id}`), com campo de resposta e badge de não lidas.
+6. **Badge e chevron**: os 3 templates de chat ganharam badge de contagem de mensagens
+   e classe `chevron-collapse` para animação do chevron ao recolher.
+

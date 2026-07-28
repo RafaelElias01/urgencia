@@ -75,6 +75,22 @@ public class MensagemSolicitacaoService {
     }
 
     @Transactional
+    public void apagar(Long mensagemId, Long remetenteId, RemetenteMensagem remetente) {
+        MensagemSolicitacao msg = repository.findById(mensagemId)
+            .orElseThrow(() -> new IllegalArgumentException("Mensagem nao encontrada."));
+        if (!msg.getRemetenteId().equals(remetenteId) || msg.getRemetente() != remetente) {
+            throw new IllegalArgumentException("Voce nao pode apagar esta mensagem.");
+        }
+        if (msg.isDeletada()) {
+            return;
+        }
+        msg.setDeletada(true);
+        msg.setDeletadaEm(LocalDateTime.now());
+        msg.setTexto(null);
+        repository.save(msg);
+    }
+
+    @Transactional
     public void excluirPorSolicitacao(Long solicitacaoOnlineId) {
         repository.deleteBySolicitacaoOnlineId(solicitacaoOnlineId);
     }

@@ -18,23 +18,50 @@
 <body>
 <nav class="navbar navbar-expand-md navbar-dark navbar-sgpur" th:fragment="navbar">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" sec:authorize="hasRole('AVALIADOR')"
+        <a class="navbar-brand fw-bold d-flex align-items-start gap-2" sec:authorize="hasRole('AVALIADOR')"
            th:href="@{/avaliador}">
-            <i class="bi bi-droplet-fill" style="font-size: 1.25rem;"></i>
-            <span>SAUR</span>
-            <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+            <svg width="20" height="20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;margin-top:0.1rem;">
+                <path d="M50 12C34 32 22 52 22 64c0 16 13 26 28 26s28-10 28-26C78 52 66 32 50 12z" fill="var(--rs-gold)" opacity=".85"/>
+                <rect x="44" y="48" width="12" height="24" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+                <rect x="36" y="56" width="28" height="10" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+            </svg>
+            <div class="d-flex flex-column lh-1">
+                <div class="d-flex align-items-center gap-2">
+                    <span>SAUR</span>
+                    <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+                </div>
+                <small style="font-size:.55rem;font-weight:400;opacity:.7;white-space:nowrap;">Sistema de avaliação de urgência renal</small>
+            </div>
         </a>
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" sec:authorize="hasRole('SOLICITANTE')"
+        <a class="navbar-brand fw-bold d-flex align-items-start gap-2" sec:authorize="hasRole('SOLICITANTE')"
            th:href="@{/solicitante}">
-            <i class="bi bi-droplet-fill" style="font-size: 1.25rem;"></i>
-            <span>SAUR</span>
-            <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+            <svg width="20" height="20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;margin-top:0.1rem;">
+                <path d="M50 12C34 32 22 52 22 64c0 16 13 26 28 26s28-10 28-26C78 52 66 32 50 12z" fill="var(--rs-gold)" opacity=".85"/>
+                <rect x="44" y="48" width="12" height="24" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+                <rect x="36" y="56" width="28" height="10" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+            </svg>
+            <div class="d-flex flex-column lh-1">
+                <div class="d-flex align-items-center gap-2">
+                    <span>SAUR</span>
+                    <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+                </div>
+                <small style="font-size:.55rem;font-weight:400;opacity:.7;white-space:nowrap;">Sistema de avaliação de urgência renal</small>
+            </div>
         </a>
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"
+        <a class="navbar-brand fw-bold d-flex align-items-start gap-2" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"
            th:href="@{/}">
-            <i class="bi bi-droplet-fill" style="font-size: 1.25rem;"></i>
-            <span>SAUR</span>
-            <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+            <svg width="20" height="20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;margin-top:0.1rem;">
+                <path d="M50 12C34 32 22 52 22 64c0 16 13 26 28 26s28-10 28-26C78 52 66 32 50 12z" fill="var(--rs-gold)" opacity=".85"/>
+                <rect x="44" y="48" width="12" height="24" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+                <rect x="36" y="56" width="28" height="10" rx="2" fill="var(--rs-blue-dark)" opacity=".7"/>
+            </svg>
+            <div class="d-flex flex-column lh-1">
+                <div class="d-flex align-items-center gap-2">
+                    <span>SAUR</span>
+                    <span class="badge rounded-pill bg-warning text-dark" style="font-size:.6rem;opacity:.8;">UR</span>
+                </div>
+                <small style="font-size:.55rem;font-weight:400;opacity:.7;white-space:nowrap;">Sistema de avaliação de urgência renal</small>
+            </div>
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
                 data-bs-target="#nav" aria-controls="nav" aria-expanded="false">

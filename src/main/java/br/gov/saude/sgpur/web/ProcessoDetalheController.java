@@ -12,8 +12,11 @@ import br.gov.saude.sgpur.service.Iniciais;
 import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
+import br.gov.saude.sgpur.domain.Usuario;
+import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
+import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +25,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.security.Principal;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.Optional;
@@ -54,6 +60,8 @@ public class ProcessoDetalheController {
     private final ConflitoEquipeMatcher conflitoEquipeMatcher;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
     private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
+    private final MensagemSolicitacaoService mensagemService;
+    private final UsuarioRepository usuarioRepo;
     private final boolean solicitanteHabilitado;
 
     public ProcessoDetalheController(ProcessoService processoService,
@@ -66,6 +74,8 @@ public class ProcessoDetalheController {
                                      ConflitoEquipeMatcher conflitoEquipeMatcher,
                                      SolicitacaoOnlineService solicitacaoOnlineService,
                                      SolicitacaoOnlineRepository solicitacaoOnlineRepository,
+                                     MensagemSolicitacaoService mensagemService,
+                                     UsuarioRepository usuarioRepo,
                                      @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
@@ -77,6 +87,8 @@ public class ProcessoDetalheController {
         this.conflitoEquipeMatcher = conflitoEquipeMatcher;
         this.solicitacaoOnlineService = solicitacaoOnlineService;
         this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
+        this.mensagemService = mensagemService;
+        this.usuarioRepo = usuarioRepo;
         this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
@@ -297,6 +309,18 @@ public class ProcessoDetalheController {
             processoVeioDoPortal
                 ? solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null)
                 : null);
+        // Chat com o solicitante (mesma conversa da solicitacao online de origem)
+        Long solicitacaoOrigemId = processoVeioDoPortal
+            ? solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null)
+            : null;
+        if (solicitacaoOrigemId != null) {
+            java.util.List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(solicitacaoOrigemId);
+            model.addAttribute("mensagens", mensagens);
+            long msgNaoLidas = mensagens.stream()
+                .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
+                .count();
+            model.addAttribute("msgNaoLidas", msgNaoLidas);
+        }
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()
             .filter(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR)
@@ -425,6 +449,41 @@ public class ProcessoDetalheController {
     // Exclusao e um caminho unico e incondicional: acao auditada pelo aspect.
     // O detalhe grava o id do processo (o numero nao esta disponivel como
     // argumento do metodo).
+    @PostMapping("/{id}/mensagem")
+    public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
+                                 Principal principal, RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        Long solicitacaoOrigemId = solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null);
+        if (solicitacaoOrigemId == null) {
+            ra.addFlashAttribute("erro", "Este processo nao possui solicitacao de origem vinculada.");
+            return "redirect:/processos/" + id;
+        }
+        if (texto == null || texto.isBlank()) {
+            ra.addFlashAttribute("erro", "A mensagem nao pode estar em branco.");
+            return "redirect:/processos/" + id;
+        }
+        SolicitacaoOnline s = solicitacaoOnlineService.buscar(solicitacaoOrigemId);
+        Usuario operador = usuarioRepo.findByUsername(principal.getName())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        mensagemService.enviar(s, texto, MensagemSolicitacao.RemetenteMensagem.OPERADOR, operador.getId());
+        auditoria.registrar("MENSAGEM_OPERADOR_ENVIADA",
+            "Processo " + p.getNumero() + " - resposta do operador " + operador.getUsername());
+        return "redirect:/processos/" + id;
+    }
+
+    @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
+    public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
+                                  Principal principal, RedirectAttributes ra) {
+        try {
+            Usuario operador = usuarioRepo.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+            mensagemService.apagar(mensagemId, operador.getId(), MensagemSolicitacao.RemetenteMensagem.OPERADOR);
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("erro", e.getMessage());
+        }
+        return "redirect:/processos/" + id;
+    }
+
     @LogAuditoria(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")
     @PostMapping("/{id}/excluir")
     public String excluir(@PathVariable Long id, RedirectAttributes ra) {
