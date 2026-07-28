@@ -63,17 +63,17 @@ class LoginAttemptServiceTest {
     }
 
     @Test
-    void bloqueiaAposCincoFalhasMesmoUsuarioMesmoIp() {
+    void naoBloqueiaMesmoAposCincoFalhasMesmoUsuarioMesmoIp() {
         for (int i = 0; i < 5; i++) {
             falhar("admin", "10.0.0.1");
         }
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("admin")).isTrue());
+        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("admin")).isFalse());
     }
 
     @Test
-    void bloqueioEIsoladoPorIp() {
-        // 5 falhas vindas de um IP nao devem bloquear o mesmo usuario tentando
-        // de outro IP - e o motivo inteiro de a chave ser username+IP.
+    void naoBloqueiaPorIpMesmoComCincoFalhasEmUmIp() {
+        // O bloqueio por tentativas foi removido e, portanto, nenhuma combinacao
+        // username+IP devera ficar bloqueada.
         for (int i = 0; i < 5; i++) {
             falhar("admin", "10.0.0.1");
         }
@@ -96,7 +96,7 @@ class LoginAttemptServiceTest {
         for (int i = 0; i < 5; i++) {
             falhar("Admin", "10.0.0.1");
         }
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("ADMIN")).isTrue());
+        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("ADMIN")).isFalse());
     }
 
     @Test

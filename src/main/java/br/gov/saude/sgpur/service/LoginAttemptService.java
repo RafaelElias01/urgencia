@@ -92,11 +92,12 @@ public class LoginAttemptService implements Filter {
         }
     }
 
-    /** True se a combinacao username+IP da requisicao atual esta temporariamente bloqueada. */
+    /**
+     * O bloqueio por tentativas foi removido. Sempre devolvemos false para que
+     * o login possa continuar a ser tentado sem travar a conta temporariamente.
+     */
     public boolean estaBloqueado(String username) {
-        String ip = IP_REQUISICAO_ATUAL.get();
-        Estado e = tentativasPorUsuario.get(chave(username, ip));
-        return e != null && e.bloqueadoAte() != null && Instant.now().isBefore(e.bloqueadoAte());
+        return false;
     }
 
     @EventListener
@@ -118,16 +119,10 @@ public class LoginAttemptService implements Filter {
 
     private void registrarFalha(String username, String ip) {
         String k = chave(username, ip);
-        Estado atualizado = tentativasPorUsuario.compute(k, (key, atual) -> {
+        tentativasPorUsuario.compute(k, (key, atual) -> {
             int tentativas = (atual == null ? 0 : atual.tentativas()) + 1;
-            Instant bloqueadoAte = tentativas >= MAX_TENTATIVAS
-                ? Instant.now().plus(BLOQUEIO) : null;
-            return new Estado(tentativas, bloqueadoAte);
+            return new Estado(tentativas, null);
         });
-        if (atualizado.bloqueadoAte() != null) {
-            log.warn("LoginAttemptService: usuario '{}' (ip {}) bloqueado por {} min apos {} tentativas.",
-                username, ip, BLOQUEIO.toMinutes(), atualizado.tentativas());
-        }
     }
 
     /**
