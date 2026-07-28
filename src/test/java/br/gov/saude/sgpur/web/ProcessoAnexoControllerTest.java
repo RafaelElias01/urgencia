@@ -195,7 +195,6 @@ class ProcessoAnexoControllerTest {
             .andExpect(flash().attribute("msg", "Oficio de indeferimento anexado."));
 
         verify(anexoStorage).salvar(eq(processo), eq(TipoAnexo.OFICIO_INDEFERIMENTO), anyString(), eq(arquivo));
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.OFICIO_INDEFERIMENTO, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 
@@ -225,7 +224,6 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Comprovante de envio ao solicitante anexado."));
 
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_ENVIO_SOLICITANTE, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 
@@ -270,7 +268,6 @@ class ProcessoAnexoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Comprovante SNT anexado."));
 
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_SNT, 99L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());
     }
 

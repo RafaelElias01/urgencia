@@ -116,7 +116,7 @@ public class SchemaMigration implements ApplicationRunner {
                 "SELECT tc.table_name, tc.constraint_name "
                     + "FROM information_schema.table_constraints tc "
                     + "WHERE tc.constraint_type = 'CHECK' "
-                    + "  AND lower(tc.table_name) IN ('processo','anexo','parecer','usuario') "
+                    + "  AND lower(tc.table_name) IN ('processo','anexo','parecer','usuario','solicitacao_online') "
                     + "  AND lower(tc.constraint_name) NOT LIKE '%not_null%'");
             for (Map<String, Object> ck : checks) {
                 String tabela = String.valueOf(ck.get("table_name"));

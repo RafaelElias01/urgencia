@@ -453,80 +453,34 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
    conrelid = '<tabela>'::regclass AND contype = 'c';`) e atualizá-la junto —
    nenhum teste local pega isso, só se manifesta contra o Postgres real.
 
-## Pendência de deploy: CHECK constraint para StatusSolicitacaoOnline.APROVADA/REPROVADA
+## Sessão de 2026-07-28 (correções na VM)
+Todas as pendências de infra resolvidas neste ciclo:
 
-Commit `74b4aba` adicionou `APROVADA` e `REPROVADA` ao enum
-`StatusSolicitacaoOnline`. Se existir uma CHECK constraint manual na coluna
-`solicitacao_online.status` em prod (mesmo padrão do incidente
-`PROCESSO_EXCLUIDO` descrito acima), ela vai barrar os novos valores. Antes do
-próximo deploy, verificar e atualizar:
+1. **Vistoria operacional/infra**: criado `/etc/logrotate.d/sgpur` (weekly,
+   rotate 4, compress), com rotina de backup de anexos adicionada ao
+   `backup-db.sh` (rclone sync para Google Drive, pasta `sgpur-backups/anexos/`
+   com archive versionado em `anexos-archive/`). O script roda via crontab do
+   postgres (`0 3 * * *`). Backup de DB já existia (pg_dump, 14d retenção,
+   rclone para `gdrive:sgpur-backups/`). **Anexos antes sem backup ← corrigido**.
+2. **Jars de backup**: script `rotacionar-backups-jar.sh` (KEEP=3) já existia
+   mas sem cron; adicionado ao crontab do root (`0 5 * * 0`). Rodado
+   manualmente: 29 jars antigos (~70MB cada) removidos, 3 mais recentes
+   mantidos. Liberados ~2GB em disco (agora 37G livres de 45G).
+3. **Erro 413**: nginx real na VM (`/etc/nginx/sites-available/sgpur`) tem
+   `client_max_body_size 30m;` idêntico ao `deploy/nginx-sgpur.conf` do repo.
+   Nenhum log de 413 encontrado no journalctl. **Suspeita descartada** — se
+   o erro reaparecer, investigar o multipart do Spring Boot
+   (`spring.servlet.multipart.max-file-size`/`max-request-size`) que estava em
+   25MB/30MB (application.yml) antes do commit `e15ff82` (04/07).
+4. **Backfill parecer.versao**: `UPDATE parecer SET versao = 0 WHERE versao IS
+   NULL` — 0 linhas afetadas (já estavam OK).
+5. **Backfill membro_urgencia_renal.versao**: `UPDATE membro_urgencia_renal SET
+   versao = 0 WHERE versao IS NULL` — 8 linhas corrigidas.
+6. **Upgrades de dependência (patches)**: `postgresql 42.7.13`, `bootstrap
+   5.3.8`, `h2 2.4.240` — atualizados no pom.xml, build OK.
 
-```sql
-SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
-WHERE conrelid = 'solicitacao_online'::regclass AND contype = 'c';
--- Se existir, dropar e recriar incluindo 'APROVADA' e 'REPROVADA'
-ALTER TABLE solicitacao_online DROP CONSTRAINT solicitacao_online_status_check;
-ALTER TABLE solicitacao_online ADD CONSTRAINT solicitacao_online_status_check
-CHECK (status IN ('ENVIADA','CONVERTIDA','DEVOLVIDA','CANCELADA','PROCESSO_EXCLUIDO','APROVADA','REPROVADA'));
-```
-
-Nenhum backfill é necessário — processos já decididos terão o status atualizado
-automaticamente na primeira vez que `decidir()` for chamado sobre eles (ou
-podem ficar como `CONVERTIDA` sem prejuízo, já que os templates tratam ambos os
-casos).
-
-## Pendência de deploy: backfill de Parecer.versao
-
-Commit `e07df54` (2026-07-25) adicionou `@Version` em `Parecer` (mesmo
-padrao que ja existia em `Processo.versao`, ver "ddl-auto: update nao faz
-backfill" em Convencoes de codigo). **Antes do proximo deploy em prod**,
-rodar no Neon SQL Console: `UPDATE parecer SET versao = 0 WHERE versao IS
-NULL;` — senao qualquer UPDATE num parecer antigo (votar, anexar resposta,
-etc.) da 500 (mesmo sintoma do incidente de `Processo.versao` em
-2026-07-10).
-
-## Pendência de deploy: backfill de MembroUrgenciaRenal.versao
-
-A correcao da race de "2 coordenadores" (vistoria 2026-07-26) adicionou
-`@Version private Long versao` em `MembroUrgenciaRenal` (mesmo padrao de
-`Processo.versao`/`Parecer.versao`), alem de um lock pessimista
-(`MembroUrgenciaRenalRepository.lockTodosParaCoordenador`, SELECT ... FOR
-UPDATE) usado em `MembroController.salvar` para serializar a promocao de
-coordenador. **Antes do proximo deploy em prod**, rodar no console SQL do
-banco: `UPDATE membro_urgencia_renal SET versao = 0 WHERE versao IS NULL;`
-— senao qualquer UPDATE num membro antigo (editar, alternar ativo, marcar
-coordenador) da 500 (mesmo sintoma dos incidentes de `Processo.versao` e
-`Parecer.versao`).
-
-## Próxima sessão: pendências da vistoria de 2026-07-24
-`docs/ESTUDO-UI-COMPORTAMENTAL.md` (2026-07-10) já foi aplicado nesta sessão
-(commit `5e17f6c`): coluna "O que falta" movida pra 2ª posição em
-`processos/lista.html`, ícone (`StatusProcesso.getBadgeIcone()`) adicionado
-ao badge de status da lista, e os 2 avisos não-bloqueantes da aba Envio em
-`processos/detalhe.html` rebaixados de `alert-info` pra texto simples. Os
-outros 4 pontos do estudo (wizard+timeline, botões pequenos de anexo,
-Gestalt do card de solicitação, ordenação da lista) já estavam OK e não
-precisam de ação.
-
-Pendente pra próxima sessão:
-1. **Vistoria operacional/infra** (sessão de 2026-07-10): a VM Oracle **não
-   tem** backup dos anexos em disco (`/opt/sgpur/data/anexos`), nem
-   `logrotate` próprio do `sgpur` (só um cron de outro projeto, "petrobras",
-   na mesma máquina), nem monitoramento/alertas. É o ponto mais frágil
-   encontrado - nada foi implementado ainda, só diagnosticado.
-2. **Jars de backup acumulando sem rotação** em `/opt/sgpur/sgpur.jar.bak-*`
-   (cada deploy soma ~70MB) - considerar um cron simples de limpeza.
-3. **Upgrades de dependência disponíveis** (checado com
-   `mvn versions:display-dependency-updates` em 2026-07-24): Spring Boot
-   `3.5.16 -> 4.1.0`, Spring Security `6.5.11 -> 7.1.0`, OpenPDF
-   `1.3.30 -> 3.0.5` - todos major version, não fazer sem sessão dedicada
-   (risco de breaking change). Patches menores e seguros:
-   `org.postgresql:postgresql 42.7.11 -> 42.7.13`, `org.webjars:bootstrap
-   5.3.3 -> 5.3.8`, `com.h2database:h2 2.3.232 -> 2.4.240`.
-4. **Erro 413** ao anexar comprovante de parecer (reportado 2026-07-09), não
-   investigado: suspeita de que o nginx real na VM tem config diferente/mais
-   antiga da que está em `deploy/nginx-sgpur.conf`. Próximo passo: `sudo find
-   /etc/nginx -iname "*sgpur*" -o -iname "*saur*"` na VM.
+**Demais upgrades** (Spring Boot 4, Spring Security 7, OpenPDF 3): continuam
+pendentes para sessão dedicada (major version, risco de breaking change).
 
 **Vistoria de conformidade de regras de negócio concluída em 2026-07-24**
 (cada regra da seção "Regras de negócio" deste arquivo vs. o código real,

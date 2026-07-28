@@ -700,7 +700,7 @@
                             <span th:replace="~{layout :: status(false)}"></span> Oficio ainda nao anexado.
                             O sistema gera automaticamente ao indeferir — ou faca upload manual abaixo.
                         </div>
-                        <div class="row g-2 align-items-end">
+                        <div th:unless="${processo.emailEnviadoSolicitante}" class="row g-2 align-items-end">
                             <div class="col-md-4">
                                 <label class="form-label small">Data emissao do oficio</label>
                                 <form th:action="@{/processos/{id}/finalizacao(id=${processo.id})}" method="post" id="formDatasOficio">
@@ -722,7 +722,8 @@
                             </div>
                         </div>
                         <!-- Upload manual do oficio -->
-                        <form th:action="@{/processos/{id}/oficio-upload(id=${processo.id})}" method="post"
+                        <form th:unless="${processo.emailEnviadoSolicitante}"
+                              th:action="@{/processos/{id}/oficio-upload(id=${processo.id})}" method="post"
                               enctype="multipart/form-data" class="row g-2 align-items-end mt-2">
                             <div class="col-md-8">
                                 <label class="form-label small">
@@ -758,7 +759,8 @@
                         <div th:unless="${comprovanteSnT != null}" class="alert alert-warning py-2 mb-2">
                             <span th:replace="~{layout :: status(false)}"></span> Comprovante SNT ainda nao anexado.
                         </div>
-                        <form th:action="@{/processos/{id}/comprovante-snt(id=${processo.id})}" method="post"
+                        <form th:unless="${processo.emailEnviadoSolicitante}"
+                              th:action="@{/processos/{id}/comprovante-snt(id=${processo.id})}" method="post"
                               enctype="multipart/form-data" class="row g-2 align-items-end">
                             <div class="col-md-8">
                                 <label class="form-label small">
@@ -822,7 +824,8 @@
                             </div>
 
                             <!-- Botao unico de envio -->
-                            <form th:action="@{/processos/{id}/finalizar(id=${processo.id})}" method="post">
+                            <form th:if="${processo.status.finalizado}"
+                                  th:action="@{/processos/{id}/finalizar(id=${processo.id})}" method="post">
                                 <button type="submit" class="btn btn-success"
                                         th:disabled="${(processo.status.name() == 'DEFERIDO' and comprovanteSnT == null)
                                             or (processo.status.name() == 'INDEFERIDO' and oficioAnexo == null)

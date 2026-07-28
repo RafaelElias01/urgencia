@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.LocalDate;
 
 /**
@@ -78,8 +80,27 @@ public class ProcessoAnexoController {
 
     private void substituirAnexo(Processo p, TipoAnexo tipo, String descricao, MultipartFile arquivo)
             throws IOException {
+        // 1. Salva o novo anexo primeiro (se falhar, os antigos estao intactos)
         Anexo novo = anexoStorage.salvar(p, tipo, descricao, arquivo);
-        anexoStorage.removerAntigosDoTipo(p.getId(), tipo, novo.getId());
+        // 2. Apaga os arquivos antigos do disco
+        for (Anexo a : p.getAnexos()) {
+            if (a.getTipo() == tipo) {
+                try {
+                    java.nio.file.Files.deleteIfExists(anexoStorage.resolverArquivo(a));
+                } catch (IOException ignored) {
+                }
+            }
+        }
+        // 3. Reconstroi a colecao (getAnexos retorna unmodifiable, precisa setAnexos)
+        List<Anexo> atualizados = new ArrayList<>();
+        for (Anexo a : p.getAnexos()) {
+            if (a.getTipo() != tipo) {
+                atualizados.add(a);
+            }
+        }
+        atualizados.add(novo);
+        p.setAnexos(atualizados);
+        // orphanRemoval=true + cascade deleta os antigos do banco no flush
     }
 
     /** Atualiza as datas do oficio de indeferimento (aba Finalizacao). */
@@ -95,6 +116,10 @@ public class ProcessoAnexoController {
                               LocalDate dataEnvioOficio,
                               RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
+        if (validator.edicaoBloqueada(p)) {
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return "redirect:/processos/" + id + "#finalizacao";
+        }
         p.setDataEmissaoOficio(dataEmissaoOficio);
         p.setDataEnvioOficio(dataEnvioOficio);
         processoService.salvar(p);
@@ -110,6 +135,11 @@ public class ProcessoAnexoController {
         // Regra (comprovante SNT no Deferido / oficio no Indeferido) validada
         // dentro do servico - ProcessoService.confirmarRespostaSolicitante -
         // para nao existir so aqui na camada web.
+        Processo p = processoService.buscar(id);
+        if (validator.edicaoBloqueada(p)) {
+            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+            return "redirect:/processos/" + id + "#finalizacao";
+        }
         try {
             processoService.confirmarRespostaSolicitante(id, emailEnviadoSolicitante);
         } catch (IllegalStateException e) {
