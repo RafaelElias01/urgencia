@@ -574,6 +574,40 @@ senha real em uso via `/proc/<PID>/environ`, não só o arquivo, antes de
 trocar de teoria). Utilitário `deploy/testar-smtp.py` testa a credencial
 SMTP isolada (sem depender do Java) com `getpass`.
 
+## Sessão de 2026-07-27 (sistema de mensagens + notificações)
+
+1. **Entidade `MensagemSolicitacao`**: `id`, `solicitacaoOnline` (FK),
+   `remetente` (SOLICITANTE/OPERADOR), `remetenteId`, `texto`, `dataEnvio`,
+   `lida`, `versao`. Repository com queries JPQL para contagem de não lidas
+   e `@Query` para IDs distintos de solicitações com mensagens não lidas.
+2. **Service + Controller**: `MensagemSolicitacaoService` (enviar, listar,
+   marcar lidas, contar não lidas). Endpoints `POST /{id}/mensagem` em ambos
+   `SolicitanteController` e `SolicitacaoOnlineTriagemController`.
+3. **Indicador na lista de triagem**: `SolicitacaoOnlineTriagemController.lista()`
+   passa `idsComMsgNaoLidaSolicitante` (`Set<Long>`) ao modelo; template
+   `solicitacoes-online-lista.html` exibe badge amarelo `bi-chat-dots-fill` ao
+   lado do botão "Ver" quando o solicitante enviou mensagem não lida.
+4. **Cards separados "Em análise" / "Decididas"**: `SolicitacaoOnlineService.Resumo`
+   record alterado de 4 campos para 5 (`aguardandoTriagem`, `emAnalise`,
+   `decididas`, `devolvidas`). Solicitante vê 5 cards no dashboard.
+5. **Sound notification (Web Audio API)**: fragmento `notificacaoSonora` no
+   `layout.html` — função `tocarNotificacao()` que gera 2 tons (600Hz + 900Hz)
+   via AudioContext. Disparada nos templates de detalhe quando `temMsgNaoLida`
+   é true (mensagens não lidas da outra parte).
+6. **Auto-scroll chat**: `id="chatBox"` nos dois detalhes + JS
+   `chatBox.scrollTop = chatBox.scrollHeight` no final da página.
+7. **Chat melhorado**: balões com nome do remetente ("Você"/"Solicitante"/
+   "Equipe CET-RS"), `white-space: pre-wrap`, contador de mensagens no header.
+8. **Fix overlap badge navbar**: badges de "Solicitações online" trocados de
+   `position-absolute top-0 start-100 translate-middle` para `badge` inline
+   com `gap-1` no link (`d-inline-flex align-items-center gap-1`). Só o badge
+   do sino do avaliador (lado direito, sem adjacentes) manteve
+   `position-absolute`. Resolve colisão visual com "Usuarios"/"Auditoria".
+9. **Password default dev**: `application.yml` alterado de `admin123` para
+   `Admin123!` para satisfazer a password policy (8 chars + maiúscula +
+   minúscula + número + especial). Testes `UsuarioServiceTest` atualizados.
+   `AdminBootstrapTest` corrigido. 526 testes, 0 falhas.
+
 
 
 
