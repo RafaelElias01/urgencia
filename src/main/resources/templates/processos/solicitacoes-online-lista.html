@@ -60,6 +60,11 @@
                             </span>
                         </td>
                         <td class="text-end">
+                            <span th:if="${idsComMsgNaoLidaSolicitante.contains(s.id)}"
+                                  class="badge bg-warning text-dark me-1"
+                                  title="Nova mensagem do solicitante">
+                                <i class="bi bi-chat-dots-fill"></i>
+                            </span>
                             <a th:href="@{/processos/solicitacoes-online/{id}(id=${s.id})}"
                                class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i> Ver

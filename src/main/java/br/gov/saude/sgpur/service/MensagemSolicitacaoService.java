@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class MensagemSolicitacaoService {
@@ -54,6 +55,11 @@ public class MensagemSolicitacaoService {
     @Transactional(readOnly = true)
     public long contarNaoLidasOperador() {
         return repository.countByLidaFalseAndRemetente(RemetenteMensagem.SOLICITANTE);
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Long> idsSolicitacoesComMsgNaoLidaSolicitante() {
+        return repository.findDistinctSolicitacaoOnlineIdsByLidaFalseAndRemetente(RemetenteMensagem.SOLICITANTE);
     }
 
     @Transactional(readOnly = true)

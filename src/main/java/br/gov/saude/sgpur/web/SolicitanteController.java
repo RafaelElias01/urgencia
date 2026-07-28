@@ -170,6 +170,7 @@ public class SolicitanteController {
                 anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.OFICIO_INDEFERIMENTO));
         }
         model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
+        model.addAttribute("temMsgNaoLida", mensagemService.contarNaoLidasSolicitantePorSolicitacao(id, usuario.getId()) > 0);
         mensagemService.marcarComoLidas(id, MensagemSolicitacao.RemetenteMensagem.OPERADOR, usuario.getId());
         return "solicitante/detalhe";
     }

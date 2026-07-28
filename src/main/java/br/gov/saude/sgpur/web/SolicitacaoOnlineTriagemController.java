@@ -18,9 +18,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.security.Principal;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Fila de triagem do OPERADOR/ADMIN para os pedidos enviados pelo Portal do
@@ -64,6 +66,8 @@ public class SolicitacaoOnlineTriagemController {
         model.addAttribute("solicitacoes", solicitacoes);
         model.addAttribute("diasEspera", diasEspera);
         model.addAttribute("filtro", todas ? "todas" : "pendentes");
+        Set<Long> idsComMsgNaoLidaSolicitante = mensagemService.idsSolicitacoesComMsgNaoLidaSolicitante();
+        model.addAttribute("idsComMsgNaoLidaSolicitante", idsComMsgNaoLidaSolicitante);
         return "processos/solicitacoes-online-lista";
     }
 
@@ -72,6 +76,7 @@ public class SolicitacaoOnlineTriagemController {
     public String detalhe(@PathVariable Long id, Model model) {
         model.addAttribute("solicitacao", service.buscarParaDetalhe(id));
         model.addAttribute("mensagens", mensagemService.listarPorSolicitacao(id));
+        model.addAttribute("temMsgNaoLida", mensagemService.idsSolicitacoesComMsgNaoLidaSolicitante().contains(id));
         return "processos/solicitacoes-online-detalhe";
     }
 

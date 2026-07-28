@@ -64,12 +64,14 @@
             <div th:if="${mensagens.isEmpty()}" class="text-muted small text-center py-3">
                 Nenhuma mensagem do solicitante ainda.
             </div>
-            <div th:unless="${mensagens.isEmpty()}" class="mb-3" style="max-height:400px;overflow-y:auto;">
+            <div id="chatBox" th:unless="${mensagens.isEmpty()}" class="mb-3" style="max-height:400px;overflow-y:auto;">
                 <div th:each="msg : ${mensagens}" class="mb-2 d-flex"
                      th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'justify-content-end' : 'justify-content-start'">
                     <div class="rounded-3 px-3 py-2" style="max-width:80%;"
                          th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'bg-primary text-white' : 'bg-light border'">
-                        <div class="small" th:text="${msg.texto}"></div>
+                        <div class="small fw-semibold" th:classappend="${msg.remetente.name() == 'OPERADOR'} ? '' : 'text-muted'"
+                             th:text="${msg.remetente.name() == 'OPERADOR'} ? 'Voce' : 'Solicitante'">Remetente</div>
+                        <div class="small" style="white-space: pre-wrap;" th:text="${msg.texto}"></div>
                         <div class="small opacity-75 mt-1"
                              th:text="${#temporals.format(msg.dataEnvio, 'dd/MM/yyyy HH:mm')}"
                              th:classappend="${msg.remetente.name() == 'OPERADOR'} ? 'text-white-50' : 'text-muted'">
@@ -123,5 +125,14 @@
 </div>
 
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: notificacaoSonora}"></script>
+<script th:if="${temMsgNaoLida}">
+    tocarNotificacao();
+</script>
+<script>
+    // Auto-scroll da conversa para a mensagem mais recente
+    var chatBox = document.getElementById('chatBox');
+    if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
+</script>
 </body>
 </html>

@@ -50,14 +50,15 @@
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/membros}">Membros</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')"><a class="nav-link" th:href="@{/relatorios/anual}">Relatorio anual</a></li>
                 <li class="nav-item" sec:authorize="hasAnyRole('ADMIN','OPERADOR')" th:if="${solicitanteHabilitado}">
-                    <a class="nav-link position-relative" th:href="@{/processos/solicitacoes-online}">
-                        <i class="bi bi-inbox-fill me-1"></i>Solicitacoes online
+                    <a class="nav-link d-inline-flex align-items-center gap-1" th:href="@{/processos/solicitacoes-online}">
+                        <i class="bi bi-inbox-fill"></i> Solicitacoes online
                         <span th:if="${pendentesTriagemOnline > 0}"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                              class="badge rounded-pill bg-danger"
+                              style="font-size:.65rem;"
                               th:text="${pendentesTriagemOnline}">0</span>
                         <span th:if="${mensagensNaoLidasOperador > 0}"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
-                              style="margin-top:14px;"
+                              class="badge rounded-pill bg-warning text-dark"
+                              style="font-size:.65rem;"
                               th:text="${mensagensNaoLidasOperador}">0</span>
                     </a>
                 </li>
@@ -184,5 +185,32 @@
 <script th:fragment="scripts" th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
 <script th:fragment="confirmarAcaoScript" th:src="@{/js/confirmar-acao.js}"></script>
 <script th:fragment="relatorioPdfScript" th:src="@{/js/relatorio-pdf.js}"></script>
+<script th:fragment="notificacaoSonora">
+    function tocarNotificacao() {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var g = ctx.createGain();
+            g.connect(ctx.destination);
+            g.gain.value = 0.3;
+
+            // Dois tons rapidos (notificacao classica)
+            var o1 = ctx.createOscillator();
+            o1.type = 'sine';
+            o1.frequency.value = 600;
+            o1.connect(g);
+            o1.start(ctx.currentTime);
+            o1.stop(ctx.currentTime + 0.1);
+
+            var o2 = ctx.createOscillator();
+            o2.type = 'sine';
+            o2.frequency.value = 900;
+            o2.connect(g);
+            o2.start(ctx.currentTime + 0.12);
+            o2.stop(ctx.currentTime + 0.22);
+        } catch(e) {
+            // fallback silencioso se Audio API nao estiver disponivel
+        }
+    }
+</script>
 </body>
 </html>
