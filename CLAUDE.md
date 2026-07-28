@@ -768,12 +768,14 @@ pelos 526 testes — eles usam `@MockitoBean`, nunca tocam o banco real):**
 soft-delete — **apagar mensagem sempre quebrava** com
 `DataIntegrityViolationException` (23502, "NULL not allowed"), nas 3 telas,
 nos endpoints clássicos E nos novos. Corrigido tirando `nullable = false` da
-entidade. **Pendência de produção:** `ddl-auto: update` não relaxa
-constraint `NOT NULL` em coluna já existente (mesma classe de pitfall do
-`@Version`/CHECK de enum documentados acima) — se a coluna já existir como
-NOT NULL no Postgres de prod, rodar manualmente após o deploy:
+entidade. Como esperado (mesma classe de pitfall do `@Version`/CHECK de
+enum documentados acima), o `ddl-auto: update` não relaxou a constraint
+`NOT NULL` sozinha no Postgres de prod — confirmado via
+`information_schema.columns` (`is_nullable = NO`) logo após o deploy.
+**Corrigido manualmente em produção em 2026-07-28** com
 `ALTER TABLE mensagem_solicitacao ALTER COLUMN texto DROP NOT NULL;`
-(usuário deve rodar — ver `saur-oracle-vm`/DDL de produção).
+(rodado pelo usuário via Oracle Cloud Shell, confirmado `is_nullable = YES`
+depois). Apagar mensagem funciona em produção desde então.
 
 **Gotcha do Thymeleaf que causou uma segunda rodada de bug** (ver também a
 entrada em "Convenções de código"): as 3 chamadas
