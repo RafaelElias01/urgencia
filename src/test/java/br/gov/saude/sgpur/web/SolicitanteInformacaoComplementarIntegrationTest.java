@@ -1,6 +1,5 @@
 package br.gov.saude.sgpur.web;
 
-import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Perfil;
@@ -56,21 +55,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:sgpur-info-complementar-portal;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "app.solicitante.habilitado=true",
-    "app.anexos.dir=./target/test-anexos-info-complementar-portal"
+        "spring.datasource.url=jdbc:h2:mem:sgpur-info-complementar-portal;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "app.solicitante.habilitado=true",
+        "app.anexos.dir=./target/test-anexos-info-complementar-portal"
 })
 class SolicitanteInformacaoComplementarIntegrationTest {
 
-    @Autowired private MockMvc mvc;
-    @Autowired private UsuarioRepository usuarioRepo;
-    @Autowired private SolicitacaoOnlineRepository solicitacaoRepo;
-    @Autowired private ProcessoRepository processoRepo;
-    @Autowired private ParecerRepository parecerRepo;
-    @Autowired private MembroUrgenciaRenalRepository membroRepo;
-    @Autowired private AnexoRepository anexoRepo;
-    @Autowired private ProcessoService processoService;
+    @Autowired
+    private MockMvc mvc;
+    @Autowired
+    private UsuarioRepository usuarioRepo;
+    @Autowired
+    private SolicitacaoOnlineRepository solicitacaoRepo;
+    @Autowired
+    private ProcessoRepository processoRepo;
+    @Autowired
+    private ParecerRepository parecerRepo;
+    @Autowired
+    private MembroUrgenciaRenalRepository membroRepo;
+    @Autowired
+    private AnexoRepository anexoRepo;
+    @Autowired
+    private ProcessoService processoService;
 
     private Long solicitacaoId;
     private Long processoId;
@@ -107,11 +114,12 @@ class SolicitanteInformacaoComplementarIntegrationTest {
         processoRepo.saveAndFlush(p);
         processoId = p.getId();
 
-        String[][] medicos = {{"HCPA", "Ana Nefro"}, {"ISCMPA", "Bruno Nefro"}, {"CET", "Carla Nefro"}};
+        String[][] medicos = { { "HCPA", "Ana Nefro" }, { "ISCMPA", "Bruno Nefro" }, { "CET", "Carla Nefro" } };
         Parecer primeiroParecer = null;
         for (String[] medico : medicos) {
             MembroUrgenciaRenal m = membroRepo.saveAndFlush(
-                new MembroUrgenciaRenal(medico[0], medico[1], medico[1].replace(" ", ".").toLowerCase() + "@example.com"));
+                    new MembroUrgenciaRenal(medico[0], medico[1],
+                            medico[1].replace(" ", ".").toLowerCase() + "@example.com"));
             Parecer par = new Parecer(m);
             par.setProcesso(p);
             par.setDataEnvio(LocalDate.of(2026, 3, 2));
@@ -152,26 +160,26 @@ class SolicitanteInformacaoComplementarIntegrationTest {
         // Solicitante envia o arquivo direto pelo portal - so alimenta o dado,
         // NAO decide nem retoma a analise.
         MockMultipartFile arquivo = new MockMultipartFile("arquivos", "exame-complementar.pdf",
-            MediaType.APPLICATION_PDF_VALUE, "conteudo do exame".getBytes());
+                MediaType.APPLICATION_PDF_VALUE, "conteudo do exame".getBytes());
         mvc.perform(multipart("/solicitante/" + solicitacaoId + "/informacao-complementar")
                 .file(arquivo).with(csrf()))
-            .andExpect(status().is3xxRedirection());
+                .andExpect(status().is3xxRedirection());
 
         Processo depoisDoEnvio = processoRepo.findById(processoId).orElseThrow();
         assertThat(depoisDoEnvio.getStatus()).isEqualTo(StatusProcesso.SOLICITA_INFORMACAO);
         assertThat(anexoRepo.findByProcessoIdOrderByDataUploadAsc(processoId))
-            .anyMatch(a -> a.getTipo() == TipoAnexo.INFO_COMPLEMENTAR
-                && a.getDescricao() != null
-                && a.getDescricao().contains("Portal do Solicitante"));
+                .anyMatch(a -> a.getTipo() == TipoAnexo.INFO_COMPLEMENTAR
+                        && a.getDescricao() != null
+                        && a.getDescricao().contains("Portal do Solicitante"));
 
         // Operador ve o anexo na tela de detalhe do processo (anexosInfoComplementar)
         mvc.perform(get("/processos/" + processoId).with(user("operador-it")))
-            .andExpect(status().isOk());
+                .andExpect(status().isOk());
 
         // Operador retoma a analise - processo volta para ENVIADO
         mvc.perform(post("/processos/" + processoId + "/retomar-analise")
                 .with(csrf()).with(user("operador-it")))
-            .andExpect(status().is3xxRedirection());
+                .andExpect(status().is3xxRedirection());
 
         Processo depoisDaRetomada = processoRepo.findById(processoId).orElseThrow();
         assertThat(depoisDaRetomada.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
@@ -179,6 +187,6 @@ class SolicitanteInformacaoComplementarIntegrationTest {
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor user(String username) {
         return org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
-            .user(username).roles("OPERADOR");
+                .user(username).roles("OPERADOR");
     }
 }

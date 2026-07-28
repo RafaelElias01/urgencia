@@ -203,7 +203,7 @@ public class SolicitacaoOnlineService {
                 case ENVIADA -> aguardando++;
                 case CONVERTIDA, APROVADA, REPROVADA -> convertidas++;
                 case DEVOLVIDA -> devolvidas++;
-                case CANCELADA -> canceladas++;
+                case CANCELADA, PROCESSO_EXCLUIDO -> canceladas++;
             }
         }
         return new Resumo(solicitacoes.size(), aguardando, convertidas, devolvidas, canceladas);

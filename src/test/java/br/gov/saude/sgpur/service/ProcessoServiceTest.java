@@ -5,9 +5,6 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
-import br.gov.saude.sgpur.service.AnexoStorageService;
-import br.gov.saude.sgpur.service.EmailSenderService;
-import br.gov.saude.sgpur.service.EmailTemplateService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +40,8 @@ class ProcessoServiceTest {
     // nele, e o servico apenas delega.
     @BeforeEach
     void setUp() {
-        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository, solicitacaoOnlineRepository, emailTemplateService, emailSenderService, anexoStorageService);
+        service = new ProcessoService(processoRepository, membroRepository, new ProcessoValidator(), parecerRepository,
+                solicitacaoOnlineRepository, emailTemplateService, emailSenderService, anexoStorageService);
     }
 
     private Parecer parecer(ResultadoParecer r) {
@@ -83,8 +81,8 @@ class ProcessoServiceTest {
     /** Anexa a resposta de todos os pareceres ja recebidos (resultado != null). */
     private void anexarRespostasParaTodosRecebidos(Processo p) {
         p.getPareceres().stream()
-            .filter(par -> par.getResultado() != null)
-            .forEach(par -> anexarResposta(p, par));
+                .filter(par -> par.getResultado() != null)
+                .forEach(par -> anexarResposta(p, par));
     }
 
     @Test
@@ -97,7 +95,7 @@ class ProcessoServiceTest {
     @Test
     void indefereQuandoTodosResponderamSemMaioriaFavoravel() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         assertThat(service.sugerirDecisao(p)).contains(StatusProcesso.INDEFERIDO);
     }
 
@@ -157,8 +155,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(50L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.atualizarDados(50L, new Processo()))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("encerrado");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("encerrado");
     }
 
     @Test
@@ -168,8 +166,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(51L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.decidir(51L, StatusProcesso.INDEFERIDO, "motivo"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("encerrado");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("encerrado");
     }
 
     @Test
@@ -191,7 +189,7 @@ class ProcessoServiceTest {
         when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.decidir(31L, StatusProcesso.INDEFERIDO, "motivo"))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
     }
 
@@ -252,8 +250,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(3L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.registrarEnvio(3L))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("documento clinico");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("documento clinico");
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.ENVIADO);
     }
 
@@ -267,7 +265,7 @@ class ProcessoServiceTest {
     @Test
     void atualizarStatusVaiParaSolicitaInformacaoQuandoMedicoPedeInfo() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.SOLICITA_INFORMACAO, null);
+                ResultadoParecer.SOLICITA_INFORMACAO, null);
         when(processoRepository.findById(2L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.atualizarStatusPorPareceres(2L);
@@ -284,14 +282,14 @@ class ProcessoServiceTest {
         p.setStatus(StatusProcesso.DEFERIDO);
         when(processoRepository.findById(3L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.atualizarStatusPorPareceres(3L))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
     }
 
     @Test
     void retomarAposInformacaoVoltaParaEnviadoEReabreParecer() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.SOLICITA_INFORMACAO, null);
+                ResultadoParecer.SOLICITA_INFORMACAO, null);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
         when(processoRepository.findById(20L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -340,7 +338,7 @@ class ProcessoServiceTest {
     @Test
     void retomarAposInformacaoNaoTocaPareceresDefinitivos() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.SOLICITA_INFORMACAO, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.SOLICITA_INFORMACAO, ResultadoParecer.NAO_FAVORAVEL);
         Parecer favoravel = p.getPareceres().get(0);
         favoravel.setVotadoPor("avaliador1");
         favoravel.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
@@ -369,30 +367,30 @@ class ProcessoServiceTest {
     @Test
     void decidirBloqueiaQuandoAguardandoInformacaoComplementar() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.SOLICITA_INFORMACAO);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.SOLICITA_INFORMACAO);
         anexarRespostasParaTodosRecebidos(p);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
         when(processoRepository.findById(21L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(21L, StatusProcesso.INDEFERIDO, "motivo"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("informacao complementar");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("informacao complementar");
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.SOLICITA_INFORMACAO);
     }
 
     @Test
     void decidirDeferidoExigeNoMinimoDoisFavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         when(processoRepository.findById(4L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(4L, StatusProcesso.DEFERIDO, null))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.DEFERIDO);
     }
 
     @Test
     void decidirDeferidoComDoisFavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(5L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -403,17 +401,17 @@ class ProcessoServiceTest {
     @Test
     void decidirIndeferidoExigeNoMinimoDoisDesfavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         when(processoRepository.findById(6L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(6L, StatusProcesso.INDEFERIDO, "motivo"))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
     }
 
     @Test
     void decidirIndeferidoComDoisDesfavoraveis() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(7L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -427,12 +425,12 @@ class ProcessoServiceTest {
         // passar pela pre-validacao do controller), Indeferido sem motivo
         // deve ser rejeitado.
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(24L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(24L, StatusProcesso.INDEFERIDO, "  "))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("motivo");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("motivo");
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
     }
 
@@ -440,18 +438,18 @@ class ProcessoServiceTest {
     void decidirBloqueiaQuandoRespostaRecebidaSemAnexo() {
         // 2 favoraveis recebidos, mas sem o anexo da resposta -> nao pode deferir
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         when(processoRepository.findById(8L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(8L, StatusProcesso.DEFERIDO, null))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("Anexe a resposta");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Anexe a resposta");
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.DEFERIDO);
     }
 
     @Test
     void pareceresRecebidosSemAnexoListaApenasOsFaltantes() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, null);
+                ResultadoParecer.FAVORAVEL, null);
         // anexa a resposta apenas do primeiro parecer recebido
         Parecer primeiro = p.getPareceres().get(0);
         anexarResposta(p, primeiro);
@@ -463,12 +461,12 @@ class ProcessoServiceTest {
     void cadastrarExigeExatamenteTresMedicos() {
         Processo p = new Processo();
         assertThatThrownBy(() -> service.cadastrar(p, java.util.List.of(1L, 2L)))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("exatamente");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exatamente");
         assertThatThrownBy(() -> service.cadastrar(p, java.util.List.of(1L, 2L, 3L, 4L)))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.cadastrar(p, null))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     /**
@@ -479,9 +477,11 @@ class ProcessoServiceTest {
     @Test
     void pareceresRecebidosSemAnexoIgnoraOrigemAvaliadorSistema() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        // Primeiro: operador lancou (origem null = OPERADOR_EMAIL) — sem anexo, deve aparecer
-        // Segundo: avaliador autenticado (AVALIADOR_SISTEMA) — sem anexo, mas NAO deve aparecer
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        // Primeiro: operador lancou (origem null = OPERADOR_EMAIL) — sem anexo, deve
+        // aparecer
+        // Segundo: avaliador autenticado (AVALIADOR_SISTEMA) — sem anexo, mas NAO deve
+        // aparecer
         // Terceiro: operador lancou, mas com anexo — nao deve aparecer
         Parecer segundo = p.getPareceres().get(1);
         segundo.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
@@ -500,7 +500,7 @@ class ProcessoServiceTest {
     @Test
     void decidirPermitidoQuandoTodosVotosForamPeloPortal() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         // Marca todos como voto direto do portal
         p.getPareceres().forEach(par -> par.setOrigem(OrigemParecer.AVALIADOR_SISTEMA));
 
@@ -515,7 +515,7 @@ class ProcessoServiceTest {
     @Test
     void reabrirVoltaParaEnviadoELimpaDecisao() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(30L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -674,8 +674,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(42L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.decidir(42L, StatusProcesso.INDEFERIDO, "motivo"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("informacao complementar");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("informacao complementar");
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.SOLICITA_INFORMACAO);
     }
 
@@ -686,8 +686,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.reabrir(31L))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("encerrados");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("encerrados");
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
     }
 
@@ -700,11 +700,11 @@ class ProcessoServiceTest {
     // solicitante - agora tambem muda para PROCESSO_EXCLUIDO.
     @Test
     void excluirDesvinculaSolicitacaoOnlineQuandoProcessoVeioDoPortal() {
-        org.springframework.security.core.context.SecurityContext context =
-            org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        org.springframework.security.core.context.SecurityContext context = org.springframework.security.core.context.SecurityContextHolder
+                .createEmptyContext();
         context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
-            "admin", "senha",
-            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+                "admin", "senha",
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
         org.springframework.security.core.context.SecurityContextHolder.setContext(context);
         try {
             Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
@@ -731,11 +731,11 @@ class ProcessoServiceTest {
 
     @Test
     void excluirNaoTocaSolicitacaoOnlineQuandoProcessoForTradicional() {
-        org.springframework.security.core.context.SecurityContext context =
-            org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        org.springframework.security.core.context.SecurityContext context = org.springframework.security.core.context.SecurityContextHolder
+                .createEmptyContext();
         context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
-            "admin", "senha",
-            List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+                "admin", "senha",
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
         org.springframework.security.core.context.SecurityContextHolder.setContext(context);
         try {
             Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
@@ -758,7 +758,7 @@ class ProcessoServiceTest {
     @Test
     void decidirDeferidoAtualizaSolicitacaoParaAprovada() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         p.setId(200L);
         when(processoRepository.findById(200L)).thenReturn(java.util.Optional.of(p));
@@ -778,7 +778,7 @@ class ProcessoServiceTest {
     @Test
     void decidirIndeferidoAtualizaSolicitacaoParaReprovada() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
-            ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         p.setId(201L);
         when(processoRepository.findById(201L)).thenReturn(java.util.Optional.of(p));
@@ -798,7 +798,7 @@ class ProcessoServiceTest {
     @Test
     void decidirNaoAtualizaSolicitacaoQuandoProcessoNaoVeioDoPortal() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         p.setId(202L);
         when(processoRepository.findById(202L)).thenReturn(java.util.Optional.of(p));
@@ -816,7 +816,7 @@ class ProcessoServiceTest {
     @Test
     void finalizarRespostaEnviaEmailESalvaMensagem() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-            ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
         p.setId(300L);
         p.setStatus(StatusProcesso.DEFERIDO);
@@ -831,18 +831,18 @@ class ProcessoServiceTest {
         when(processoRepository.save(p)).thenReturn(p);
 
         var template = new EmailTemplate(
-            "deferido", "titulo", "icon",
-            "Assunto: Processo DEFERIDO", "Corpo do email de deferimento");
+                "deferido", "titulo", "icon",
+                "Assunto: Processo DEFERIDO", "Corpo do email de deferimento");
         when(emailTemplateService.emailDeferido(p)).thenReturn(template);
 
         when(anexoStorageService.buscarUltimoPorTipo(300L, TipoAnexo.COMPROVANTE_SNT))
-            .thenReturn(comprovante);
+                .thenReturn(comprovante);
         when(anexoStorageService.resolverArquivo(comprovante))
-            .thenReturn(java.nio.file.Paths.get("test.pdf"));
+                .thenReturn(java.nio.file.Paths.get("test.pdf"));
         when(emailSenderService.enviarComAnexo(
-            "solicitante@test.com", "Assunto: Processo DEFERIDO", "Corpo do email de deferimento",
-            java.nio.file.Paths.get("test.pdf").toFile(), "comprovante.pdf"))
-            .thenReturn(true);
+                "solicitante@test.com", "Assunto: Processo DEFERIDO", "Corpo do email de deferimento",
+                java.nio.file.Paths.get("test.pdf").toFile(), "comprovante.pdf"))
+                .thenReturn(true);
 
         Processo resultado = service.finalizarResposta(300L);
 
@@ -858,8 +858,8 @@ class ProcessoServiceTest {
         when(processoRepository.findById(301L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.finalizarResposta(301L))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("ainda nao foi decidido");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ainda nao foi decidido");
     }
 
     @Test
@@ -870,7 +870,7 @@ class ProcessoServiceTest {
         when(processoRepository.findById(302L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.finalizarResposta(302L))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("cancelado");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cancelado");
     }
 }

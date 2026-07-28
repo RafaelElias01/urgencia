@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,12 +38,16 @@ class AuditoriaControllerTest {
     @Autowired
     private MockMvc mvc;
 
-    @MockitoBean private AuditoriaService auditoria;
+    @MockitoBean
+    private AuditoriaService auditoria;
     // GlobalModelAdvice (@ControllerAdvice global) exige estes dois beans em
     // qualquer slice @WebMvcTest, mesmo quando o controller sob teste nao os usa.
-    @MockitoBean private UsuarioRepository usuarioRepository;
-    @MockitoBean private ParecerRepository parecerRepository;
-    @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
+    @MockitoBean
+    private ParecerRepository parecerRepository;
+    @MockitoBean
+    private SolicitacaoOnlineService solicitacaoOnlineService;
 
     private LogAuditoria logAr(String usuario, String acao, String detalhe, LocalDateTime dataHora) {
         LogAuditoria log = new LogAuditoria(usuario, acao, detalhe);
@@ -60,8 +63,8 @@ class AuditoriaControllerTest {
         when(auditoria.listar(any())).thenReturn(vazio);
 
         mvc.perform(get("/auditoria"))
-            .andExpect(status().isOk())
-            .andExpect(view().name("auditoria/lista"));
+                .andExpect(status().isOk())
+                .andExpect(view().name("auditoria/lista"));
     }
 
     @Test
@@ -72,9 +75,9 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(vazio);
 
         mvc.perform(get("/auditoria"))
-            .andExpect(status().isOk())
-            .andExpect(model().attribute("paginaAtual", 0))
-            .andExpect(model().attribute("totalPaginas", 0));
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("paginaAtual", 0))
+                .andExpect(model().attribute("totalPaginas", 0));
 
         verify(auditoria).listar(pageable);
     }
@@ -87,8 +90,8 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(pagina);
 
         mvc.perform(get("/auditoria").param("page", "2"))
-            .andExpect(status().isOk())
-            .andExpect(model().attribute("paginaAtual", 2));
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("paginaAtual", 2));
 
         verify(auditoria).listar(pageable);
     }
@@ -101,8 +104,8 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(vazio);
 
         mvc.perform(get("/auditoria").param("page", "-5"))
-            .andExpect(status().isOk())
-            .andExpect(model().attribute("paginaAtual", 0));
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("paginaAtual", 0));
 
         // Math.max(page, 0) - nunca deve pedir uma pagina negativa ao servico.
         verify(auditoria).listar(pageable);
@@ -113,7 +116,7 @@ class AuditoriaControllerTest {
     void listarAgrupaRegistrosPorDiaPreservandoOrdemMaisRecentePrimeiro() throws Exception {
         LogAuditoria log1 = logAr("admin", "LOGIN", "ok", LocalDateTime.of(2026, 7, 21, 10, 0));
         LogAuditoria log2 = logAr("operador1", "PROCESSO_CADASTRADO", "Processo 01/2026",
-            LocalDateTime.of(2026, 7, 21, 9, 0));
+                LocalDateTime.of(2026, 7, 21, 9, 0));
         LogAuditoria log3 = logAr("admin", "LOGIN", "ok", LocalDateTime.of(2026, 7, 20, 15, 0));
 
         Pageable pageable = PageRequest.of(0, 30);
@@ -121,10 +124,10 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(pagina);
 
         mvc.perform(get("/auditoria"))
-            .andExpect(status().isOk())
-            .andExpect(model().attributeExists("gruposPorDia"))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("21/07/2026")))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("20/07/2026")));
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("gruposPorDia"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("21/07/2026")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("20/07/2026")));
     }
 
     @Test
@@ -135,8 +138,8 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(vazio);
 
         mvc.perform(get("/auditoria"))
-            .andExpect(status().isOk())
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("Nenhum registro de auditoria")));
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Nenhum registro de auditoria")));
     }
 
     @Test
@@ -152,7 +155,7 @@ class AuditoriaControllerTest {
         when(auditoria.listar(pageable)).thenReturn(pagina);
 
         mvc.perform(get("/auditoria"))
-            .andExpect(status().isOk())
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("203.0.113.42")));
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("203.0.113.42")));
     }
 }
