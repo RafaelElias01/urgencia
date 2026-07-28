@@ -304,22 +304,22 @@ public class ProcessoDetalheController {
         // do Solicitante (desde 2026-07-27) - usado so para o link "Ver
         // solicitacao original" na tela de detalhe. Ver FluxoProcessoService.veioDoPortal.
         boolean processoVeioDoPortal = fluxoService.veioDoPortal(p);
-        model.addAttribute("processoVeioDoPortal", processoVeioDoPortal);
-        model.addAttribute("solicitacaoOnlineOrigemId",
-            processoVeioDoPortal
-                ? solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null)
-                : null);
-        // Chat com o solicitante (mesma conversa da solicitacao online de origem)
-        Long solicitacaoOrigemId = processoVeioDoPortal
-            ? solicitacaoOnlineRepository.findIdByProcessoGeradoId(p.getId()).orElse(null)
-            : null;
-        if (solicitacaoOrigemId != null) {
-            java.util.List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(solicitacaoOrigemId);
+        model.addAttribute("processoVeioDoPortal", processoVeioDoPortal); // Mantem para o link "Ver solicitacao original"
+        // Carrega a solicitacao de origem e o chat. Mesmo que todo processo
+        // deva ter uma origem, uma verificacao de nulidade aqui protege contra
+        // inconsistencias de dados (ex.: solicitacao de origem deletada).
+        Optional<SolicitacaoOnline> solicitacaoOrigemOpt = solicitacaoOnlineRepository.findByProcessoGeradoId(p.getId());
+        if (solicitacaoOrigemOpt.isPresent()) {
+            SolicitacaoOnline solicitacaoOrigem = solicitacaoOrigemOpt.get();
+            model.addAttribute("solicitacaoOnlineOrigemId", solicitacaoOrigem.getId());
+            java.util.List<MensagemSolicitacao> mensagens = mensagemService.listarPorSolicitacao(solicitacaoOrigem.getId());
             model.addAttribute("mensagens", mensagens);
             long msgNaoLidas = mensagens.stream()
                 .filter(m -> !m.isLida() && m.getRemetente() == MensagemSolicitacao.RemetenteMensagem.SOLICITANTE)
                 .count();
             model.addAttribute("msgNaoLidas", msgNaoLidas);
+        } else {
+            model.addAttribute("solicitacaoOnlineOrigemId", null);
         }
         // Documentos clinicos anonimizados que serao consolidados no PDF dos avaliadores
         java.util.List<Anexo> documentosClinicos = p.getAnexos().stream()

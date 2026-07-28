@@ -144,7 +144,7 @@
         na Central de Transplantes do Estado do Rio Grande do Sul.
         Voce recebera o resultado da avaliacao por e-mail assim que a decisao for concluida.
     </div>
-    <div th:if="${solicitacao.status.name() == 'APROVADA' or (solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado.status.name() == 'DEFERIDO')}"
+    <div th:if="${solicitacao.status.name() == 'APROVADA' or (solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.name() == 'DEFERIDO')}"
          class="alert alert-success">
         <i class="bi bi-check-circle-fill"></i>
         <strong>Pedido aprovado!</strong>
@@ -175,7 +175,7 @@
             </span>
         </div>
     </div>
-    <div th:if="${solicitacao.status.name() == 'REPROVADA' or (solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado.status.name() == 'INDEFERIDO')}"
+    <div th:if="${solicitacao.status.name() == 'REPROVADA' or (solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.name() == 'INDEFERIDO')}"
          class="alert alert-danger">
         <i class="bi bi-x-circle-fill"></i>
         <strong>Pedido nao aprovado.</strong>
@@ -189,7 +189,7 @@
             resultando no indeferimento da urgencia renal. O oficio com os detalhes foi enviado por e-mail a sua equipe
             (<span th:text="${solicitacao.solicitanteEmail}">email</span>).
         </span>
-        <div th:if="${solicitacao.processoGerado.motivoIndeferimento}" class="mt-1">
+        <div th:if="${solicitacao.processoGerado != null and solicitacao.processoGerado.motivoIndeferimento != null}" class="mt-1">
             <strong>Motivo informado:</strong> <span th:text="${solicitacao.processoGerado.motivoIndeferimento}"></span>
         </div>
         <div th:if="${mensagemResposta != null}" class="mt-2 p-2 bg-white rounded border">
@@ -208,7 +208,7 @@
             </span>
         </div>
     </div>
-    <div th:if="${(solicitacao.status.name() == 'CONVERTIDA' or solicitacao.status.name() == 'REPROVADA' or solicitacao.status.name() == 'APROVADA') and solicitacao.processoGerado.status.name() == 'CANCELADO'}"
+    <div th:if="${(solicitacao.status.name() == 'CONVERTIDA' or solicitacao.status.name() == 'REPROVADA' or solicitacao.status.name() == 'APROVADA') and solicitacao.processoGerado != null and solicitacao.processoGerado.status.name() == 'CANCELADO'}"
          class="alert alert-secondary">
         <i class="bi bi-slash-circle-fill"></i>
         O processo <strong th:text="${solicitacao.processoGerado.numero}">00/0000</strong> gerado a partir
