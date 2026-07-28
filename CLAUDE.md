@@ -479,8 +479,42 @@ Todas as pendências de infra resolvidas neste ciclo:
 6. **Upgrades de dependência (patches)**: `postgresql 42.7.13`, `bootstrap
    5.3.8`, `h2 2.4.240` — atualizados no pom.xml, build OK.
 
-**Demais upgrades** (Spring Boot 4, Spring Security 7, OpenPDF 3): continuam
-pendentes para sessão dedicada (major version, risco de breaking change).
+7. **Backfill solicitacao_online.status**: `UPDATE solicitacao_online s SET
+   status = CASE WHEN p.status = 'DEFERIDO' THEN 'APROVADA' WHEN p.status IN
+   ('INDEFERIDO','CANCELADO') THEN 'REPROVADA' ELSE s.status END FROM processo
+   p WHERE s.processo_gerado_id = p.id AND s.status = 'CONVERTIDA'` — 1 linha
+   corrigida. A propagação CONVERTIDA->APROVADA/REPROVADA já existe no código
+   desde o commit que adicionou `ProcessoService.decidir()` (linhas 422-428),
+   mas dados históricos anteriores a essa implementação ficavam travados.
+8. **Portal do Solicitante (timeline)**: passo 3 da timeline consulta
+   `processoGerado.status` quando `solicitacao.status==CONVERTIDA`, exibindo
+   o resultado (Deferido/Indeferido) em vez de "Aguardando decisao". Badge do
+   topo também reflete a decisão real. Passo 4 redundante removido.
+9. **Correção bootstrap 5.3.8**: `layout.html` tinha caminho hardcoded
+   `/webjars/bootstrap/5.3.3/...`; atualizado para 5.3.8 após o upgrade no
+   pom.xml (commit anterior). App ficou sem CSS/JS no login até esta correção.
+
+**Vistoria geral de segurança (2026-07-28)**: auditoria completa de
+autenticação, exposição de dados, IDOR e configuração. 6 correções aplicadas:
+- OpenPDF 1.3.30 → 1.3.34 (CVE XXE crítico — processa PDFs de terceiros)
+- GeminiService default `enabled=false` (antes `true`); prod já tinha
+  kill-switch, mas default no código agora é seguro também
+- Password policy: mínimo 8 chars + maiúscula + minúscula + número + especial
+  (aplicado em criar, editar e alterar própria senha)
+- Login audit trail: toda tentativa de login (sucesso e falha) logada com IP
+  (antes só logava o bloqueio de 15 min)
+- LogAuditoria.PROCESSO_CADASTRADO: usa `Iniciais.de()` (antes nome completo
+  do paciente no detalhe, visível na tela de auditoria ADMIN)
+- Session management: timeout 30m explícito + `maxSessions=1` (concorrência
+  bloqueada por usuário)
+
+Nenhuma falha estrutural de IDOR encontrada (AvaliadorController e
+SolicitanteController têm verificação de posse rigorosa; controllers de
+processo usam controle por role, que é o design pretendido).
+
+**Demais upgrades** (Spring Boot 4, Spring Security 7, OpenPDF >=1.3.35):
+continuam pendentes para sessão dedicada (major version, risco de breaking
+change).
 
 **Vistoria de conformidade de regras de negócio concluída em 2026-07-24**
 (cada regra da seção "Regras de negócio" deste arquivo vs. o código real,
@@ -539,33 +573,6 @@ senha real em uso via `/proc/<PID>/environ`, não só o arquivo, antes de
 trocar de teoria). Utilitário `deploy/testar-smtp.py` testa a credencial
 SMTP isolada (sem depender do Java) com `getpass`.
 
-**Status em produção (2026-07-10)**: `origin/main` no GitHub está com o
-código mais recente (commit `5626fbf`), que inclui os fixes de mass
-assignment/auto-lockout/acessibilidade (`8f98d60`), badge "Encerrado" na
-lista de processos (`95e1005`), documentação do pitfall de `@Version`
-(`bd884eb`) e o ajuste visual de status Pendente/Concluido em pill
-(`5626fbf`). **Confirmado via VM** (`sudo unzip -p /opt/sgpur/sgpur.jar
-BOOT-INF/classes/templates/processos/lista.html | grep -i encerrado`) que o
-JAR rodando na VM às 15:00 UTC já tinha o commit `95e1005` — os commits
-`bd884eb` (só docs, não afeta o jar) e `5626fbf` (CSS/template) foram
-buildados localmente mas o deploy final (scp + `systemctl restart`) na VM
-ainda precisa ser confirmado numa proxima sessão antes de assumir que o
-`.status-mark` em pill já está no ar.
 
-**Incidente resolvido em 2026-07-10 (banco)**: `Processo.versao` (`@Version`,
-commit `8f98d60`) deixou processos antigos com `versao = NULL` em prod —
-qualquer UPDATE neles (ex.: `POST /processos/{id}/reabrir`) dava 500. Ver
-detalhe da causa e do backfill em "Convenções de código" (`ddl-auto: update`
-não faz backfill). **Corrigido**: backfill manual via Neon SQL Console
-(`UPDATE processo SET versao = 0 WHERE versao IS NULL;`), confirmado sem
-linhas restantes.
 
-**Pendência conhecida, não investigada**: erro 413 ao anexar comprovante de
-parecer, reportado em 2026-07-09. `application.yml`/`application-prod.yml`
-(multipart 25MB/30MB) e `deploy/nginx-sgpur.conf` (`client_max_body_size
-30m`) já estão generosos desde `e15ff82` (04/07) — suspeita é que o Nginx
-*realmente ativo na VM* (arquivo em `/etc/nginx/sites-available/` ou
-equivalente) esteja com uma config diferente/mais antiga da que está neste
-repo (mesma classe de drift do JAR desatualizado). Próximo passo: `sudo
-find /etc/nginx -iname "*sgpur*" -o -iname "*saur*"` na VM para achar o
-arquivo real e comparar com `deploy/nginx-sgpur.conf`.
+

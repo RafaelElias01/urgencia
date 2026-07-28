@@ -66,18 +66,17 @@
                        (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : 
                        (${solicitacao.status.name() == 'APROVADA'} ? 'concluida' : 
                        (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida'))))">
-                    <div class="timeline-dot">
-                        <i th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
-                           th:classappend="${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg'" class="bi"></i>
-                        <i th:unless="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
-                           th:switch="${solicitacao.status.name()}"
-                           th:classappend="${solicitacao.status.name() == 'CONVERTIDA'} ? 'bi-hourglass-split' : 
-                             (${solicitacao.status.name() == 'APROVADA'} ? 'bi-check' : 
-                             (${solicitacao.status.name() == 'REPROVADA'} ? 'bi-x-lg' : 
-                             (${solicitacao.status.name() == 'DEVOLVIDA'} ? 'bi-arrow-return-left' : 
-                             (${solicitacao.status.name() == 'CANCELADA'} ? 'bi-x-lg' : 
-                             (${solicitacao.status.name() == 'PROCESSO_EXCLUIDO'} ? 'bi-exclamation-triangle-fill' : ''))))))" class="bi">
-                        </i>
+                    <div class="timeline-dot" th:switch="${solicitacao.status.name()}">
+                        <i th:case="'CONVERTIDA'"
+                           th:classappend="${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? 
+                             (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg') : 'bi-hourglass-split'"
+                           class="bi"></i>
+                        <i th:case="'APROVADA'" class="bi bi-check"></i>
+                        <i th:case="'REPROVADA'" class="bi bi-x-lg"></i>
+                        <i th:case="'DEVOLVIDA'" class="bi bi-arrow-return-left"></i>
+                        <i th:case="'CANCELADA'" class="bi bi-x-lg"></i>
+                        <i th:case="'PROCESSO_EXCLUIDO'" class="bi bi-exclamation-triangle-fill"></i>
+                        <i th:case="*"></i>
                     </div>
                     <div class="timeline-title">
                         <th:block th:if="${solicitacao.status.name() == 'CONVERTIDA' and solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()}"
