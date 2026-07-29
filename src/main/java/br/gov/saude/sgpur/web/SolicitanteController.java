@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.WebDataBinder;
@@ -53,11 +54,35 @@ import java.util.Map;
  * Desligado por padrao em producao ({@code app.solicitante.habilitado}) —
  * quando desligado, este controller nem e registrado e as rotas /solicitante/**
  * respondem 404.
+ *
+ * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b> Essa
+ * anotacao fazia os metodos POST com try/catch (ex.: {@link #criar},
+ * {@link #cancelar}, {@link #enviarInformacaoComplementar},
+ * {@link #apagarMensagem}/{@link #apagarMensagemAjax}) compartilharem a MESMA
+ * transacao fisica com os servicos {@code @Transactional} chamados dentro do
+ * try: uma {@code IllegalStateException}/{@code IllegalArgumentException} de
+ * negocio lancada la dentro marcava a transacao inteira como rollback-only, o
+ * {@code catch} tratava o erro normalmente e devolvia um flash amigavel, mas o
+ * commit no fim do metodo do controller estourava
+ * {@code UnexpectedRollbackException} (500 cru em vez do flash esperado) —
+ * mesma familia de bug ja corrigida em {@code AvaliadorController} (voto do
+ * avaliador perdido) e em {@code ProcessoDecisaoController.finalizar}. Cada
+ * metodo agora declara sua propria estrategia de transacao, documentada no
+ * javadoc do metodo: leitura pura ({@code readOnly = true}), leitura-escrita
+ * simples quando nao ha try/catch em volta de escrita, ou
+ * {@code NOT_SUPPORTED} quando ha um unico ponto de escrita relevante dentro
+ * de um try/catch (o servico chamado abre sua propria transacao curta e
+ * independente). Nenhum acesso LAZY problematico foi encontrado neste
+ * controller: {@link SolicitacaoOnline#getUsuarioSolicitante()} e
+ * {@link SolicitacaoOnline#getProcessoGerado()} sao {@code LAZY}, mas
+ * {@code buscarParaDetalhe}/{@code findMinhasParaLista} ja fazem fetch join
+ * de ambos, e os poucos usos de {@code buscar()} (sem fetch join) so leem
+ * {@code getId()} de {@code usuarioSolicitante} — seguro mesmo com o proxy
+ * fechado (Hibernate nao precisa de sessao aberta so para o identificador).
  */
 @Controller
 @RequestMapping("/solicitante")
 @ConditionalOnProperty(prefix = "app.solicitante", name = "habilitado", havingValue = "true", matchIfMissing = true)
-@Transactional
 public class SolicitanteController {
 
     private final UsuarioRepository usuarioRepo;
@@ -131,6 +156,7 @@ public class SolicitanteController {
     }
 
     @GetMapping("/nova")
+    @Transactional(readOnly = true)
     public String nova(Principal principal, Model model) {
         Usuario usuario = resolverUsuario(principal);
         SolicitacaoOnline s = new SolicitacaoOnline();
@@ -141,7 +167,16 @@ public class SolicitanteController {
         return "solicitante/nova";
     }
 
+    /**
+     * NOT_SUPPORTED: unica escrita relevante e {@code solicitacaoService.criar(...)},
+     * ja {@code @Transactional} no proprio servico. Sem transacao de classe
+     * para "envenenar" quando o servico lanca ({@code IllegalArgumentException}/
+     * {@code IllegalStateException}), o catch abaixo devolve o formulario com
+     * flash de erro normalmente, sem risco de {@code UnexpectedRollbackException}
+     * no commit (nao ha commit de controller nenhum a fazer).
+     */
     @PostMapping("/nova")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String criar(@ModelAttribute("solicitacao") SolicitacaoOnline solicitacao,
                         @RequestParam(value = "documentos", required = false) List<MultipartFile> documentos,
                         Principal principal, Model model, RedirectAttributes ra) {
@@ -211,6 +246,7 @@ public class SolicitanteController {
      */
     @GetMapping("/nao-lidas-count")
     @ResponseBody
+    @Transactional(readOnly = true)
     public Map<String, Object> naoLidasCount(Principal principal) {
         Usuario usuario = resolverUsuario(principal);
         return Map.of("total", mensagemService.contarNaoLidasParaSolicitante(usuario.getId()));
@@ -221,8 +257,19 @@ public class SolicitanteController {
      * avaliador quando o processo esta pausado (SOLICITA_INFORMACAO). O
      * solicitante SO ENVIA - quem decide retomar a analise continua sendo o
      * OPERADOR (POST /processos/{id}/retomar-analise), nunca este endpoint.
+     *
+     * <p><b>NOT_SUPPORTED:</b> unica escrita relevante e
+     * {@code solicitacaoService.enviarInformacaoComplementar(...)}, ja
+     * {@code @Transactional} no servico. A leitura anterior
+     * ({@code buscarParaDetalhe}) roda na sua propria transacao independente
+     * (fetch join de anexos/processoGerado/usuarioSolicitante, sem depender de
+     * sessao aberta neste metodo). Sem isso, uma falha de negocio dentro do
+     * servico (ex.: pausa ja retomada pelo operador) marcaria a transacao de
+     * classe como rollback-only e o catch abaixo devolveria o flash de erro
+     * as custas de um {@code UnexpectedRollbackException} no commit.
      */
     @PostMapping("/{id}/informacao-complementar")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String enviarInformacaoComplementar(@PathVariable Long id,
             @RequestParam(value = "arquivos", required = false) List<MultipartFile> arquivos,
             Principal principal, RedirectAttributes ra) {
@@ -240,7 +287,15 @@ public class SolicitanteController {
         return "redirect:/solicitante/" + id;
     }
 
+    /**
+     * NOT_SUPPORTED: unica escrita relevante e {@code solicitacaoService.cancelar(...)},
+     * ja {@code @Transactional} no proprio servico. {@code resolverPropria}
+     * antes do try so le (posse); sem transacao de classe para envenenar, uma
+     * {@code IllegalStateException} de negocio (ex.: ja triada) devolve o
+     * flash de erro sem risco de {@code UnexpectedRollbackException}.
+     */
     @PostMapping("/{id}/cancelar")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String cancelar(@PathVariable Long id, Principal principal, RedirectAttributes ra) {
         Usuario usuario = resolverUsuario(principal);
         resolverPropria(id, usuario);
@@ -254,7 +309,9 @@ public class SolicitanteController {
         return "redirect:/solicitante";
     }
 
+    /** Sem try/catch em volta da escrita: leitura-escrita simples basta (nada a envenenar). */
     @PostMapping("/{id}/mensagem")
+    @Transactional
     public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
                                  Principal principal, RedirectAttributes ra) {
         Usuario usuario = resolverUsuario(principal);
@@ -273,7 +330,15 @@ public class SolicitanteController {
         return "redirect:/solicitante/" + id;
     }
 
+    /**
+     * NOT_SUPPORTED: unica escrita relevante e {@code mensagemService.apagar(...)},
+     * ja {@code @Transactional} no proprio servico. Sem isso, a
+     * {@code IllegalArgumentException} (mensagem de outro autor, por exemplo)
+     * envenenaria a transacao de classe e o catch abaixo devolveria o flash de
+     * erro as custas de um {@code UnexpectedRollbackException} no commit.
+     */
     @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
                                   Principal principal, RedirectAttributes ra) {
         Usuario usuario = resolverUsuario(principal);
@@ -292,6 +357,7 @@ public class SolicitanteController {
      */
     @GetMapping("/{id}/mensagens")
     @ResponseBody
+    @Transactional
     public Map<String, Object> mensagensJson(@PathVariable Long id, Principal principal) {
         Usuario usuario = resolverUsuario(principal);
         SolicitacaoOnline s = resolverPropria(id, usuario);
@@ -306,8 +372,10 @@ public class SolicitanteController {
         return resp;
     }
 
+    /** Sem try/catch em volta da escrita: leitura-escrita simples basta (nada a envenenar). */
     @PostMapping("/{id}/mensagem/ajax")
     @ResponseBody
+    @Transactional
     public ResponseEntity<Map<String, Object>> enviarMensagemAjax(@PathVariable Long id, @RequestParam String texto,
                                                                     Principal principal) {
         Usuario usuario = resolverUsuario(principal);
@@ -325,8 +393,14 @@ public class SolicitanteController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    /**
+     * NOT_SUPPORTED: unica escrita relevante e {@code mensagemService.apagar(...)},
+     * ja {@code @Transactional} no proprio servico. Mesmo motivo de
+     * {@link #apagarMensagem}, so que devolvendo JSON/400 em vez de redirect.
+     */
     @PostMapping("/{id}/mensagem/{mensagemId}/apagar/ajax")
     @ResponseBody
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ResponseEntity<Map<String, Object>> apagarMensagemAjax(@PathVariable Long id, @PathVariable Long mensagemId,
                                                                     Principal principal) {
         Usuario usuario = resolverUsuario(principal);
