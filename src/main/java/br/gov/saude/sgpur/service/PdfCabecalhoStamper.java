@@ -15,6 +15,9 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 
 /**
  * Padrao unico de cabecalho institucional para os documentos PDF oficiais do
@@ -97,29 +100,163 @@ final class PdfCabecalhoStamper {
     }
 
     /**
+     * Area onde o cabecalho deve ser desenhado, ja em coordenadas VISUAIS (as
+     * da pagina como o leitor de PDF a exibe, com a rotacao {@code /Rotate}
+     * aplicada e a origem no canto inferior esquerdo do que se ve na tela).
+     *
+     * <p>{@link #aplicarEm(PdfContentByte)} instala no content byte a matriz
+     * que converte essas coordenadas visuais para o espaco do usuario da
+     * pagina - por isso o stamper precisa ser criado por
+     * {@link #novoStamper}, que desliga o {@code rotateContents} do OpenPDF
+     * (senao a rotacao seria aplicada duas vezes).
+     */
+    record AreaCarimbo(float largura, float altura,
+                       float a, float b, float c, float d, float e, float f) {
+        void aplicarEm(PdfContentByte over) {
+            over.concatCTM(a, b, c, d, e, f);
+        }
+    }
+
+    /**
+     * Cria o {@link PdfStamper} usado para carimbar cabecalhos. Desliga o
+     * {@code rotateContents} (que o OpenPDF liga por padrao) porque o
+     * posicionamento do cabecalho e feito com a matriz devolvida por
+     * {@link #expandirTopo} - que, ao contrario da rotacao automatica do
+     * OpenPDF, tambem respeita MediaBox com origem diferente de (0,0).
+     */
+    static PdfStamper novoStamper(PdfReader reader, OutputStream out)
+            throws com.lowagie.text.DocumentException, java.io.IOException {
+        PdfStamper stamper = new PdfStamper(reader, out);
+        stamper.setRotateContents(false);
+        return stamper;
+    }
+
+    /**
      * Expande o MediaBox/CropBox de UMA pagina de {@code reader} em
      * {@code alturaExtra} pontos no TOPO, deslocando o conteudo original para
-     * baixo (em vez de desenhar por cima dele). Retorna a nova coordenada Y do
-     * topo da pagina, para quem for desenhar no over-content saber onde
-     * posicionar o cabecalho.
+     * baixo (em vez de desenhar por cima dele). Devolve a {@link AreaCarimbo}
+     * (dimensoes visuais + matriz de rotacao) para quem for desenhar no
+     * over-content saber onde posicionar o cabecalho.
      *
      * <p>Compartilhado por quem precisa carimbar um cabecalho sem arriscar
      * cobrir o conteudo original de paginas com pouca ou nenhuma margem
      * superior (ex.: documentos clinicos escaneados) - usado tanto por
      * {@link #estampar} quanto por
      * {@link SolicitacaoAvaliadorService#carimbarCabecalho}.
+     *
+     * <p><b>Paginas rotacionadas:</b> {@code getPageSize} devolve o MediaBox
+     * <i>sem</i> aplicar {@code /Rotate}, entao expandir sempre o topo do
+     * MediaBox punha o espaco extra na LATERAL da pagina exibida (e o carimbo
+     * fora da area visivel) em documentos escaneados em paisagem - que os
+     * scanners costumam gravar como retrato + {@code /Rotate 90}. Aqui a
+     * borda expandida e escolhida conforme a rotacao (90 -> esquerda,
+     * 180 -> baixo, 270 -> direita, 0 -> topo), de forma que o espaco sempre
+     * apareca no topo <i>visual</i>.
+     *
+     * <p>A caixa expandida preserva a origem do box original (MediaBox com
+     * origem diferente de (0,0) nao e mais achatado para (0,0), o que cortava
+     * conteudo) e parte do CropBox quando ele existe, que e o que o leitor de
+     * PDF realmente exibe.
      */
-    static float expandirTopo(PdfReader reader, int pagina, float alturaExtra) {
-        Rectangle pageSize = reader.getPageSize(pagina);
-        float largura = pageSize.getWidth();
-        float novaAltura = pageSize.getHeight() + alturaExtra;
+    static AreaCarimbo expandirTopo(PdfReader reader, int pagina, float alturaExtra) {
+        Rectangle box = reader.getBoxSize(pagina, "crop");
+        if (box == null) {
+            box = reader.getPageSize(pagina);
+        }
+        float x0 = box.getLeft();
+        float y0 = box.getBottom();
+        float x1 = box.getRight();
+        float y1 = box.getTop();
+
+        int rotacao = reader.getPageRotation(pagina);
+        switch (rotacao) {
+            case 90 -> x0 -= alturaExtra;
+            case 180 -> y0 -= alturaExtra;
+            case 270 -> x1 += alturaExtra;
+            default -> y1 += alturaExtra;
+        }
 
         PdfDictionary pageDict = reader.getPageN(pagina);
-        PdfRectangle novoMediaBox = new PdfRectangle(0, 0, largura, novaAltura);
-        pageDict.put(PdfName.MEDIABOX, novoMediaBox);
-        pageDict.put(PdfName.CROPBOX, novoMediaBox);
+        PdfRectangle novoBox = new PdfRectangle(x0, y0, x1, y1);
+        pageDict.put(PdfName.MEDIABOX, novoBox);
+        pageDict.put(PdfName.CROPBOX, novoBox);
 
-        return novaAltura;
+        float largura = x1 - x0;
+        float altura = y1 - y0;
+        return switch (rotacao) {
+            case 90 -> new AreaCarimbo(altura, largura, 0, 1, -1, 0, x1, y0);
+            case 180 -> new AreaCarimbo(largura, altura, -1, 0, 0, -1, x1, y1);
+            case 270 -> new AreaCarimbo(altura, largura, 0, -1, 1, 0, x0, y1);
+            default -> new AreaCarimbo(largura, altura, 1, 0, 0, 1, x0, y0);
+        };
+    }
+
+    /**
+     * Remove do PDF resultante TODOS os metadados herdados do arquivo de
+     * origem (dicionario {@code /Info} e pacote XMP), deixando apenas o
+     * {@code Title} informado.
+     *
+     * <p><b>Por que:</b> o {@link PdfStamper} preserva o {@code /Info} e o XMP
+     * do PDF original. Sistemas hospitalares gravam rotineiramente o nome do
+     * paciente em {@code Title}/{@code Author}/{@code Subject}, e o navegador
+     * exibe o {@code Title} no rotulo da aba ao abrir o PDF inline - ou seja,
+     * o material "anonimizado" enviado aos avaliadores entregava o nome
+     * completo do paciente sem ninguem perceber, quebrando a regra de
+     * imparcialidade. A limpeza e feita no ponto final (na hora de escrever o
+     * PDF carimbado), para que nenhum caminho de montagem escape dela.
+     *
+     * <p>Nao basta zerar as chaves conhecidas: o {@code moreInfo} do OpenPDF e
+     * MESCLADO com o {@code /Info} original, e chaves customizadas (ex.:
+     * {@code /PatientName}) sobreviveriam. Por isso todas as chaves presentes
+     * no original sao explicitamente removidas (valor {@code null}).
+     *
+     * @param titulo texto seguro (sem nome completo de paciente) para o
+     *               {@code Title} do PDF resultante
+     */
+    static void anonimizarMetadados(PdfReader reader, PdfStamper stamper, String titulo) {
+        HashMap<String, String> info = new HashMap<>();
+        for (String chave : reader.getInfo().keySet()) {
+            info.put(chave, null);
+        }
+        for (String chave : CHAVES_INFO_CONHECIDAS) {
+            info.put(chave, null);
+        }
+        info.put("Title", titulo == null ? "" : titulo);
+        info.put("Producer", NOME_INSTITUICAO);
+        stamper.setMoreInfo(info);
+        stamper.setXmpMetadata(xmpNeutro(titulo));
+    }
+
+    /** Chaves padrao do {@code /Info}, zeradas mesmo se ausentes no original. */
+    private static final String[] CHAVES_INFO_CONHECIDAS = {
+        "Title", "Author", "Subject", "Keywords", "Creator", "Producer", "Trapped"
+    };
+
+    /**
+     * Pacote XMP minimo, so com o titulo seguro - substitui o XMP do PDF de
+     * origem (que costuma repetir o {@code dc:title} com o nome do paciente).
+     * Um pacote vazio nao serve: o OpenPDF tenta interpreta-lo ao fechar o
+     * stamper e loga erro de XML malformado.
+     */
+    private static byte[] xmpNeutro(String titulo) {
+        String seguro = escaparXml(titulo == null ? "" : titulo);
+        String xmp = "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n"
+            + "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n"
+            + "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
+            + "<rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n"
+            + "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">" + seguro + "</rdf:li></rdf:Alt></dc:title>\n"
+            + "</rdf:Description>\n"
+            + "</rdf:RDF>\n"
+            + "</x:xmpmeta>\n"
+            + "<?xpacket end=\"w\"?>";
+        return xmp.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String escaparXml(String s) {
+        return s.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;");
     }
 
     /**
@@ -133,7 +270,8 @@ final class PdfCabecalhoStamper {
     static byte[] estampar(byte[] pdf, String linha1, String linha2) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (PdfReader reader = new PdfReader(pdf)) {
-            PdfStamper stamper = new PdfStamper(reader, baos);
+            PdfStamper stamper = novoStamper(reader, baos);
+            anonimizarMetadados(reader, stamper, linha2);
 
             Image logo = carregarLogo();
 
@@ -141,12 +279,14 @@ final class PdfCabecalhoStamper {
             int totalPaginas = reader.getNumberOfPages();
 
             for (int i = 1; i <= totalPaginas; i++) {
-                Rectangle pageSize = reader.getPageSize(i);
-                float largura = pageSize.getWidth();
-                float topo = expandirTopo(reader, i, ALTURA_CABECALHO);
+                AreaCarimbo area = expandirTopo(reader, i, ALTURA_CABECALHO);
+                float largura = area.largura();
+                float topo = area.altura();
                 float largUtil = largura - MARGEM_ESQ - MARGEM_DIR;
 
                 PdfContentByte over = stamper.getOverContent(i);
+                over.saveState();
+                area.aplicarEm(over);
 
                 if (logo != null) {
                     Image img = Image.getInstance(logo);
@@ -179,8 +319,10 @@ final class PdfCabecalhoStamper {
                 over.setFontAndSize(bf, 9);
                 over.showTextAligned(Element.ALIGN_RIGHT,
                     "Pagina " + i + " de " + totalPaginas,
-                    pageSize.getWidth() - MARGEM_DIR, 22, 0);
+                    largura - MARGEM_DIR, 22, 0);
                 over.endText();
+
+                over.restoreState();
             }
 
             stamper.close();

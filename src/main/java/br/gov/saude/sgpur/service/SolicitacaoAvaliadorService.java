@@ -51,7 +51,17 @@ public class SolicitacaoAvaliadorService {
      * Consolida varios PDFs em um unico documento (folha-rosto + documentos
      * clinicos anonimizados), preservando a ordem da lista. Usado para montar o
      * arquivo oficial unico enviado aos avaliadores. Ignora entradas nulas ou
-     * vazias; se sobrar so um PDF, devolve-o como esta.
+     * vazias.
+     *
+     * <p>Mesmo com UM unico PDF valido a lista passa pelo {@link PdfCopy}, em
+     * vez de devolver o arquivo original intacto: o {@code PdfCopy} reescreve
+     * o documento e descarta os metadados de origem ({@code /Info} e XMP, que
+     * costumam trazer o nome completo do paciente gravado pelo sistema do
+     * hospital). Antes, o caminho de um unico documento - justamente o mais
+     * comum - era o unico que preservava esses metadados. A limpeza definitiva
+     * acontece em {@link #carimbarCabecalho} (ponto final do pipeline), mas
+     * normalizar os dois caminhos aqui evita que uma variacao futura de fluxo
+     * volte a diferir.
      */
     public byte[] consolidar(List<byte[]> pdfs) {
         List<byte[]> validos = pdfs.stream()
@@ -62,7 +72,7 @@ public class SolicitacaoAvaliadorService {
         }
         if (validos.size() == 1) {
             // Valida se o PDF tem ao menos uma pagina (evita "The document has no pages" no
-            // carimbo)
+            // carimbo) - com mensagem especifica de documento unico.
             try {
                 PdfReader reader = new PdfReader(validos.get(0));
                 int paginas = reader.getNumberOfPages();
@@ -75,7 +85,6 @@ public class SolicitacaoAvaliadorService {
             } catch (java.io.IOException e) {
                 throw new IllegalStateException("Falha ao ler o documento clinico PDF: " + e.getMessage());
             }
-            return validos.get(0);
         }
         Document doc = new Document();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -131,6 +140,14 @@ public class SolicitacaoAvaliadorService {
      * {@link PdfCabecalhoStamper#estampar} via
      * {@link PdfCabecalhoStamper#expandirTopo} - deslocando o conteudo
      * original para baixo antes de escrever o carimbo no over-content.
+     *
+     * <p>Este e o PONTO FINAL do material que vai aos avaliadores, entao e
+     * aqui que os metadados do PDF de origem sao apagados
+     * ({@link PdfCabecalhoStamper#anonimizarMetadados}): o {@code /Info} e o
+     * XMP herdados do sistema do hospital costumam conter o NOME COMPLETO do
+     * paciente (o navegador chega a exibi-lo no rotulo da aba, via
+     * {@code Title}), o que quebraria a imparcialidade mesmo com o corpo do
+     * documento anonimizado.
      */
     public byte[] carimbarCabecalho(byte[] pdf, Processo p) {
         if (pdf == null || pdf.length == 0) {
@@ -153,22 +170,28 @@ public class SolicitacaoAvaliadorService {
                         "O PDF consolidado esta vazio (0 paginas). "
                                 + "Verifique os documentos clinicos anexados e tente novamente.");
             }
-            PdfStamper stamper = new PdfStamper(reader, out);
+            PdfStamper stamper = PdfCabecalhoStamper.novoStamper(reader, out);
+            // Apaga /Info e XMP herdados do documento clinico original (podem
+            // trazer o nome completo do paciente); deixa so o titulo seguro.
+            PdfCabecalhoStamper.anonimizarMetadados(reader, stamper, linha2);
             BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             for (int i = 1; i <= paginas; i++) {
-                Rectangle pageSize = reader.getPageSize(i);
-                float xCentro = pageSize.getWidth() / 2f;
+                // Expande o MediaBox/CropBox no topo VISUAL da pagina (conteudo
+                // original desce junto) em vez de escrever por cima dele; a area
+                // devolvida ja considera o /Rotate da pagina.
+                PdfCabecalhoStamper.AreaCarimbo area =
+                        PdfCabecalhoStamper.expandirTopo(reader, i, ALTURA_CARIMBO);
+                float topo = area.altura();
+                float xCentro = area.largura() / 2f;
                 // Truncamento defensivo: showTextAligned nao faz wrap/clipping - um
                 // numero de processo ou identificacao mais longa que o normal (dado
                 // legado, por exemplo) desenharia para fora dos limites da pagina.
-                float larguraMax = pageSize.getWidth() - 2 * MARGEM_CARIMBO;
+                float larguraMax = area.largura() - 2 * MARGEM_CARIMBO;
                 String linha1T = PdfCabecalhoStamper.truncarParaLargura(bf, 8, linha1, larguraMax);
                 String linha2T = PdfCabecalhoStamper.truncarParaLargura(bf, 8, linha2, larguraMax);
-                // Expande o MediaBox/CropBox no topo (conteudo original desce
-                // junto) em vez de escrever por cima dele.
-                float topo = PdfCabecalhoStamper.expandirTopo(reader, i, ALTURA_CARIMBO);
                 PdfContentByte over = stamper.getOverContent(i);
                 over.saveState();
+                area.aplicarEm(over);
                 over.setColorFill(CINZA);
                 ColumnText.showTextAligned(over, Element.ALIGN_CENTER,
                         new Phrase(linha1T, new Font(bf, 8, Font.NORMAL, CINZA)),
