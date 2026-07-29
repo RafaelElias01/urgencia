@@ -1,6 +1,8 @@
 package br.gov.saude.sgpur.domain;
 
 import jakarta.persistence.*;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -43,6 +45,7 @@ public class ControleUrgencia {
     private SituacaoUrgencia situacao = SituacaoUrgencia.ATIVA;
 
     /** Data de vencimento da urgencia (data atual + 30 dias no momento da criacao/renovacao). */
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     @Column(nullable = false)
     private LocalDate dataVencimento;
 
