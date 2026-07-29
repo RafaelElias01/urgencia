@@ -220,23 +220,52 @@ public class ProcessoService {
             return p;
         }
         StatusProcesso decisao = sugestao.get();
-        // INDEFERIDO NUNCA e automatico: a regra de negocio exige o MOTIVO do
-        // indeferimento (que vai no oficio oficial ao solicitante) e so o
-        // operador pode informa-lo. Um indeferimento automatico geraria um
-        // oficio com "(motivo nao informado)". Por isso, quando a maioria e
-        // desfavoravel, deixamos apenas a SUGESTAO e o operador confirma na aba
-        // Decisao (onde o motivo e obrigatorio). So o DEFERIDO — que dispensa
-        // motivo — e finalizado automaticamente aqui.
-        if (decisao != StatusProcesso.DEFERIDO) {
-            return p;
-        }
         // So decide automaticamente se nao ha pareceres recebidos sem anexo
         if (!pareceresRecebidosSemAnexo(p).isEmpty()) {
             return p;
         }
+        // DEFERIDO dispensa motivo. INDEFERIDO tambem finaliza automaticamente
+        // (decisao de produto confirmada): como o motivo e obrigatorio para o
+        // oficio, geramos um texto consolidando as justificativas dos
+        // pareceres desfavoraveis — o operador pode ajusta-lo depois (ADMIN
+        // reabre o processo em /processos/{id}/reabrir e redecide pelo mesmo
+        // formulario da aba Decisao, que reenvia o motivo).
+        String motivoIndeferimento = decisao == StatusProcesso.INDEFERIDO
+            ? gerarMotivoIndeferimentoAutomatico(p) : null;
         // Passa pela validacao completa (mesma do caminho manual) — defesa em
         // profundidade: nao grava um estado que decidir() rejeitaria.
-        return decidir(id, StatusProcesso.DEFERIDO, null);
+        return decidir(id, decisao, motivoIndeferimento);
+    }
+
+    /**
+     * Gera o texto do motivo de indeferimento quando a decisao automatica
+     * finaliza o processo por maioria de pareceres desfavoraveis (sem o
+     * coordenador ter votado favoravel). Consolida as justificativas dos
+     * pareceres desfavoraveis; o operador pode editar o texto depois via
+     * reabertura (ADMIN) + redecisao na aba Decisao.
+     */
+    private String gerarMotivoIndeferimentoAutomatico(Processo p) {
+        List<Parecer> desfavoraveis = p.getPareceres().stream()
+            .filter(par -> par.getResultado() == ResultadoParecer.NAO_FAVORAVEL)
+            .toList();
+        boolean algumaJustificativa = desfavoraveis.stream()
+            .anyMatch(par -> par.getJustificativa() != null && !par.getJustificativa().isBlank());
+        if (!algumaJustificativa) {
+            return "Indeferido por maioria dos avaliadores ("
+                + desfavoraveis.size() + " de " + AVALIADORES_POR_PROCESSO
+                + " pareceres desfavoraveis).";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Indeferido por maioria dos avaliadores (parecer desfavoravel de ")
+            .append(desfavoraveis.size()).append(" de ").append(AVALIADORES_POR_PROCESSO)
+            .append(" membros).\nPareceres:");
+        for (Parecer par : desfavoraveis) {
+            String nome = par.getMembro() != null ? par.getMembro().getNome() : "(membro nao identificado)";
+            String justificativa = (par.getJustificativa() == null || par.getJustificativa().isBlank())
+                ? "(sem justificativa registrada)" : par.getJustificativa();
+            sb.append("\n- ").append(nome).append(": ").append(justificativa);
+        }
+        return sb.toString();
     }
 
     /**

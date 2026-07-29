@@ -619,6 +619,57 @@ class ProcessoServiceTest {
     }
 
     /**
+     * Indeferido tambem finaliza automaticamente (decisao de produto
+     * confirmada em 2026-07-29): com 2 de 3 pareceres desfavoraveis e sem
+     * voto favoravel do coordenador, o processo vira INDEFERIDO sozinho, com
+     * o motivo gerado consolidando as justificativas dos pareceres
+     * desfavoraveis.
+     */
+    @Test
+    void indefereAutomaticamenteComDoisDesfavoraveisEGeraMotivoComJustificativas() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        p.getPareceres().get(0).getMembro().setNome("Dr. Favoravel");
+        p.getPareceres().get(1).getMembro().setNome("Dra. Ana");
+        p.getPareceres().get(1).setJustificativa("Exames nao confirmam a urgencia.");
+        p.getPareceres().get(2).getMembro().setNome("Dr. Bruno");
+        p.getPareceres().get(2).setJustificativa("Ausencia de indicacao clinica.");
+        anexarRespostasParaTodosRecebidos(p);
+
+        when(processoRepository.findById(50L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        Processo resultado = service.tentarDecisaoAutomatica(50L);
+
+        assertThat(resultado.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
+        assertThat(resultado.getMotivoIndeferimento())
+                .isNotBlank()
+                .contains("Dra. Ana").contains("Exames nao confirmam a urgencia.")
+                .contains("Dr. Bruno").contains("Ausencia de indicacao clinica.")
+                .doesNotContain("Dr. Favoravel");
+    }
+
+    /**
+     * Quando nenhum dos pareceres desfavoraveis tem justificativa preenchida,
+     * o motivo gerado automaticamente e um texto simples (sem lista vazia).
+     */
+    @Test
+    void indefereAutomaticamenteGeraMotivoGenericoSemJustificativas() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+
+        when(processoRepository.findById(51L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        Processo resultado = service.tentarDecisaoAutomatica(51L);
+
+        assertThat(resultado.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
+        assertThat(resultado.getMotivoIndeferimento())
+                .isEqualTo("Indeferido por maioria dos avaliadores (2 de 3 pareceres desfavoraveis).");
+    }
+
+    /**
      * Mesma regra pelo caminho manual (decidir): validarPausaDecisao nao pode
      * bloquear quando o coordenador votou Favoravel.
      */
