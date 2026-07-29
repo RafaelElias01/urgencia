@@ -65,6 +65,30 @@ public interface ProcessoRepository extends JpaRepository<Processo, Long> {
     List<Processo> findCandidatosDecisaoAutomatica(
         @Param("status") java.util.Collection<StatusProcesso> status);
 
+    /**
+     * UM processo com {@code pareceres} e {@code membro} ja carregados (fetch
+     * join), para a tela de detalhe ({@code ProcessoDetalheController.detalhe})
+     * — que navega os pareceres no controller E no template, ja fora de
+     * qualquer transacao, com {@code open-in-view: false}.
+     *
+     * <p><b>Por que so os pareceres e nao tambem os anexos:</b>
+     * {@code Processo.pareceres} e {@code Processo.anexos} sao ambos
+     * {@code List} (bag) no mapeamento JPA; um {@code left join fetch}
+     * simultaneo dos dois na MESMA consulta lanca
+     * {@code MultipleBagFetchException} (limitacao do Hibernate). A segunda
+     * colecao e inicializada explicitamente pelo chamador, DENTRO da mesma
+     * transacao, com um simples {@code getAnexos().size()} (1 SELECT extra,
+     * aceitavel para 1 processo so) — sem converter {@code List} para
+     * {@code Set} no dominio.</p>
+     */
+    @Query("""
+        select distinct p from Processo p
+        left join fetch p.pareceres par
+        left join fetch par.membro
+        where p.id = :id
+        """)
+    Optional<Processo> findByIdComPareceres(@Param("id") Long id);
+
     Optional<Processo> findByNumero(String numero);
 
     /** Maior sequencial ja usado em um ano (para gerar o proximo numero). */

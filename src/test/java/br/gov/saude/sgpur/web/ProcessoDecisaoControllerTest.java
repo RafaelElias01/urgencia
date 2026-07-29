@@ -50,6 +50,13 @@ class ProcessoDecisaoControllerTest {
     // ParecerRepository diretamente (movido para ProcessoService.buscarParecer).
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
+    // decidir()/retomarAnalise() usam um TransactionTemplate proprio (transacoes
+    // curtas e independentes, para uma falha na geracao dos PDFs nunca desfazer
+    // a decisao ja gravada). Em @WebMvcTest nao existe JPA/DataSource, entao o
+    // gerenciador e mockado: o TransactionTemplate executa o callback
+    // normalmente e commit/rollback viram no-op no mock. Mesmo padrao de
+    // AvaliadorControllerTest.
+    @MockitoBean private org.springframework.transaction.PlatformTransactionManager txManager;
 
     private Processo processo;
 
@@ -173,7 +180,11 @@ class ProcessoDecisaoControllerTest {
             .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("Decisao registrada")));
 
         verify(processoService).decidir(1L, StatusProcesso.DEFERIDO, null);
-        verify(decisaoFinalService).gerarDocumentos(decidido);
+        // A geracao dos PDFs roda numa transacao curta e propria, com o
+        // processo RECARREGADO dentro dela (o devolvido por decidir() ja esta
+        // desanexado e DecisaoFinalService navega colecoes LAZY) - por isso a
+        // verificacao e sobre o processo de processoService.buscar(1L).
+        verify(decisaoFinalService).gerarDocumentos(processo);
         // Acao sensivel: auditoria com IP (mesmo padrao do voto do avaliador).
         verify(auditoria).registrar(eq("PROCESSO_DECIDIDO"), any(), any());
     }
@@ -188,8 +199,10 @@ class ProcessoDecisaoControllerTest {
         decidido.setId(1L);
         decidido.setStatus(StatusProcesso.DEFERIDO);
         when(processoService.decidir(1L, StatusProcesso.DEFERIDO, null)).thenReturn(decidido);
+        // gerarDocumentos recebe o processo recarregado (processoService.buscar),
+        // nao a instancia devolvida por decidir() - ver o teste acima.
         doThrow(new IllegalStateException("falha ao gerar capa"))
-            .when(decisaoFinalService).gerarDocumentos(decidido);
+            .when(decisaoFinalService).gerarDocumentos(processo);
 
         mvc.perform(post("/processos/1/decidir")
                 .param("decisao", "DEFERIDO")

@@ -57,6 +57,12 @@ class ProcessoControllerEmailTest {
     // ParecerRepository diretamente (movido para ProcessoService.buscarParecer).
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private SolicitacaoOnlineService solicitacaoOnlineService;
+    // ProcessoDecisaoController passou a receber um PlatformTransactionManager
+    // (TransactionTemplate proprio de decidir()/retomarAnalise(), 2026-07-29).
+    // Em @WebMvcTest nao ha JPA, entao o gerenciador e mockado - o
+    // TransactionTemplate executa o callback normalmente. Ver
+    // AvaliadorControllerTest.
+    @MockitoBean private org.springframework.transaction.PlatformTransactionManager txManager;
 
     private Processo processo;
     private MembroUrgenciaRenal membro;

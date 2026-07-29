@@ -53,6 +53,10 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private MensagemSolicitacaoService mensagemSolicitacaoService;
     @MockitoBean private br.gov.saude.sgpur.repository.AnexoRepository anexoRepository;
+    // detalhe() carrega o processo por findByIdComPareceres (fetch join dos
+    // pareceres + membro), para o template poder navegar a colecao ja fora da
+    // transacao (open-in-view: false).
+    @MockitoBean private br.gov.saude.sgpur.repository.ProcessoRepository processoRepository;
 
     private Processo processo;
 
@@ -65,6 +69,15 @@ class ProcessoDetalheControllerTest {
         processo.setSolicitanteEquipe("Equipe A");
         processo.setStatus(StatusProcesso.ENVIADO);
         when(processoService.buscar(1L)).thenReturn(processo);
+        // detalhe() usa a consulta com fetch join dos pareceres (+ membro) e
+        // inicializa os anexos dentro da propria transacao - ver
+        // ProcessoRepository.findByIdComPareceres.
+        when(processoRepository.findByIdComPareceres(1L)).thenReturn(Optional.of(processo));
+        // confirmarAnonimizacao busca o anexo pelo id e confere a posse, em vez
+        // de varrer a colecao LAZY do processo. Default "nao existe"; os testes
+        // que precisam de um anexo real sobrescrevem (ver helper anexoPendente).
+        when(anexoRepository.findById(org.mockito.ArgumentMatchers.anyLong()))
+            .thenReturn(Optional.empty());
         when(geminiService.isDisponivel()).thenReturn(false);
         when(emailTemplateService.gerar(any())).thenReturn(List.of());
         when(conflitoEquipeMatcher.mesmaEquipe(any(), any())).thenReturn(false);
@@ -685,7 +698,8 @@ class ProcessoDetalheControllerTest {
         a.setTipo(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
         a.setNomeArquivo("laudo.pdf");
         a.setContentType("application/pdf");
-        processo.addAnexo(a);
+        processo.addAnexo(a); // addAnexo ja seta a.processo (checagem de posse)
+        when(anexoRepository.findById(id)).thenReturn(Optional.of(a));
         return a;
     }
 
@@ -772,6 +786,7 @@ class ProcessoDetalheControllerTest {
         legado.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
         legado.setNomeArquivo("laudo-legado.pdf");
         processo.addAnexo(legado);
+        when(anexoRepository.findById(8L)).thenReturn(Optional.of(legado));
         when(processoService.edicaoBloqueada(processo)).thenReturn(false);
 
         mvc.perform(post("/processos/1/documento-clinico/8/confirmar-anonimizacao")

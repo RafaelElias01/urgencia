@@ -13,8 +13,9 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RegistroEnvioService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -30,10 +31,28 @@ import java.util.List;
  * avaliador autenticado no Portal do Avaliador (AvaliadorController). Este
  * controller so acompanha o resultado e cobre o disparo manual de e-mails
  * (lembretes e textos prontos) e a assistencia por IA ligada a decisao.
+ *
+ * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b>
+ * Uma transacao aberta pelo controller e compartilhada (REQUIRED) com todo
+ * servico {@code @Transactional} chamado dentro dela; quando um deles lanca
+ * dentro de um {@code try/catch} do metodo, a transacao inteira e marcada como
+ * rollback-only: o {@code catch} devolve o flash amigavel, mas o commit final
+ * estoura {@code UnexpectedRollbackException} (500) e leva junto qualquer
+ * escrita anterior do mesmo metodo. Aqui isso atingia principalmente
+ * {@link #retomarAnalise} (o anexo de informacao complementar ja salvo era
+ * perdido quando {@code retomarAposInformacao} lancava) e
+ * {@link #anexarDocumentoClinico} (arquivo de tipo nao permitido devolvia 500
+ * em vez da mensagem de negocio).
+ *
+ * <p>Os metodos que precisam de sessao aberta para navegar colecoes LAZY usam
+ * {@link #txTemplate} em blocos curtos e independentes (mesmo padrao ja
+ * validado em {@code AvaliadorController.registrarVoto}) ou declaram
+ * {@code @Transactional} proprio quando nao ha {@code try/catch} em volta de
+ * servico transacional ({@link #sugestaoMotivo}, {@link #revisarEmailIa},
+ * {@link #preverEmail}, {@link #enviarEmailPronto}).
  */
 @Controller
 @RequestMapping("/processos")
-@Transactional
 public class ProcessoDecisaoController {
 
     private final ProcessoService processoService;
@@ -45,6 +64,13 @@ public class ProcessoDecisaoController {
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
     private final GeminiService geminiService;
+    /**
+     * Transacoes curtas e independentes para os trechos que precisam de sessao
+     * aberta (validacao que navega pareceres/anexos, geracao dos PDFs finais)
+     * sem que uma falha nesses trechos possa desfazer a escrita ja commitada
+     * pelo servico anterior. Ver o javadoc da classe.
+     */
+    private final TransactionTemplate txTemplate;
 
     public ProcessoDecisaoController(ProcessoService processoService,
                                      ProcessoValidator validator,
@@ -54,7 +80,8 @@ public class ProcessoDecisaoController {
                                      EmailSenderService emailSenderService,
                                      AnexoStorageService anexoStorage,
                                      AuditoriaService auditoria,
-                                     GeminiService geminiService) {
+                                     GeminiService geminiService,
+                                     PlatformTransactionManager txManager) {
         this.processoService = processoService;
         this.validator = validator;
         this.decisaoFinalService = decisaoFinalService;
@@ -64,12 +91,44 @@ public class ProcessoDecisaoController {
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
         this.geminiService = geminiService;
+        this.txTemplate = new TransactionTemplate(txManager);
+    }
+
+    /**
+     * Gera Oficio/Relatorio Final apos uma decisao ja COMMITADA, numa transacao
+     * curta e propria, com o processo RECARREGADO dentro dela.
+     *
+     * <p>Duas razoes para o bloco existir: {@code DecisaoFinalService} navega
+     * colecoes LAZY do processo (getAnexos/getPareceres) e precisa de sessao
+     * aberta - o processo devolvido pelo servico anterior ja esta desanexado -,
+     * e uma falha aqui nao pode desfazer a decisao (por isso transacao
+     * separada, e nao a mesma do metodo). Mesmo padrao de
+     * {@code AvaliadorController.registrarVoto} (TX 4).
+     *
+     * @throws IllegalStateException repassada do servico (falha ao gerar PDF),
+     *         para o chamador exibir o aviso sem perder a decisao.
+     */
+    private void gerarDocumentosFinais(Long processoId) {
+        txTemplate.executeWithoutResult(status ->
+            decisaoFinalService.gerarDocumentos(processoService.buscar(processoId)));
     }
 
     /**
      * Registra o RECEBIMENTO da informacao complementar do solicitante e RETOMA
      * a analise: o processo volta de SOLICITA_INFORMACAO para ENVIADO (fluxo de
      * Respostas/Decisao). Opcionalmente anexa a resposta recebida.
+     *
+     * <p><b>Sem @Transactional de proposito</b> (era o pior caso da familia de
+     * bug descrita no javadoc da classe): o metodo faz ate 4 escritas em
+     * sequencia - anexo da informacao complementar, {@code retomarAposInformacao},
+     * {@code tentarDecisaoAutomatica} e os PDFs finais -, cada uma delas em
+     * servico {@code @Transactional} e cada uma dentro de um {@code try/catch}.
+     * Compartilhando a transacao do controller, a {@code IllegalStateException}
+     * de {@code retomarAposInformacao} marcava tudo como rollback-only: o
+     * operador via a mensagem de erro tratada, mas <b>o anexo que ele acabara
+     * de subir era descartado</b> e o commit final quebrava com
+     * {@code UnexpectedRollbackException}. Sem transacao de controller, cada
+     * passo commita sozinho e o passo seguinte que falhar nao desfaz o anterior.
      */
     @PostMapping("/{id}/retomar-analise")
     public String retomarAnalise(@PathVariable Long id,
@@ -108,7 +167,7 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id + "#respostas";
         }
         if (pRetomado.getStatus().isFinalizado()) {
-            try { decisaoFinalService.gerarDocumentos(pRetomado); }
+            try { gerarDocumentosFinais(id); }
             catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
             auditoria.registrar("PROCESSO_DECIDIDO",
                 "Processo " + pRetomado.getNumero() + " - decisao automatica: "
@@ -127,6 +186,10 @@ public class ProcessoDecisaoController {
      * Etapa 2 (Envio): registra a data de envio de hoje para os 3 medicos e
      * gera o PDF consolidado (documentos clinicos anonimizados + cabecalho
      * carimbado). Sem documento clinico PDF nao ha o que enviar: bloqueia.
+     *
+     * <p>Sem {@code @Transactional}: {@code registroEnvioService.registrar} e
+     * auto-suficiente (transacao propria) e devolve erro/sucesso como valor,
+     * sem excecao; o restante do metodo so le campos escalares do processo.
      */
     @PostMapping("/{id}/registrar-envio")
     public String registrarEnvio(@PathVariable Long id,
@@ -153,6 +216,13 @@ public class ProcessoDecisaoController {
      * Anexa um documento clinico ANONIMIZADO (sem nome do paciente) que sera
      * consolidado, junto com a folha-rosto, no PDF unico enviado aos avaliadores
      * no passo 2 (envio). Mantem o operador na aba Envio.
+     *
+     * <p>Sem {@code @Transactional}: o {@code try/catch} envolve
+     * {@code anexoStorage.salvar} (metodo {@code @Transactional} que lanca
+     * {@code IllegalArgumentException} para arquivo vazio/extensao proibida) -
+     * com transacao de controller esse caminho terminava em 500
+     * ({@code UnexpectedRollbackException}) em vez do flash "Falha ao anexar
+     * documento clinico".
      */
     @PostMapping("/{id}/documento-clinico")
     public String anexarDocumentoClinico(@PathVariable Long id,
@@ -176,6 +246,19 @@ public class ProcessoDecisaoController {
         return "redirect:/processos/" + id + "#envio";
     }
 
+    /**
+     * Registra a decisao final (Deferido/Indeferido/Cancelado).
+     *
+     * <p><b>Sem @Transactional; a leitura que precisa de sessao aberta fica num
+     * bloco proprio.</b> As validacoes de negocio navegam colecoes LAZY
+     * ({@code ProcessoValidator} le pareceres e anexos), por isso rodam dentro
+     * de {@link #txTemplate}; a decisao em si e commitada pela transacao do
+     * proprio {@code processoService.decidir}; e a geracao dos PDFs finais -
+     * unico trecho com {@code try/catch} - roda em transacao separada
+     * ({@link #gerarDocumentosFinais}). Assim uma falha ao gerar oficio/
+     * relatorio vira aviso na tela sem nunca desfazer a decisao ja gravada
+     * (antes, com a transacao de classe, a decisao ia junto no rollback).
+     */
     @PostMapping("/{id}/decidir")
     public String decidir(@PathVariable Long id,
                           @RequestParam StatusProcesso decisao,
@@ -194,30 +277,36 @@ public class ProcessoDecisaoController {
             ra.addFlashAttribute("erro", "Indeferimento exige o motivo.");
             return "redirect:/processos/" + id;
         }
-        Processo atual = processoService.buscar(id);
-        if (bloqueadoPorEncerrado(atual, ra)) {
-            return "redirect:/processos/" + id;
-        }
         // Regras de negocio centralizadas em ProcessoValidator (mesmas mensagens
         // do servico). A ancora do redirect distingue pausa/anexos (#respostas)
         // das demais (topo), por isso os grupos sao consultados separadamente.
-        var pausa = validator.validarPausaDecisao(atual, decisao);
-        if (pausa.isPresent()) {
-            ra.addFlashAttribute("erro", pausa.get());
-            return "redirect:/processos/" + id + "#respostas";
-        }
-        var votos = validator.validarContagemVotos(atual, decisao);
-        if (votos.isPresent()) {
-            ra.addFlashAttribute("erro", votos.get());
-            return "redirect:/processos/" + id;
-        }
-        var anexos = validator.validarAnexosResposta(atual, decisao);
-        if (anexos.isPresent()) {
-            ra.addFlashAttribute("erro", anexos.get());
-            return "redirect:/processos/" + id + "#respostas";
+        // Tudo dentro de UMA transacao curta: o validator navega
+        // processo.pareceres/anexos (LAZY) e nao ha mais transacao de classe.
+        Bloqueio bloqueio = txTemplate.execute(status -> {
+            Processo atual = processoService.buscar(id);
+            if (validator.edicaoBloqueada(atual)) {
+                return new Bloqueio(ProcessoValidator.MSG_ENCERRADO, "");
+            }
+            var pausa = validator.validarPausaDecisao(atual, decisao);
+            if (pausa.isPresent()) {
+                return new Bloqueio(pausa.get(), "#respostas");
+            }
+            var votos = validator.validarContagemVotos(atual, decisao);
+            if (votos.isPresent()) {
+                return new Bloqueio(votos.get(), "");
+            }
+            var anexos = validator.validarAnexosResposta(atual, decisao);
+            if (anexos.isPresent()) {
+                return new Bloqueio(anexos.get(), "#respostas");
+            }
+            return null;
+        });
+        if (bloqueio != null) {
+            ra.addFlashAttribute("erro", bloqueio.mensagem());
+            return "redirect:/processos/" + id + bloqueio.ancora();
         }
         Processo p = processoService.decidir(id, decisao, motivoIndeferimento);
-        try { decisaoFinalService.gerarDocumentos(p); }
+        try { gerarDocumentosFinais(id); }
         catch (IllegalStateException e) { ra.addFlashAttribute("erro", e.getMessage()); }
         auditoria.registrar("PROCESSO_DECIDIDO",
             "Processo " + p.getNumero() + " - " + decisao.getDescricao(),
@@ -234,15 +323,18 @@ public class ProcessoDecisaoController {
      * (5-6) e justamente a papelada pos-decisao.
      */
     @PostMapping("/{id}/finalizar")
-    // NOT_SUPPORTED suspende a transacao de classe: finalizarResposta() e
-    // auto-suficiente (@Transactional propria) e so usa campos simples de p
-    // (getNumero/getStatus) depois, sem depender de lazy-loading compartilhado
-    // com o service. Sem isso, uma IllegalStateException de negocio dentro de
-    // finalizarResposta (ex.: falha de SMTP) marca a transacao da classe como
-    // rollback-only; o catch abaixo intercepta normalmente, mas o commit no
-    // fim do metodo falha com UnexpectedRollbackException (500 cru em vez do
-    // flash de erro esperado). Achado rodando o e2e real sem SMTP configurado.
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    // Sem transacao NENHUMA: finalizarResposta() e auto-suficiente
+    // (@Transactional propria) e so usa campos simples de p (getNumero/
+    // getStatus) depois, sem depender de lazy-loading compartilhado com o
+    // service. Com a transacao de classe que existia aqui, uma
+    // IllegalStateException de negocio dentro de finalizarResposta (ex.: falha
+    // de SMTP) marcava a transacao como rollback-only; o catch abaixo
+    // interceptava normalmente, mas o commit no fim do metodo falhava com
+    // UnexpectedRollbackException (500 cru em vez do flash de erro esperado) -
+    // achado rodando o e2e real sem SMTP configurado. A correcao de entao foi
+    // @Transactional(NOT_SUPPORTED) para SUSPENDER a transacao de classe;
+    // removida a anotacao de classe (2026-07-29) nao ha mais nada para
+    // suspender e ela virou no-op, entao saiu junto. O comportamento e o mesmo.
     public String finalizar(@PathVariable Long id, HttpServletRequest request, RedirectAttributes ra) {
         try {
             Processo p = processoService.finalizarResposta(id);
@@ -297,8 +389,9 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-avaliador")
     @ResponseBody
-    // Sem readOnly: grava auditoria (INSERT) apos o envio - herda o
-    // @Transactional (leitura-escrita) da classe.
+    // Sem @Transactional: nao navega colecao LAZY (Parecer.membro e EAGER e
+    // buscarParecer so le o id do processo do proxy, sem inicializa-lo) e as
+    // escritas (auditoria) ja rodam em transacao propria do repositorio.
     public AcaoResponse lembreteAvaliador(@PathVariable Long id, @RequestParam Long parecerId) {
         Processo p;
         try { p = processoService.buscar(id); }
@@ -335,8 +428,9 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/lembrete-pendentes")
     @ResponseBody
-    // Sem readOnly: grava auditoria (INSERT) por avaliador - herda o
-    // @Transactional (leitura-escrita) da classe.
+    // Sem @Transactional, mesmo motivo de lembreteAvaliador: a consulta
+    // pareceresPendentesComEmail ja devolve os pareceres com o membro (EAGER)
+    // carregado, e a auditoria grava em transacao propria.
     public AcaoResponse lembretePendentes(@PathVariable Long id) {
         Processo p;
         try { p = processoService.buscar(id); }
@@ -414,8 +508,12 @@ public class ProcessoDecisaoController {
      */
     @PostMapping("/{id}/email/enviar")
     @ResponseBody
-    // Sem readOnly: grava auditoria (INSERT) apos o envio - herda o
-    // @Transactional (leitura-escrita) da classe.
+    // @Transactional proprio (sem readOnly: grava auditoria apos o envio):
+    // prepararEmailPronto navega processo.pareceres (destinatarios do convite)
+    // e processo.anexos (validarRespostaSolicitante), ambos LAZY. Nao ha
+    // try/catch em volta de servico transacional aqui, entao a transacao unica
+    // nao cria o risco de rollback-only descrito no javadoc da classe.
+    @Transactional
     public AcaoResponse enviarEmailPronto(@PathVariable Long id,
                                           @RequestParam String chave,
                                           @RequestParam String assunto,
@@ -582,6 +680,14 @@ public class ProcessoDecisaoController {
             }
         }
     }
+
+    /**
+     * Motivo pelo qual a decisao foi recusada + ancora do redirect. Devolvido
+     * pelo bloco transacional de validacao de {@link #decidir} para que as
+     * mensagens de flash sejam gravadas FORA da transacao (RedirectAttributes
+     * nao tem nada a ver com o banco, e assim o bloco fica so com leitura).
+     */
+    private record Bloqueio(String mensagem, String ancora) {}
 
     /** Resultado interno de {@link #prepararEmailPronto}: pronto para enviar ou erro. */
     private record EmailPreparado(String[] to, String destinatarios, String assunto, String corpo,

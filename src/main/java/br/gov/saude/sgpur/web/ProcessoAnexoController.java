@@ -31,10 +31,22 @@ import java.time.LocalDate;
  * Passos 5 e 6 do fluxo (oficio/comprovante e resposta ao solicitante) e o
  * gerenciamento de anexos: upload/download/remocao e a geracao de PDFs
  * (oficio, relatorio).
+ *
+ * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b>
+ * Uma transacao aberta pelo controller e compartilhada (REQUIRED) com todo
+ * servico {@code @Transactional} chamado dentro dela; quando um deles lanca
+ * dentro de um {@code try/catch} do metodo, a transacao inteira e marcada como
+ * rollback-only, o {@code catch} devolve o flash amigavel e o commit final
+ * estoura {@code UnexpectedRollbackException} (500 cru). Aqui isso atingia os
+ * QUATRO uploads e a confirmacao da resposta ao solicitante: um arquivo com
+ * extensao nao permitida (ou um comprovante SNT faltando) devolvia "Erro
+ * interno" em vez da mensagem de negocio. Os metodos que nao tem esse
+ * {@code try/catch} mas precisam de sessao aberta ({@link #finalizacao},
+ * {@link #excluirAnexo}) declaram {@code @Transactional} no proprio metodo; os
+ * GET de download/PDF ja tinham {@code @Transactional(readOnly = true)} proprio.
  */
 @Controller
 @RequestMapping("/processos")
-@Transactional
 public class ProcessoAnexoController {
 
     private final ProcessoService processoService;
@@ -92,8 +104,17 @@ public class ProcessoAnexoController {
         anexoStorage.removerAntigosDoTipo(p.getId(), tipo, novo.getId());
     }
 
-    /** Atualiza as datas do oficio de indeferimento (aba Finalizacao). */
+    /**
+     * Atualiza as datas do oficio de indeferimento (aba Finalizacao).
+     *
+     * <p>{@code @Transactional} proprio: o metodo altera a entidade carregada e
+     * chama {@code processoService.salvar(p)} - com a entidade gerenciada o
+     * update e um simples dirty-check, sem depender de um {@code merge} de
+     * entidade desanexada com colecoes {@code cascade = ALL} nao inicializadas.
+     * Nao ha {@code try/catch} em volta de servico transacional aqui.
+     */
     @PostMapping("/{id}/finalizacao")
+    @Transactional
     public String finalizacao(@PathVariable Long id,
                               @RequestParam(required = false)
                               @org.springframework.format.annotation.DateTimeFormat(iso =
@@ -116,7 +137,15 @@ public class ProcessoAnexoController {
         return "redirect:/processos/" + id + "#finalizacao";
     }
 
-    /** Confirma o envio da resposta ao solicitante (aba Resposta ao solicitante). */
+    /**
+     * Confirma o envio da resposta ao solicitante (aba Resposta ao solicitante).
+     *
+     * <p>Sem {@code @Transactional}: o {@code try/catch} envolve
+     * {@code confirmarRespostaSolicitante} (metodo {@code @Transactional} que
+     * lanca {@code IllegalStateException} quando falta o comprovante SNT/oficio)
+     * - com transacao de controller o operador recebia 500 em vez dessa
+     * mensagem.
+     */
     @PostMapping("/{id}/resposta-solicitante")
     public String respostaSolicitante(@PathVariable Long id,
                               @RequestParam(required = false, defaultValue = "false") boolean emailEnviadoSolicitante,
@@ -139,7 +168,18 @@ public class ProcessoAnexoController {
         return "redirect:/processos/" + id + "#finalizacao";
     }
 
-    /** Upload do Oficio de Indeferimento na aba Finalizacao (so para processos INDEFERIDOS). */
+    /**
+     * Upload do Oficio de Indeferimento na aba Finalizacao (so para processos
+     * INDEFERIDOS).
+     *
+     * <p>Sem {@code @Transactional} (vale para os 4 uploads deste controller):
+     * o {@code try/catch} envolve {@code anexoStorage.salvar/salvarBytes},
+     * metodos {@code @Transactional} que lancam {@code IllegalArgumentException}
+     * para arquivo vazio ou extensao fora da allowlist. Com transacao de
+     * controller esse caminho previsto virava 500. Alem disso, manter cada
+     * escrita de {@code substituirAnexo} em sua propria transacao preserva a
+     * garantia documentada la ("salva o novo antes de remover o antigo").
+     */
     @PostMapping("/{id}/oficio-upload")
     public String uploadOficio(@PathVariable Long id,
                                @RequestParam("arquivo") MultipartFile arquivo,
@@ -228,7 +268,15 @@ public class ProcessoAnexoController {
         return "redirect:/processos/" + id + "#anexos";
     }
 
+    /**
+     * Remove um anexo. {@code @Transactional} proprio porque as guardas navegam
+     * associacoes LAZY do anexo ({@code getProcesso().getStatus()} e
+     * {@code getParecer().getOrigem()}), o que exige sessao aberta com
+     * {@code open-in-view: false}. Nao ha {@code try/catch} em volta de servico
+     * transacional aqui, entao a transacao unica e segura (ver javadoc da classe).
+     */
     @PostMapping("/anexos/{anexoId}/excluir")
+    @Transactional
     public String excluirAnexo(@PathVariable Long anexoId, RedirectAttributes ra) {
         // Bloqueia a exclusao de RESPOSTA_AVALIADOR de parecer votado pelo portal
         // (nao-repudio: o registro autenticado nao pode ser apagado pelo operador).

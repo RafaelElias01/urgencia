@@ -16,6 +16,7 @@ import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.repository.AnexoRepository;
+import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
@@ -46,10 +47,29 @@ import java.util.Optional;
  * {@code POST /{id}/recebimento} (upload de SOLICITACAO_RECEBIDA + geracao
  * da CAPA_PROCESSO) foi removido - nao existe mais nenhum processo real que
  * precise dele.
+ *
+ * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b>
+ * Uma transacao aberta pelo controller e compartilhada (propagacao REQUIRED)
+ * com TODO servico {@code @Transactional} chamado dentro dela: quando um
+ * desses servicos lanca dentro de um {@code try/catch} do metodo, o
+ * TransactionInterceptor da chamada aninhada marca a transacao inteira como
+ * rollback-only. O {@code catch} devolve um flash amigavel, mas o commit no
+ * fim do metodo estoura {@code UnexpectedRollbackException} (500 cru) e
+ * <b>qualquer escrita anterior do mesmo metodo e perdida em silencio</b> —
+ * foi assim que o voto do avaliador se perdeu ({@code AvaliadorController},
+ * 2026-07-29). Aqui isso atingia {@link #salvar} (cadastro perdido se a
+ * conversao da solicitacao de origem falhasse), {@link #reabrir} e os dois
+ * "apagar mensagem".
+ *
+ * <p>Regra adotada por metodo: quem NAO precisa de sessao aberta (so chama
+ * servicos que ja tem transacao propria e le campos escalares) fica <b>sem</b>
+ * anotacao — assim cada servico commita/roda o rollback isoladamente; quem
+ * precisa navegar colecoes LAZY ({@link #detalhe}, {@link #confirmarAnonimizacao})
+ * declara {@code @Transactional} no proprio metodo e nao tem {@code try/catch}
+ * em volta de servico transacional.
  */
 @Controller
 @RequestMapping("/processos")
-@Transactional
 public class ProcessoDetalheController {
 
     private final ProcessoService processoService;
@@ -65,6 +85,11 @@ public class ProcessoDetalheController {
     private final MensagemSolicitacaoService mensagemService;
     private final UsuarioRepository usuarioRepo;
     private final AnexoRepository anexoRepo;
+    /**
+     * Usado SO por {@link #detalhe} (consulta com fetch join dos pareceres).
+     * O restante do controller continua passando por {@link ProcessoService}.
+     */
+    private final ProcessoRepository processoRepo;
     private final boolean solicitanteHabilitado;
 
     public ProcessoDetalheController(ProcessoService processoService,
@@ -80,6 +105,7 @@ public class ProcessoDetalheController {
                                      MensagemSolicitacaoService mensagemService,
                                      UsuarioRepository usuarioRepo,
                                      AnexoRepository anexoRepo,
+                                     ProcessoRepository processoRepo,
                                      @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
@@ -94,6 +120,7 @@ public class ProcessoDetalheController {
         this.mensagemService = mensagemService;
         this.usuarioRepo = usuarioRepo;
         this.anexoRepo = anexoRepo;
+        this.processoRepo = processoRepo;
         this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
@@ -120,6 +147,9 @@ public class ProcessoDetalheController {
         return geminiService.isDisponivel();
     }
 
+    // Sem @Transactional: nada aqui navega colecao LAZY - solicitacaoOnlineService
+    // .buscar e membroService.listarAtivos devolvem entidades ja carregadas e o
+    // template (processos/form.html) so le campos escalares delas.
     @GetMapping("/novo")
     public String novo(@RequestParam(required = false) Long origemSolicitacaoOnlineId, Model model,
                         RedirectAttributes ra) {
@@ -177,6 +207,23 @@ public class ProcessoDetalheController {
         return "processos/form";
     }
 
+    /**
+     * Cadastra o processo a partir de uma solicitacao do Portal e, so depois,
+     * converte a solicitacao de origem.
+     *
+     * <p><b>Sem @Transactional de proposito.</b> Este metodo faz DUAS escritas
+     * em sequencia ({@code processoService.cadastrar} e, dentro de um
+     * try/catch, {@code solicitacaoOnlineService.converter}) e o proprio
+     * codigo ja declara a intencao: "se falhar aqui, o processo continua
+     * valido". Com uma transacao de controller isso era mentira - as duas
+     * chamadas compartilhavam a MESMA transacao fisica, a
+     * {@code IllegalStateException} lancada por {@code converter} (metodo
+     * {@code @Transactional}) marcava tudo como rollback-only, o
+     * {@code catch} devolvia o flash de aviso e o commit final estourava
+     * {@code UnexpectedRollbackException}, <b>desfazendo o cadastro que o
+     * catch dizia ter preservado</b>. Sem anotacao, cada servico roda na sua
+     * propria transacao e o comportamento documentado passa a ser o real.
+     */
     @PostMapping
     public String salvar(@Valid @ModelAttribute("processo") Processo processo,
                          BindingResult result,
@@ -271,12 +318,40 @@ public class ProcessoDetalheController {
         return "redirect:/processos/" + salvo.getId();
     }
 
+    /**
+     * Tela de detalhe do processo — a mais pesada do sistema.
+     *
+     * <p><b>@Transactional (leitura-escrita) no proprio metodo</b>, nao herdado
+     * de anotacao de classe: esta rota TAMBEM escreve (marca as mensagens do
+     * solicitante como lidas desde a correcao de 2026-07-28), por isso nao pode
+     * ser {@code readOnly}. E nao ha nenhum {@code try/catch} em volta de
+     * servico transacional aqui, entao a transacao unica nao cria o risco de
+     * rollback-only silencioso descrito no javadoc da classe.
+     *
+     * <p><b>Colecoes LAZY:</b> o metodo E o template {@code processos/detalhe.html}
+     * navegam as DUAS colecoes do processo ({@code pareceres}, com
+     * {@code par.membro.rotulo}/{@code par.membro.email} na aba Respostas, e
+     * {@code anexos}, na lista de Anexos), ja fora da transacao no caso do
+     * template ({@code open-in-view: false}). Como ambas sao {@code List}
+     * (bag), um fetch join duplo na mesma consulta lancaria
+     * {@code MultipleBagFetchException}; por isso os pareceres (+ membro) vem
+     * por fetch join ({@link ProcessoRepository#findByIdComPareceres}) e os
+     * anexos sao inicializados logo abaixo, com um {@code size()} dentro desta
+     * mesma transacao. Quando o metodo retorna, tudo o que a view usa ja esta
+     * materializado nos objetos do Model.
+     */
     @GetMapping("/{id}")
-    // Usa o @Transactional (read-write) padrao da classe: desde a correcao do
-    // bug do marcarComoLidas (2026-07-28) esta rota tambem escreve (marca
-    // mensagens do solicitante como lidas), entao nao pode mais ser readOnly.
+    @Transactional
     public String detalhe(@PathVariable Long id, Model model, Principal principal) {
-        Processo p = processoService.buscar(id);
+        Processo p = processoRepo.findByIdComPareceres(id)
+            .orElseThrow(() -> new IllegalArgumentException("Processo nao encontrado: " + id));
+        // Inicializa a SEGUNDA colecao (bag) dentro desta transacao. Nao use
+        // Hibernate.initialize(p.getAnexos()): getAnexos() devolve um
+        // Collections.unmodifiableList(...) em volta do PersistentBag, e
+        // Hibernate.initialize nao reconhece esse wrapper (viraria no-op
+        // silencioso, com LazyInitializationException so na renderizacao).
+        // size() delega ao bag e dispara o SELECT de verdade.
+        p.getAnexos().size();
         model.addAttribute("processo", p);
         // Evita notificacao duplicada: esta tela ja tem seu proprio poll de chat
         // (chat-solicitacao.js), entao o poll GLOBAL da navbar (layout.html) fica
@@ -430,6 +505,8 @@ public class ProcessoDetalheController {
         return "processos/detalhe";
     }
 
+    // Sem @Transactional: processos/editar.html so exibe campos escalares do
+    // processo (numero, nomes, datas) - nenhuma colecao LAZY e navegada.
     @GetMapping("/{id}/editar")
     public String editar(@PathVariable Long id, Model model, RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
@@ -440,6 +517,8 @@ public class ProcessoDetalheController {
         return "processos/editar";
     }
 
+    // Sem @Transactional: delega a escrita para processoService.atualizarDados
+    // (que ja tem transacao propria) e nao navega colecao LAZY nenhuma.
     @PostMapping("/{id}/editar")
     public String atualizar(@PathVariable Long id,
                             @Valid @ModelAttribute("processo") Processo form,
@@ -472,8 +551,14 @@ public class ProcessoDetalheController {
      * <p>O operador tambem pode ignorar a promocao e simplesmente subir um
      * arquivo ja anonimizado por {@code POST /{id}/documento-clinico}, que
      * continua entrando direto como {@code DOCUMENTO_CLINICO_AVALIADOR}.
+     *
+     * <p>{@code @Transactional} no proprio metodo (nao herdado de anotacao de
+     * classe): a promocao e uma alteracao na entidade {@code Anexo} e o metodo
+     * nao tem nenhum {@code try/catch} em volta de servico transacional, entao
+     * a transacao unica e segura aqui (ver javadoc da classe).
      */
     @PostMapping("/{id}/documento-clinico/{anexoId}/confirmar-anonimizacao")
+    @Transactional
     public String confirmarAnonimizacao(@PathVariable Long id,
                                         @PathVariable Long anexoId,
                                         @RequestParam(required = false, defaultValue = "false") boolean confirmo,
@@ -489,13 +574,14 @@ public class ProcessoDetalheController {
                     + "do corpo) antes de libera-lo para os avaliadores.");
             return "redirect:/processos/" + id + "#envio";
         }
-        Anexo anexo = p.getAnexos().stream()
-            .filter(a -> a.getId() != null && a.getId().equals(anexoId))
-            .findFirst()
-            .orElse(null);
-        if (anexo == null) {
-            // Nunca serve um anexo de outro processo: a busca e feita dentro da
-            // colecao do proprio processo (mesma postura anti-IDOR das outras telas).
+        // Busca o anexo direto pelo id e confere a POSSE (mesmo padrao
+        // anti-IDOR de AvaliadorController.baixarPdf), em vez de varrer a
+        // colecao LAZY p.getAnexos() so para achar um item: mesma garantia
+        // ("nunca serve um anexo de outro processo") sem depender de a colecao
+        // do processo estar inicializada.
+        Anexo anexo = anexoRepo.findById(anexoId).orElse(null);
+        if (anexo == null || anexo.getProcesso() == null
+                || !id.equals(anexo.getProcesso().getId())) {
             ra.addFlashAttribute("erro", "Documento nao encontrado neste processo.");
             return "redirect:/processos/" + id + "#envio";
         }
@@ -523,6 +609,13 @@ public class ProcessoDetalheController {
      * para ENVIADO. Restrito ao ADMIN (imposto no SecurityConfig por
      * {@code POST /processos/*}/reabrir). O botao so aparece para ADMIN e quando
      * o processo esta finalizado.
+     *
+     * <p>Sem {@code @Transactional}: o {@code try/catch} em volta de
+     * {@code processoService.reabrir} (metodo {@code @Transactional} que lanca
+     * {@code IllegalStateException}) so devolve o flash de erro esperado
+     * porque nao existe mais transacao de controller para ser marcada como
+     * rollback-only - antes, esse caminho terminava em 500 (ver javadoc da
+     * classe).
      */
     @PostMapping("/{id}/reabrir")
     public String reabrir(@PathVariable Long id, RedirectAttributes ra) {
@@ -563,6 +656,11 @@ public class ProcessoDetalheController {
         return "redirect:/processos/" + id;
     }
 
+    // Sem @Transactional (nos dois "apagar mensagem", classico e AJAX): o
+    // try/catch envolve mensagemService.apagar, metodo @Transactional que lanca
+    // IllegalArgumentException - com transacao de controller o catch tratava o
+    // erro mas o commit seguinte estourava UnexpectedRollbackException (500 no
+    // lugar do flash / do JSON 400).
     @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
     public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
                                   Principal principal, RedirectAttributes ra) {
