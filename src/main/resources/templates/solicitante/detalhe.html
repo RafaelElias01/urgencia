@@ -59,12 +59,20 @@
                         A equipe confere os dados e os documentos anexados antes de prosseguir.
                     </div>
                 </div>
-                <div class="timeline-item" th:with="decStatus=${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa') : null" th:classappend="${decStatus} ?: (${solicitacao.status.name() == 'ENVIADA'} ? 'pendente' : (${solicitacao.status.name() == 'CONVERTIDA'} ? 'atual' : (${solicitacao.status.name() == 'REPROVADA'} ? 'negativa' : 'concluida')))">
+                <!-- A classe do passo "Decisao" e pre-calculada em th:with (nenhum ternario
+                     passa de 2 niveis): primeiro vale a decisao do processo gerado, se ele ja
+                     estiver finalizado; senao cai no status da propria solicitacao. -->
+                <div class="timeline-item"
+                     th:with="stSolicitacao=${solicitacao.status.name()},
+                              processoDecidido=${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()},
+                              classePorProcesso=${processoDecidido} ? (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'concluida' : 'negativa') : null,
+                              classePorSolicitacaoInicial=${stSolicitacao == 'ENVIADA'} ? 'pendente' : (${stSolicitacao == 'CONVERTIDA'} ? 'atual' : null),
+                              classePorSolicitacao=${classePorSolicitacaoInicial} ?: (${stSolicitacao == 'REPROVADA'} ? 'negativa' : 'concluida'),
+                              classeDecisao=${classePorProcesso} ?: ${classePorSolicitacao},
+                              iconeConvertida=${processoDecidido} ? (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg') : 'bi-hourglass-split'"
+                     th:classappend="${classeDecisao}">
                     <div class="timeline-dot" th:switch="${solicitacao.status.name()}">
-                        <i th:case="'CONVERTIDA'"
-                           th:classappend="${solicitacao.processoGerado != null and solicitacao.processoGerado.status.isFinalizado()} ? 
-                             (${solicitacao.processoGerado.status.name() == 'DEFERIDO'} ? 'bi-check' : 'bi-x-lg') : 'bi-hourglass-split'"
-                           class="bi"></i>
+                        <i th:case="'CONVERTIDA'" th:classappend="${iconeConvertida}" class="bi"></i>
                         <i th:case="'APROVADA'" class="bi bi-check"></i>
                         <i th:case="'REPROVADA'" class="bi bi-x-lg"></i>
                         <i th:case="'DEVOLVIDA'" class="bi bi-arrow-return-left"></i>
