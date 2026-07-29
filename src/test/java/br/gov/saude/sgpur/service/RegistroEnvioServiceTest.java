@@ -45,6 +45,10 @@ class RegistroEnvioServiceTest {
     AnexoStorageService anexoStorage;
     @Mock
     AuditoriaService auditoria;
+    @Mock
+    EmailTemplateService emailTemplateService;
+    @Mock
+    EmailSenderService emailSenderService;
 
     RegistroEnvioService service;
 
@@ -55,7 +59,8 @@ class RegistroEnvioServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RegistroEnvioService(processoService, solicitacaoAvaliadorService, anexoStorage, auditoria);
+        service = new RegistroEnvioService(processoService, solicitacaoAvaliadorService, anexoStorage,
+            auditoria, emailTemplateService, emailSenderService);
 
         processo = new Processo();
         processo.setId(1L);
@@ -250,5 +255,90 @@ class RegistroEnvioServiceTest {
         assertThat(resultado.mensagemErro()).contains("PDF valido");
         verifyNoInteractions(solicitacaoAvaliadorService);
         verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // Convite automatico ao Portal do Avaliador (enviarConvitesAvaliadores).
+    // Roda DEPOIS de registrar() ter commitado; nenhuma falha aqui pode derrubar
+    // o envio - so vira aviso.
+    // -------------------------------------------------------------------------
+
+    /** Parecer pendente (resultado nulo) de um avaliador com o e-mail informado. */
+    private Parecer parecerPendente(String nome, String email) {
+        return new Parecer(new br.gov.saude.sgpur.domain.MembroUrgenciaRenal("HCPA", nome, email));
+    }
+
+    private EmailTemplate templateConvite() {
+        return new EmailTemplate("convite-avaliador", "Convite", "person-check",
+            "Assunto do convite", "Corpo do convite");
+    }
+
+    @Test
+    void enviaConviteDoPortalParaCadaAvaliadorPendente() {
+        Parecer a = parecerPendente("Dr. A", "a@hcpa.br");
+        Parecer b = parecerPendente("Dr. B", "b@hcpa.br");
+        when(processoService.pareceresPendentesComEmail(1L)).thenReturn(java.util.List.of(a, b));
+        when(emailTemplateService.emailConviteAvaliador(eq(processo), any())).thenReturn(templateConvite());
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(true);
+
+        RegistroEnvioService.ConvitesResultado r = service.enviarConvitesAvaliadores(1L);
+
+        assertThat(r.enviados()).isEqualTo(2);
+        assertThat(r.avisos()).isEmpty();
+        verify(emailSenderService).enviar("a@hcpa.br", "Assunto do convite", "Corpo do convite");
+        verify(emailSenderService).enviar("b@hcpa.br", "Assunto do convite", "Corpo do convite");
+        verify(auditoria, org.mockito.Mockito.times(2))
+            .registrar(eq("CONVITE_AVALIADOR_ENVIADO"), anyString());
+    }
+
+    /**
+     * Avaliador sem e-mail cadastrado nao vira erro: os demais recebem, e o nome
+     * dele volta como aviso para o operador resolver e reenviar no lembrete.
+     */
+    @Test
+    void avaliadorSemEmailViraAvisoSemImpedirOsDemais() {
+        Parecer semEmail = parecerPendente("Dr. Sem Email", "   ");
+        Parecer comEmail = parecerPendente("Dr. B", "b@hcpa.br");
+        when(processoService.pareceresPendentesComEmail(1L))
+            .thenReturn(java.util.List.of(semEmail, comEmail));
+        when(emailTemplateService.emailConviteAvaliador(eq(processo), any())).thenReturn(templateConvite());
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(true);
+
+        RegistroEnvioService.ConvitesResultado r = service.enviarConvitesAvaliadores(1L);
+
+        assertThat(r.enviados()).isEqualTo(1);
+        assertThat(r.avisos()).containsExactly("Dr. Sem Email (sem e-mail cadastrado)");
+        verify(emailSenderService).enviar("b@hcpa.br", "Assunto do convite", "Corpo do convite");
+        verify(auditoria).registrar(eq("CONVITE_AVALIADOR_NAO_ENVIADO"), anyString());
+    }
+
+    /** Falha de SMTP vira aviso + auditoria de falha, nunca excecao. */
+    @Test
+    void falhaDeSmtpViraAvisoEAuditoriaSemLancarExcecao() {
+        when(processoService.pareceresPendentesComEmail(1L))
+            .thenReturn(java.util.List.of(parecerPendente("Dr. A", "a@hcpa.br")));
+        when(emailTemplateService.emailConviteAvaliador(eq(processo), any())).thenReturn(templateConvite());
+        when(emailSenderService.enviar(anyString(), anyString(), anyString())).thenReturn(false);
+
+        RegistroEnvioService.ConvitesResultado r = service.enviarConvitesAvaliadores(1L);
+
+        assertThat(r.enviados()).isZero();
+        assertThat(r.avisos()).containsExactly("Dr. A (falha no envio do e-mail)");
+        verify(auditoria).registrar(eq("CONVITE_AVALIADOR_FALHA"), anyString());
+    }
+
+    /**
+     * Num reenvio, quem ja votou nao esta em pareceresPendentesComEmail - logo
+     * nao recebe convite de novo. Sem pendentes, nenhum e-mail sai.
+     */
+    @Test
+    void semAvaliadorPendenteNaoEnviaNenhumEmail() {
+        when(processoService.pareceresPendentesComEmail(1L)).thenReturn(java.util.List.of());
+
+        RegistroEnvioService.ConvitesResultado r = service.enviarConvitesAvaliadores(1L);
+
+        assertThat(r.enviados()).isZero();
+        assertThat(r.avisos()).isEmpty();
+        verifyNoInteractions(emailSenderService, emailTemplateService);
     }
 }

@@ -398,6 +398,8 @@ class ProcessoControllerEmailTest {
                 "Anexe ao menos um documento clinico (PDF) antes de registrar o envio."));
 
         verify(registroEnvioService).registrar(1L);
+        // Envio recusado: nem tenta convidar ninguem para o portal.
+        verify(registroEnvioService, org.mockito.Mockito.never()).enviarConvitesAvaliadores(1L);
     }
 
     /**
@@ -411,13 +413,64 @@ class ProcessoControllerEmailTest {
             RegistroEnvioService.RegistroEnvioResultado.sucesso(
                 "Envio aos avaliadores registrado em 25/07/2026.",
                 List.of("exame.jpg")));
+        when(registroEnvioService.enviarConvitesAvaliadores(1L)).thenReturn(
+            new RegistroEnvioService.ConvitesResultado(3, List.of()));
+
+        mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString(
+                "Envio aos avaliadores registrado em 25/07/2026.")))
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString(
+                "Convite ao Portal do Avaliador enviado a 3 avaliadores.")))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("exame.jpg")));
+
+        verify(registroEnvioService).registrar(1L);
+        verify(registroEnvioService).enviarConvitesAvaliadores(1L);
+    }
+
+    /**
+     * Convite que nao pode ser enviado (avaliador sem e-mail, falha de SMTP) NAO
+     * derruba o registro do envio: continua flash "msg" de sucesso, com um
+     * "aviso" nomeando quem ficou sem o convite.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void registrarEnvioComConviteFalhandoMantemSucessoEAvisaQuemFicouDeFora() throws Exception {
+        when(registroEnvioService.registrar(1L)).thenReturn(
+            RegistroEnvioService.RegistroEnvioResultado.sucesso(
+                "Envio aos avaliadores registrado em 25/07/2026.", List.of()));
+        when(registroEnvioService.enviarConvitesAvaliadores(1L)).thenReturn(
+            new RegistroEnvioService.ConvitesResultado(2,
+                List.of("Dr. Sem Email (sem e-mail cadastrado)")));
+
+        mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString(
+                "Envio aos avaliadores registrado")))
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString(
+                "enviado a 2 avaliadores.")))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString(
+                "Dr. Sem Email (sem e-mail cadastrado)")));
+    }
+
+    /**
+     * Nenhum convite enviado (ex.: os 3 avaliadores sem e-mail): a mensagem de
+     * sucesso NAO afirma que convidou ninguem - so o registro do envio.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void registrarEnvioSemNenhumConviteEnviadoNaoAfirmaEnvioDeConvite() throws Exception {
+        when(registroEnvioService.registrar(1L)).thenReturn(
+            RegistroEnvioService.RegistroEnvioResultado.sucesso(
+                "Envio aos avaliadores registrado em 25/07/2026.", List.of()));
+        when(registroEnvioService.enviarConvitesAvaliadores(1L)).thenReturn(
+            new RegistroEnvioService.ConvitesResultado(0, List.of("Dr. A (falha no envio do e-mail)")));
 
         mvc.perform(post("/processos/1/registrar-envio").with(csrf()))
             .andExpect(status().is3xxRedirection())
             .andExpect(flash().attribute("msg", "Envio aos avaliadores registrado em 25/07/2026."))
-            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("exame.jpg")));
-
-        verify(registroEnvioService).registrar(1L);
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString(
+                "Dr. A (falha no envio do e-mail)")));
     }
 
 }

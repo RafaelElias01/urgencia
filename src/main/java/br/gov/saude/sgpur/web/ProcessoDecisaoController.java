@@ -183,9 +183,16 @@ public class ProcessoDecisaoController {
     }
 
     /**
-     * Etapa 2 (Envio): registra a data de envio de hoje para os 3 medicos e
+     * Etapa 2 (Envio): registra a data de envio de hoje para os 3 medicos,
      * gera o PDF consolidado (documentos clinicos anonimizados + cabecalho
-     * carimbado). Sem documento clinico PDF nao ha o que enviar: bloqueia.
+     * carimbado) e dispara automaticamente o convite ao Portal do Avaliador
+     * para cada medico com parecer pendente. Sem documento clinico PDF nao ha o
+     * que enviar: bloqueia.
+     *
+     * <p>O convite roda so depois de {@code registrar} ter commitado e nunca
+     * derruba a operacao: avaliador sem e-mail ou falha de SMTP viram flash
+     * {@code aviso}, com o envio ja gravado. Reenvio manual continua disponivel
+     * no card de Respostas.
      *
      * <p>Sem {@code @Transactional}: {@code registroEnvioService.registrar} e
      * auto-suficiente (transacao propria) e devolve erro/sucesso como valor,
@@ -203,12 +210,31 @@ public class ProcessoDecisaoController {
             ra.addFlashAttribute("erro", resultado.mensagemErro());
             return "redirect:/processos/" + id + "#envio";
         }
+        // Convite ao Portal do Avaliador: disparado DEPOIS de registrar() ter
+        // commitado, nunca dentro da transacao dele - falha de SMTP nao pode
+        // desfazer o envio ja gravado (ver javadoc de enviarConvitesAvaliadores).
+        RegistroEnvioService.ConvitesResultado convites =
+            registroEnvioService.enviarConvitesAvaliadores(id);
+
+        List<String> avisos = new ArrayList<>();
         if (!resultado.avisos().isEmpty()) {
-            ra.addFlashAttribute("aviso",
-                "Estes documentos clinicos ficaram de fora do PDF consolidado: "
-                    + String.join(", ", resultado.avisos()) + ".");
+            avisos.add("Estes documentos clinicos ficaram de fora do PDF consolidado: "
+                + String.join(", ", resultado.avisos()) + ".");
         }
-        ra.addFlashAttribute("msg", resultado.mensagemSucesso());
+        if (!convites.avisos().isEmpty()) {
+            avisos.add("O convite ao Portal do Avaliador nao foi enviado a: "
+                + String.join(", ", convites.avisos())
+                + ". Use o lembrete manual no card de Respostas depois de corrigir.");
+        }
+        if (!avisos.isEmpty()) {
+            ra.addFlashAttribute("aviso", String.join(" ", avisos));
+        }
+        String msg = resultado.mensagemSucesso();
+        if (convites.enviados() > 0) {
+            msg += " Convite ao Portal do Avaliador enviado a " + convites.enviados()
+                + (convites.enviados() == 1 ? " avaliador." : " avaliadores.");
+        }
+        ra.addFlashAttribute("msg", msg);
         return "redirect:/processos/" + id + "#envio";
     }
 
