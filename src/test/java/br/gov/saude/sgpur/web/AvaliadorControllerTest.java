@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.AnexoRepository;
+import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
@@ -44,6 +45,7 @@ class AvaliadorControllerTest {
 
     @MockitoBean private UsuarioRepository usuarioRepo;
     @MockitoBean private ParecerRepository parecerRepo;
+    @MockitoBean private MembroUrgenciaRenalRepository membroRepo;
     @MockitoBean private AnexoRepository anexoRepo;
     @MockitoBean private AnexoStorageService anexoStorage;
     @MockitoBean private ProcessoService processoService;
@@ -69,6 +71,9 @@ class AvaliadorControllerTest {
 
         membro = new MembroUrgenciaRenal("HCPA", "Veronica Horbe", "veronica@hcpa.edu.br");
         membro.setId(10L);
+        // resolverMembro recarrega o membro por MembroUrgenciaRenalRepository.findById
+        // (ver AvaliadorController - evita depender do proxy LAZY de Usuario.membro).
+        when(membroRepo.findById(10L)).thenReturn(java.util.Optional.of(membro));
 
         usuario = new Usuario();
         usuario.setUsername("avaliador1");
@@ -92,7 +97,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void listaProcessosPendentesSemNomeCompleto() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+        when(parecerRepo.findPendentesComProcesso(10L))
             .thenReturn(List.of(parecer));
         when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
             .thenReturn(List.of());
@@ -113,7 +118,7 @@ class AvaliadorControllerTest {
         // dataEnvio bem no passado + prazo-meta de 7 dias (mock padrao do setUp) => atrasado
         parecer.setDataEnvio(LocalDate.now().minusDays(30));
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+        when(parecerRepo.findPendentesComProcesso(10L))
             .thenReturn(List.of(parecer));
         when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
             .thenReturn(List.of());
@@ -149,7 +154,7 @@ class AvaliadorControllerTest {
         parecerNoPrazo.setDataEnvio(LocalDate.now());
 
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+        when(parecerRepo.findPendentesComProcesso(10L))
             .thenReturn(List.of(parecer, parecerNoPrazo));
         when(anexoRepo.findByProcessoIdAndTipo(any(Long.class), any())).thenReturn(List.of());
 
@@ -166,7 +171,7 @@ class AvaliadorControllerTest {
         // dataEnvio recente (hoje) + prazo-meta de 7 dias => dentro do prazo
         parecer.setDataEnvio(LocalDate.now());
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+        when(parecerRepo.findPendentesComProcesso(10L))
             .thenReturn(List.of(parecer));
         when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
             .thenReturn(List.of());
@@ -183,7 +188,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void painelExibeContadoresEHistoricoDoMembroLogado() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+        when(parecerRepo.findPendentesComProcesso(10L))
             .thenReturn(List.of(parecer)); // 1 pendente
         when(anexoRepo.findByProcessoIdAndTipo(any(Long.class), any()))
             .thenReturn(List.of());
@@ -208,7 +213,7 @@ class AvaliadorControllerTest {
         votado.setProcesso(outro);
         votado.setResultado(ResultadoParecer.FAVORAVEL);
         votado.setDataResposta(LocalDate.now());
-        when(parecerRepo.findByMembroIdAndResultadoIsNotNullOrderByDataRespostaDesc(10L))
+        when(parecerRepo.findHistoricoComProcesso(10L))
             .thenReturn(List.of(votado));
 
         mvc.perform(get("/avaliador"))
@@ -229,7 +234,7 @@ class AvaliadorControllerTest {
                 org.hamcrest.Matchers.containsString("Joao Pedro Alves"))));
 
         // O historico do portal so consulta o membro logado (10L)
-        verify(parecerRepo).findByMembroIdAndResultadoIsNotNullOrderByDataRespostaDesc(10L);
+        verify(parecerRepo).findHistoricoComProcesso(10L);
     }
 
     @Test
@@ -252,6 +257,14 @@ class AvaliadorControllerTest {
 
         // O repositorio ja filtra resultado nulo + dataEnvio nao nula; o filtro de
         // status (ENVIADO/EM_ANALISE) acontece no controller/advice.
+        // Duas consultas distintas fazem esse mesmo papel hoje: findPendentesComProcesso
+        // (fetch join, usada por lista() para a PROPRIA pagina) e o metodo original
+        // (usado por GlobalModelAdvice.pendentesAvaliador(), que gera o atributo
+        // "pendentesAvaliador" verificado abaixo - continua com seu proprio
+        // @Transactional e por isso nao precisa do fetch join). Ambas precisam de
+        // stub para este teste, que exercita as duas.
+        when(parecerRepo.findPendentesComProcesso(10L))
+            .thenReturn(List.of(pendenteAtivo, pendenteInativo));
         when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
             .thenReturn(List.of(pendenteAtivo, pendenteInativo));
         when(anexoRepo.findByProcessoIdAndTipo(any(Long.class), any()))
@@ -268,18 +281,22 @@ class AvaliadorControllerTest {
     void contagemDePendentesNaoConsultaRepositorioParaNaoAvaliador() throws Exception {
         // Sem ROLE_AVALIADOR o advice deve curto-circuitar: o badge nao e calculado
         // e o repositorio de pareceres NAO e consultado para a contagem.
-        // (a propria rota /avaliador rejeita o OPERADOR; o ponto e o advice global)
+        // (a propria rota /avaliador rejeita o OPERADOR; o ponto e o advice global,
+        // que usa o metodo original - GlobalModelAdvice nunca chama a variante com
+        // fetch join, essa e exclusiva de lista())
         mvc.perform(get("/avaliador"));
 
         verify(parecerRepo, never())
             .findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(any());
+        verify(parecerRepo, never())
+            .findPendentesComProcesso(any());
     }
 
     @Test
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void votarExibeFormularioComIniciaisSemPdf() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
             .thenReturn(List.of());
 
@@ -296,7 +313,7 @@ class AvaliadorControllerTest {
     void votarExibe403ParaProcessoAlheio() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
         // Processo 99 nao tem parecer deste membro
-        when(parecerRepo.findByProcessoIdAndMembroId(99L, 10L)).thenReturn(Optional.empty());
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(99L, 10L)).thenReturn(Optional.empty());
 
         mvc.perform(get("/avaliador/99"))
             .andExpect(status().isForbidden());
@@ -307,7 +324,7 @@ class AvaliadorControllerTest {
     void votarExibe403QuandoParecerJaEmitido() throws Exception {
         parecer.setResultado(ResultadoParecer.FAVORAVEL); // ja votou
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
 
         mvc.perform(get("/avaliador/1"))
             .andExpect(status().isForbidden());
@@ -317,7 +334,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void registrarVotoGravaCamposDeNaoRepudio() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
@@ -346,7 +363,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void registrarVotoPersisteJustificativa() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
@@ -367,7 +384,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void registrarVotoComArquivoAnexaComoAnexoAvaliador() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
@@ -394,7 +411,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void registrarVotoSemArquivoNaoTentaAnexar() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
@@ -412,7 +429,7 @@ class AvaliadorControllerTest {
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void registrarVotoJustificativaVaziaViraNull() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
         when(parecerRepo.save(any(Parecer.class))).thenAnswer(inv -> inv.getArgument(0));
         when(processoService.atualizarStatusPorPareceres(1L)).thenReturn(processo);
         when(processoService.tentarDecisaoAutomatica(1L)).thenReturn(processo);
@@ -433,7 +450,7 @@ class AvaliadorControllerTest {
     void registrarVotoExibe403QuandoParecerJaEmitido() throws Exception {
         parecer.setResultado(ResultadoParecer.NAO_FAVORAVEL); // ja votou
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
 
         mvc.perform(post("/avaliador/1/votar")
                 .with(csrf())
@@ -449,7 +466,7 @@ class AvaliadorControllerTest {
     void registrarVotoExibe403QuandoProcessoNaoEstaEmEnvio() throws Exception {
         processo.setStatus(StatusProcesso.DEFERIDO); // processo ja decidido
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
-        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(parecerRepo.findByProcessoIdAndMembroIdComProcesso(1L, 10L)).thenReturn(Optional.of(parecer));
 
         mvc.perform(post("/avaliador/1/votar")
                 .with(csrf())

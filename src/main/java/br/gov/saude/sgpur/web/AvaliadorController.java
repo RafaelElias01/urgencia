@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.web;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.AnexoRepository;
+import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.AnexoStorageService;
@@ -21,8 +22,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -51,16 +50,28 @@ import java.util.Map;
  * Apenas iniciais do paciente sao exibidas (convencao da equipe de Urgencia
  * Renal, nao LGPD). O PDF que o avaliador baixa (SOLICITACAO_AVALIADOR) ja
  * foi gerado anonimizado pelo sistema no momento do envio.
+ *
+ * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b> Essa
+ * anotacao sustentava os acessos LAZY dos metodos GET (Parecer.processo,
+ * Usuario.membro), mas tambem fazia o POST de voto ({@link #registrarVoto})
+ * compartilhar a MESMA transacao fisica com os servicos chamados dentro do seu
+ * try/catch - uma falha de pos-processamento marcava a transacao inteira como
+ * rollback-only e o voto do medico, ja "salvo" aos olhos do metodo, era perdido
+ * no commit final (ver o javadoc grande de {@link #registrarVoto}). Cada acesso
+ * LAZY dos metodos GET foi resolvido na origem, com fetch join nas consultas de
+ * {@link ParecerRepository} ({@code ComProcesso}) ou recarregando a entidade
+ * completa por uma consulta propria ({@link #resolverMembro}) - nenhuma
+ * transacao aberta neste controller, nem open-in-view reativado.
  */
 @Controller
 @RequestMapping("/avaliador")
-@Transactional(readOnly = true)
 public class AvaliadorController {
 
     private static final Logger log = LoggerFactory.getLogger(AvaliadorController.class);
 
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
+    private final MembroUrgenciaRenalRepository membroRepo;
     private final AnexoRepository anexoRepo;
     private final AnexoStorageService anexoStorage;
     private final ProcessoService processoService;
@@ -77,6 +88,7 @@ public class AvaliadorController {
 
     public AvaliadorController(UsuarioRepository usuarioRepo,
                                ParecerRepository parecerRepo,
+                               MembroUrgenciaRenalRepository membroRepo,
                                AnexoRepository anexoRepo,
                                AnexoStorageService anexoStorage,
                                ProcessoService processoService,
@@ -90,6 +102,7 @@ public class AvaliadorController {
                                TempoRespostaService tempoRespostaService) {
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
+        this.membroRepo = membroRepo;
         this.anexoRepo = anexoRepo;
         this.anexoStorage = anexoStorage;
         this.processoService = processoService;
@@ -112,8 +125,17 @@ public class AvaliadorController {
         MembroUrgenciaRenal membro = resolverMembro(principal);
         Long membroId = membro.getId();
 
-        // Regra unica de "pendentes do avaliador" (reutilizada pelo badge global).
-        List<Parecer> parecersFiltrados = pendentesDoMembro(parecerRepo, membroId);
+        // Mesmo CRITERIO de "pendentes do avaliador" de pendentesDoMembro (reutilizado
+        // pelo badge global em GlobalModelAdvice), mas buscando com fetch join do
+        // Processo: pendentesDoMembro usa a consulta ORIGINAL (sem fetch join) porque
+        // GlobalModelAdvice.pendentesAvaliador() tem seu proprio @Transactional
+        // cobrindo a navegacao lazy - aqui em lista() nao ha mais transacao nenhuma
+        // no controller (removida em 2026-07-29), entao a mesma consulta devolveria
+        // Processo como proxy LAZY inutilizavel no loop abaixo.
+        List<Parecer> parecersFiltrados = parecerRepo.findPendentesComProcesso(membroId)
+            .stream()
+            .filter(AvaliadorController::pendenteAtivoParaVoto)
+            .toList();
 
         // Mapas por processoId — passados ao template para evitar logica na view.
         Map<Long, Anexo> pdfPorProcesso = new HashMap<>();
@@ -167,8 +189,13 @@ public class AvaliadorController {
         }
 
         // Historico: pareceres ja votados pelo membro (mais recente primeiro).
+        // findHistoricoComProcesso (fetch join): o loop abaixo navega
+        // par.getProcesso().getPacienteNome()/getNumero(), que precisa do
+        // Processo ja carregado (sem @Transactional de classe neste controller
+        // desde 2026-07-29, o metodo original devolveria um proxy LAZY inutil
+        // apos o retorno desta consulta).
         List<Parecer> historicoEntidades = parecerRepo
-            .findByMembroIdAndResultadoIsNotNullOrderByDataRespostaDesc(membroId);
+            .findHistoricoComProcesso(membroId);
         Map<Long, String> iniciaisHistorico = new HashMap<>();
         List<ParecerHistoricoView> historico = new java.util.ArrayList<>();
         for (Parecer par : historicoEntidades) {
@@ -198,10 +225,11 @@ public class AvaliadorController {
         model.addAttribute("prazoDias", prazoDias);
         model.addAttribute("historico", historico);
         model.addAttribute("iniciaisHistorico", iniciaisHistorico);
-        // String, nao a entidade: com open-in-view desligado a sessao ja fechou
-        // quando o template renderiza, e membro (via usuario.getMembro()) pode
-        // vir como proxy lazy - passar so o rotulo forca a leitura aqui dentro
-        // da transacao, evitando LazyInitializationException na view.
+        // String, nao a entidade: membro ja vem totalmente carregado por
+        // resolverMembro (MembroUrgenciaRenalRepository.findById, sem proxy
+        // lazy), mas mesmo assim so passamos o rotulo pronto - nao a entidade
+        // inteira - para o template nunca ter a chance de expor um campo alem
+        // do que a tela realmente usa.
         model.addAttribute("membroRotulo", membro.getRotulo());
         model.addAttribute("totalAtribuidos", totalAtribuidos);
         model.addAttribute("totalPendentes", parecersFiltrados.size());
@@ -265,9 +293,11 @@ public class AvaliadorController {
      *   <li>{@code atualizarStatusPorPareceres};</li>
      *   <li>{@code tentarDecisaoAutomatica} (+ geracao dos PDFs finais).</li>
      * </ol>
-     * Motivo: antes o metodo era {@code @Transactional} e os servicos chamados
-     * aqui (todos {@code @Transactional} com propagacao REQUIRED) participavam
-     * da MESMA transacao fisica. Quando um deles lancava
+     * Motivo (historico do bug real, ja corrigido): antes o metodo era
+     * {@code @Transactional} (a classe inteira tinha
+     * {@code @Transactional(readOnly = true)}) e os servicos chamados aqui
+     * (todos {@code @Transactional} com propagacao REQUIRED) participavam da
+     * MESMA transacao fisica. Quando um deles lancava
      * {@code IllegalStateException} (ex.: processo finalizado por outro medico
      * votando quase junto - janela real entre a checagem de
      * {@code resolverParecerPendente} e o commit, ampliada pela decisao
@@ -280,13 +310,19 @@ public class AvaliadorController {
      * {@code ProcessoDecisaoController.finalizar} (commit 164af0a); la
      * NOT_SUPPORTED puro bastou porque o metodo so delega, aqui nao: o voto
      * (+ anexo) precisa de transacao propria, por isso o TransactionTemplate.
+     *
+     * <p><b>2026-07-29: o {@code @Transactional} de nivel de classe foi
+     * removido</b> (causa raiz da familia de bug, nao so o sintoma neste
+     * metodo - ver javadoc da classe). Sem ele, o
+     * {@code @Transactional(propagation = NOT_SUPPORTED)} que existia aqui
+     * virou no-op (nao ha mais transacao de classe nenhuma para suspender) e
+     * foi removido junto. O {@link #txTemplate} continua exatamente como
+     * antes: cada bloco abaixo permanece uma transacao curta e independente,
+     * que e o que realmente evita o bug - a ausencia da anotacao de classe
+     * so torna essa independencia explicita/garantida em vez de "garantida
+     * por suspensao".
      */
     @PostMapping("/{processoId}/votar")
-    // NOT_SUPPORTED suspende a transacao readOnly da CLASSE (que serve as telas
-    // GET) para que os blocos do TransactionTemplate abaixo sejam transacoes de
-    // verdade, independentes entre si - e nao meros "participantes" de uma
-    // transacao unica que um passo posterior possa envenenar.
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String registrarVoto(@PathVariable Long processoId,
                                 @RequestParam ResultadoParecer resultado,
                                 @RequestParam(required = false) String justificativa,
@@ -316,9 +352,10 @@ public class AvaliadorController {
             parecer.setJustificativa(justificativaLimpa);
             parecerRepo.save(parecer);
 
-            // Toca em getProcesso() AQUI DENTRO: com open-in-view = false, o
-            // proxy LAZY precisa ser inicializado antes do commit para os passos
-            // seguintes (anexo/auditoria) poderem ler numero e id do processo.
+            // parecer.getProcesso() ja vem carregado (fetch join em
+            // resolverParecerPendente, nao um proxy LAZY) - repassamos aqui
+            // porque os passos seguintes (anexo/auditoria) rodam fora desta
+            // transacao e precisam de numero/id do processo como objeto real.
             return new VotoGravado(parecer, parecer.getProcesso(), membro.getNome());
         });
 
@@ -459,14 +496,31 @@ public class AvaliadorController {
      * navbar ({@code GlobalModelAdvice}) para nao duplicar o criterio.
      */
     static List<Parecer> pendentesDoMembro(ParecerRepository parecerRepo, Long membroId) {
+        // Mantido de proposito com a consulta ORIGINAL (sem fetch join): quem
+        // chama este metodo e GlobalModelAdvice.pendentesAvaliador(), que tem seu
+        // proprio @Transactional(readOnly = true) cobrindo par.getProcesso() -
+        // trocar a consulta aqui nao e necessario e so divergiria do
+        // comportamento ja validado por GlobalModelAdviceTest. AvaliadorController
+        // .lista() (sem transacao de controller) usa uma consulta com fetch join
+        // separada (ver dentro de lista()), com o MESMO criterio de filtro
+        // (pendenteAtivoParaVoto) para nao duplicar a regra de negocio.
         return parecerRepo
             .findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(membroId)
             .stream()
-            .filter(par -> {
-                StatusProcesso s = par.getProcesso().getStatus();
-                return s == StatusProcesso.ENVIADO || s == StatusProcesso.EM_ANALISE;
-            })
+            .filter(AvaliadorController::pendenteAtivoParaVoto)
             .toList();
+    }
+
+    /**
+     * Criterio de "pendente ativo para voto": parecer sem resultado, ja enviado,
+     * cujo processo ainda esta em status que aceita votacao (ENVIADO/EM_ANALISE).
+     * Extraido para ser reaproveitado tanto por {@link #pendentesDoMembro} (usado
+     * pelo badge global) quanto pela consulta com fetch join usada em
+     * {@link #lista()} - a MESMA regra de negocio, so a origem dos dados difere.
+     */
+    private static boolean pendenteAtivoParaVoto(Parecer par) {
+        StatusProcesso s = par.getProcesso().getStatus();
+        return s == StatusProcesso.ENVIADO || s == StatusProcesso.EM_ANALISE;
     }
 
     // -------------------------------------------------------------------------
@@ -480,11 +534,24 @@ public class AvaliadorController {
     private MembroUrgenciaRenal resolverMembro(Principal principal) {
         Usuario usuario = usuarioRepo.findByUsername(principal.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        if (usuario.getMembro() == null) {
+        MembroUrgenciaRenal vinculo = usuario.getMembro();
+        if (vinculo == null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "Usuario avaliador sem membro vinculado. Contate o administrador.");
         }
-        return usuario.getMembro();
+        // usuario.getMembro() devolve um proxy Hibernate (Usuario.membro e
+        // LAZY), ja sem sessao aberta neste ponto (open-in-view=false, sem
+        // @Transactional de classe desde 2026-07-29). vinculo.getId() e seguro
+        // mesmo assim: Hibernate nao inicializa o proxy so para ler o
+        // identificador (ja conhecido desde a coluna membro_id lida ao
+        // carregar Usuario, sem precisar de outra consulta). Qualquer outro
+        // acesso (getRotulo/getNome) exigiria a sessao aberta - por isso
+        // recarregamos a entidade completa numa consulta propria e
+        // independente (MembroUrgenciaRenalRepository.findById), sem tocar em
+        // UsuarioRepository nem abrir transacao aqui.
+        return membroRepo.findById(vinculo.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Membro vinculado nao encontrado."));
     }
 
     /**
@@ -493,7 +560,12 @@ public class AvaliadorController {
      * emitido, ou se o processo nao esta em status ativo para votacao.
      */
     private Parecer resolverParecerPendente(Long processoId, MembroUrgenciaRenal membro) {
-        Parecer parecer = parecerRepo.findByProcessoIdAndMembroId(processoId, membro.getId())
+        // findByProcessoIdAndMembroIdComProcesso (fetch join): logo abaixo
+        // navegamos parecer.getProcesso().getStatus(), e este metodo e chamado
+        // tanto por votar() (GET, sem transacao no controller desde
+        // 2026-07-29) quanto por registrarVoto() - o metodo original devolveria
+        // um proxy LAZY inutil fora de uma transacao aberta.
+        Parecer parecer = parecerRepo.findByProcessoIdAndMembroIdComProcesso(processoId, membro.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "Voce nao e avaliador deste processo."));
 
