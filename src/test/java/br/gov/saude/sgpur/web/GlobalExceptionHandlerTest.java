@@ -144,4 +144,84 @@ class GlobalExceptionHandlerTest {
         verify(model).addAttribute("message",
             "Ocorreu um erro inesperado. Tente novamente ou contacte o suporte.");
     }
+
+    /**
+     * A pagina de erro precisa ser servida com o status HTTP REAL. Sem o
+     * {@code @ResponseStatus} os handlers de pagina respondiam HTTP 200 com
+     * o corpo "Erro interno do servidor" — monitoramento/health-check viam
+     * sucesso, {@code fetch().ok} ficava {@code true} e o navegador podia
+     * cachear a resposta.
+     */
+    @Test
+    void handlersDePaginaDeErroDeclaramOStatusHttpReal() throws NoSuchMethodException {
+        assertStatusDoHandler("handleGeneric", HttpStatus.INTERNAL_SERVER_ERROR,
+            Exception.class, Model.class);
+        assertStatusDoHandler("handleIOException", HttpStatus.INTERNAL_SERVER_ERROR,
+            IOException.class, Model.class);
+        assertStatusDoHandler("handleTypeMismatch", HttpStatus.BAD_REQUEST,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, Model.class);
+        assertStatusDoHandler("handleEntityNotFound", HttpStatus.NOT_FOUND,
+            RuntimeException.class, Model.class);
+    }
+
+    private void assertStatusDoHandler(String metodo, HttpStatus esperado, Class<?>... args)
+            throws NoSuchMethodException {
+        var anotacao = GlobalExceptionHandler.class.getMethod(metodo, args)
+            .getAnnotation(org.springframework.web.bind.annotation.ResponseStatus.class);
+        assertThat(anotacao).as("@ResponseStatus ausente em %s", metodo).isNotNull();
+        assertThat(anotacao.value()).as("status de %s", metodo).isEqualTo(esperado);
+    }
+
+    /**
+     * Bug real: o handler redirecionava para {@code /processos} fixo. Um
+     * SOLICITANTE que estourasse uma constraint (ex.: texto maior que a
+     * coluna) levava 403 nessa rota e nunca via a mensagem de erro.
+     */
+    @Test
+    void handleDataIntegrityViolationRespeitaARotaDeRetornoDoSolicitante() {
+        when(request.getRequestURI()).thenReturn("/solicitante/1/mensagem");
+        when(request.getContextPath()).thenReturn("");
+        var ex = new org.springframework.dao.DataIntegrityViolationException("value too long");
+
+        String view = handler.handleDataIntegrityViolation(ex, request, redirectAttributes);
+
+        assertThat(view).isEqualTo("redirect:/solicitante");
+        verify(redirectAttributes).addFlashAttribute(org.mockito.ArgumentMatchers.eq("erro"),
+            org.mockito.ArgumentMatchers.contains("Nao foi possivel salvar"));
+    }
+
+    @Test
+    void handleDataIntegrityViolationMantemProcessosParaOOperador() {
+        when(request.getRequestURI()).thenReturn("/processos/1/editar");
+        when(request.getContextPath()).thenReturn("");
+        var ex = new org.springframework.dao.DataIntegrityViolationException("duplicate key");
+
+        assertThat(handler.handleDataIntegrityViolation(ex, request, redirectAttributes))
+            .isEqualTo("redirect:/processos");
+    }
+
+    @Test
+    void handleTypeMismatchRetornaPaginaDeErro400ComONomeDoParametro() {
+        var ex = new org.springframework.web.method.annotation.MethodArgumentTypeMismatchException(
+            "NAO_EXISTE", br.gov.saude.sgpur.domain.TipoAnexo.class, "tipo", null, null);
+
+        String view = handler.handleTypeMismatch(ex, model);
+
+        assertThat(view).isEqualTo("error");
+        verify(model).addAttribute("status", HttpStatus.BAD_REQUEST.value());
+        verify(model).addAttribute("error", "Requisicao invalida");
+        verify(model).addAttribute("message",
+            "O valor informado para \"tipo\" nao e valido. "
+            + "Verifique o endereco/formulario e tente novamente.");
+    }
+
+    @Test
+    void handleEntityNotFoundRetornaPaginaDeErro404() {
+        String view = handler.handleEntityNotFound(new java.util.NoSuchElementException("No value present"), model);
+
+        assertThat(view).isEqualTo("error");
+        verify(model).addAttribute("status", HttpStatus.NOT_FOUND.value());
+        verify(model).addAttribute("error", "Registro nao encontrado");
+        verify(model).addAttribute("message", "O registro solicitado nao existe ou foi removido.");
+    }
 }

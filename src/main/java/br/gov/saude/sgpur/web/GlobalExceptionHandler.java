@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -123,13 +124,53 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public String handleDataIntegrityViolation(
-            org.springframework.dao.DataIntegrityViolationException ex, RedirectAttributes ra) {
+            org.springframework.dao.DataIntegrityViolationException ex,
+            HttpServletRequest request, RedirectAttributes ra) {
         log.warn("Violacao de integridade de dados: {}", ex.getMessage());
         ra.addFlashAttribute("erro",
             "Nao foi possivel salvar: os dados informados violam uma regra do banco "
             + "(pode ser um valor duplicado, como o numero do processo, ou um campo "
             + "maior que o permitido). Revise os campos e tente novamente.");
-        return "redirect:/processos";
+        // rotaDeRetorno (e nao "/processos" fixo): SOLICITANTE/AVALIADOR nao
+        // acessam /processos e receberiam um 403 por cima do erro original,
+        // sem nunca ver a mensagem.
+        return rotaDeRetorno(request);
+    }
+
+    /**
+     * Parametro mal-formado na URL/no form: {@code @PathVariable Long} com
+     * texto, {@code @RequestParam} de enum com valor inexistente etc. E erro
+     * do cliente (400), nao falha do servidor — sem este handler caia no
+     * fallback generico e virava "Erro interno do servidor".
+     */
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex, Model model) {
+        log.warn("Parametro invalido '{}': {}", ex.getName(), ex.getMessage());
+        model.addAttribute("status", HttpStatus.BAD_REQUEST.value());
+        model.addAttribute("error", "Requisicao invalida");
+        model.addAttribute("message",
+            "O valor informado para \"" + ex.getName() + "\" nao e valido. "
+            + "Verifique o endereco/formulario e tente novamente.");
+        return "error";
+    }
+
+    /**
+     * Registro inexistente alcancado por {@code Optional.orElseThrow()} /
+     * {@code getReference} — deve ser 404, nao 500. (Quem lanca
+     * {@code IllegalArgumentException} continua caindo no handler acima, que
+     * redireciona com flash; este cobre o {@code orElseThrow()} cru.)
+     */
+    @ExceptionHandler({java.util.NoSuchElementException.class, jakarta.persistence.EntityNotFoundException.class})
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public String handleEntityNotFound(RuntimeException ex, Model model) {
+        log.warn("Registro nao encontrado: {}", ex.getMessage());
+        model.addAttribute("status", HttpStatus.NOT_FOUND.value());
+        model.addAttribute("error", "Registro nao encontrado");
+        model.addAttribute("message",
+            "O registro solicitado nao existe ou foi removido.");
+        return "error";
     }
 
     /**
@@ -137,6 +178,7 @@ public class GlobalExceptionHandler {
      * Ex.: AnexoStorageService, RelatorioService.
      */
     @ExceptionHandler(java.io.IOException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleIOException(java.io.IOException ex, Model model) {
         log.error("Erro de E/S: {}", ex.getMessage(), ex);
         model.addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
@@ -160,6 +202,7 @@ public class GlobalExceptionHandler {
      * Excecao generica nao mapeada (fallback).
      */
     @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleGeneric(Exception ex, Model model) {
         log.error("Erro inesperado: {}", ex.getMessage(), ex);
         model.addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
