@@ -397,6 +397,29 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   breakpoints em 576px, 768px e 992px. Ver `docs/AJUSTES-UI.md` para histórico
   completo de correções.
 
+## Organização do repositório (limpeza de 2026-07-29)
+A raiz só tem o essencial: `pom.xml`, `CLAUDE.md`, `README.md`, os scripts de
+uso diário (`start.ps1`/`start.sh`, `test.ps1`/`test.sh`, `e2e.ps1`) e os
+diretórios `src/`, `docs/`, `deploy/`, `scripts/`, `teste-pdfs/`, `.github/`.
+- `scripts/` — utilitários avulsos que **não** são do fluxo diário (hoje só
+  `testar-portas.ps1`). Os scripts documentados acima ficam na raiz de
+  propósito, porque o CLAUDE.md e o README os citam como `.\start.ps1` etc.
+- `docs/historico/` — **arquivo morto**: notas de sessão e relatórios de
+  vistoria antigos, movidos da raiz. Conteúdo já absorvido neste CLAUDE.md;
+  vários têm encoding corrompido (mojibake) da época em que foram criados.
+  Não é fonte da verdade para nada — não consultar para decidir comportamento
+  do sistema, só para arqueologia.
+- **`brasao.png` existe em UM lugar só:** `src/main/resources/static/brasao.png`
+  (carregado do classpath por `PdfCabecalhoStamper`, `PdfRelatorioBuilder`,
+  `RelatorioAnualService` e `RelatorioAvaliadorService`). Havia uma cópia
+  idêntica byte a byte na raiz, morta, removida em 2026-07-29 — não recriar.
+- `dist/` (empacotamento desktop, removido em 2026-07-03) e `node_modules/` +
+  `package-lock.json` (experimento bun/typescript nunca usado — o projeto é
+  Maven puro) foram apagados do disco em 2026-07-29. Continuam no `.gitignore`
+  como guarda, mas **não devem voltar a existir**.
+- `data/` é o H2 de dev + anexos locais (gitignored) — **nunca apagar** numa
+  limpeza, é o sandbox de teste em uso.
+
 ## Convenções de código
 - Entidades JPA em `domain/` com getters/setters simples (sem Lombok).
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
