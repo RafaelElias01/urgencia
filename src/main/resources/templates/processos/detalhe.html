@@ -343,6 +343,63 @@
                         </span>
                     </div>
 
+                    <!-- ========== TRAVA DE ANONIMIZACAO ==========
+                         Documentos que vieram do Portal do Solicitante ainda NAO
+                         revisados (TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO).
+                         Eles NAO entram no PDF dos avaliadores enquanto o operador
+                         nao confirmar explicitamente a anonimizacao. -->
+                    <div th:if="${!documentosPendentesAnonimizacao.isEmpty()}"
+                         class="alert alert-danger mb-4" id="pendentes-anonimizacao">
+                        <h6 class="fw-bold mb-2">
+                            <i class="bi bi-shield-exclamation"></i>
+                            Documento do solicitante <span class="text-uppercase">pendente de anonimizacao</span>
+                        </h6>
+                        <p class="small mb-3">
+                            Este arquivo chegou pelo Portal do Solicitante <strong>com o nome completo do
+                            paciente impresso no corpo</strong> e, por isso, <strong>NAO sera enviado aos
+                            avaliadores</strong> nem libera o registro do envio. Baixe, remova/oculte o nome
+                            do paciente e reenvie o arquivo ja anonimizado no passo 1 abaixo &mdash; ou, se
+                            voce ja conferiu que este documento nao identifica o paciente, confirme a
+                            anonimizacao para libera-lo.
+                        </p>
+                        <ul class="list-group list-group-flush mb-0">
+                            <li class="list-group-item px-0 bg-transparent border-danger-subtle"
+                                th:each="doc : ${documentosPendentesAnonimizacao}">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <span>
+                                        <i class="bi bi-file-earmark-lock text-danger"></i>
+                                        <a th:href="@{/processos/anexos/{id}/download(id=${doc.id})}"
+                                           th:text="${doc.nomeArquivo}">arquivo</a>
+                                        <span class="badge bg-danger ms-1">Nao sera enviado</span>
+                                    </span>
+                                    <form th:unless="${processo.status.finalizado}"
+                                          th:action="@{/processos/anexos/{id}/excluir(id=${doc.id})}" method="post"
+                                          class="d-inline" data-confirm-msg="Remover este documento do processo?">
+                                        <button class="btn btn-sm btn-outline-danger" title="Remover"
+                                                aria-label="Remover documento pendente de anonimizacao">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                <form th:unless="${processo.status.finalizado}"
+                                      th:action="@{/processos/{id}/documento-clinico/{anexoId}/confirmar-anonimizacao(id=${processo.id},anexoId=${doc.id})}"
+                                      method="post" class="mt-2"
+                                      data-confirm-msg="Confirmar que este documento esta anonimizado? Ele passara a ser enviado aos 3 medicos avaliadores.">
+                                    <div class="form-check small mb-2">
+                                        <input class="form-check-input" type="checkbox" name="confirmo" value="true"
+                                               th:id="'confirmo-anonimizacao-' + ${doc.id}" required>
+                                        <label class="form-check-label" th:for="'confirmo-anonimizacao-' + ${doc.id}">
+                                            Confirmo que este documento foi anonimizado (nome do paciente removido do corpo).
+                                        </label>
+                                    </div>
+                                    <button class="btn btn-sm btn-danger">
+                                        <i class="bi bi-unlock"></i> Liberar para os avaliadores
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- ========== PASSO 1: Documentos clinicos ========== -->
                     <div th:unless="${envioFeito}" class="border-start border-3 border-primary ps-3 mb-4">
                         <h6 class="fw-bold text-primary mb-2 d-flex justify-content-between align-items-center">
@@ -364,9 +421,10 @@
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <strong>Anonimize o CORPO dos documentos, nao so o nome do arquivo.</strong>
                             O cabecalho carimbado e apenas sobreposto - ele <em>nao apaga</em> o nome do
-                            paciente que estiver escrito dentro do documento. Confira cada PDF (em especial
-                            os <strong>enviados pelo Portal do Solicitante</strong>, que chegam sem anonimizacao)
-                            e remova/oculte o nome completo antes de registrar o envio aos avaliadores.
+                            paciente que estiver escrito dentro do documento. Confira cada PDF e remova/oculte
+                            o nome completo antes de registrar o envio aos avaliadores. Documentos vindos do
+                            <strong>Portal do Solicitante</strong> chegam sem anonimizacao e ficam bloqueados
+                            acima ate voce confirmar a revisao &mdash; eles nao aparecem nesta lista.
                         </div>
                         <ul class="list-group list-group-flush mb-2" th:if="${!documentosClinicos.isEmpty()}">
                             <li class="list-group-item px-0 bg-transparent" th:each="doc : ${documentosClinicos}">

@@ -15,6 +15,7 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
@@ -63,6 +64,7 @@ public class ProcessoDetalheController {
     private final SolicitacaoOnlineRepository solicitacaoOnlineRepository;
     private final MensagemSolicitacaoService mensagemService;
     private final UsuarioRepository usuarioRepo;
+    private final AnexoRepository anexoRepo;
     private final boolean solicitanteHabilitado;
 
     public ProcessoDetalheController(ProcessoService processoService,
@@ -77,6 +79,7 @@ public class ProcessoDetalheController {
                                      SolicitacaoOnlineRepository solicitacaoOnlineRepository,
                                      MensagemSolicitacaoService mensagemService,
                                      UsuarioRepository usuarioRepo,
+                                     AnexoRepository anexoRepo,
                                      @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
         this.processoService = processoService;
         this.fluxoService = fluxoService;
@@ -90,6 +93,7 @@ public class ProcessoDetalheController {
         this.solicitacaoOnlineRepository = solicitacaoOnlineRepository;
         this.mensagemService = mensagemService;
         this.usuarioRepo = usuarioRepo;
+        this.anexoRepo = anexoRepo;
         this.solicitanteHabilitado = solicitanteHabilitado;
     }
 
@@ -343,6 +347,15 @@ public class ProcessoDetalheController {
             .filter(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR)
             .collect(java.util.stream.Collectors.toList());
         model.addAttribute("documentosClinicos", documentosClinicos);
+        // TRAVA DE ANONIMIZACAO: documentos que vieram do Portal do Solicitante e
+        // ainda NAO foram revisados. Ficam numa lista separada justamente para a
+        // aba Envio deixar obvio que eles NAO serao enviados aos avaliadores
+        // enquanto o operador nao confirmar a anonimizacao.
+        model.addAttribute("documentosPendentesAnonimizacao",
+            p.getAnexos().stream()
+                .filter(a -> a.getTipo() == TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO)
+                .sorted(java.util.Comparator.comparing(Anexo::getDataUpload))
+                .toList());
         // Aviso (nao bloqueia): medicos possivelmente da mesma equipe/instituicao
         // do solicitante (casa sigla x nome por extenso x cidade, ignorando
         // acentos/maiusculas - ver ConflitoEquipeMatcher).
@@ -441,6 +454,68 @@ public class ProcessoDetalheController {
         auditoria.registrar("PROCESSO_EDITADO", "Processo id " + id);
         ra.addFlashAttribute("msg", "Processo atualizado.");
         return "redirect:/processos/" + id;
+    }
+
+    /**
+     * TRAVA DE ANONIMIZACAO (Passo 2 - Envio): promove um documento que veio do
+     * Portal do Solicitante ({@code DOCUMENTO_PORTAL_NAO_ANONIMIZADO}, staging,
+     * que nunca entra no PDF dos avaliadores) para
+     * {@code DOCUMENTO_CLINICO_AVALIADOR}, tornando-o elegivel ao envio.
+     *
+     * <p>E o unico caminho de promocao, e exige a confirmacao explicita do
+     * operador ("Confirmo que este documento foi anonimizado") mais o registro
+     * em auditoria de QUEM confirmou e QUAL anexo - esse log e o registro de que
+     * a revisao humana aconteceu. Sem isso, o documento original do solicitante
+     * (com o nome completo do paciente no corpo do laudo) chegaria aos 3 medicos
+     * e quebraria a regra de imparcialidade sem deixar rastro.
+     *
+     * <p>O operador tambem pode ignorar a promocao e simplesmente subir um
+     * arquivo ja anonimizado por {@code POST /{id}/documento-clinico}, que
+     * continua entrando direto como {@code DOCUMENTO_CLINICO_AVALIADOR}.
+     */
+    @PostMapping("/{id}/documento-clinico/{anexoId}/confirmar-anonimizacao")
+    public String confirmarAnonimizacao(@PathVariable Long id,
+                                        @PathVariable Long anexoId,
+                                        @RequestParam(required = false, defaultValue = "false") boolean confirmo,
+                                        Principal principal,
+                                        RedirectAttributes ra) {
+        Processo p = processoService.buscar(id);
+        if (bloqueadoPorEncerrado(p, ra)) {
+            return "redirect:/processos/" + id + "#envio";
+        }
+        if (!confirmo) {
+            ra.addFlashAttribute("erro",
+                "Marque a confirmacao de que o documento foi anonimizado (nome do paciente removido "
+                    + "do corpo) antes de libera-lo para os avaliadores.");
+            return "redirect:/processos/" + id + "#envio";
+        }
+        Anexo anexo = p.getAnexos().stream()
+            .filter(a -> a.getId() != null && a.getId().equals(anexoId))
+            .findFirst()
+            .orElse(null);
+        if (anexo == null) {
+            // Nunca serve um anexo de outro processo: a busca e feita dentro da
+            // colecao do proprio processo (mesma postura anti-IDOR das outras telas).
+            ra.addFlashAttribute("erro", "Documento nao encontrado neste processo.");
+            return "redirect:/processos/" + id + "#envio";
+        }
+        if (anexo.getTipo() != TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO) {
+            ra.addFlashAttribute("erro",
+                "Este documento nao esta pendente de anonimizacao.");
+            return "redirect:/processos/" + id + "#envio";
+        }
+        String quem = principal != null ? principal.getName() : "desconhecido";
+        anexo.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        anexo.setDescricao("Documento do Portal do Solicitante com anonimizacao CONFIRMADA por "
+            + quem + " em " + java.time.LocalDate.now().format(
+                java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        anexoRepo.save(anexo);
+        auditoria.registrar("ANONIMIZACAO_CONFIRMADA",
+            "Processo " + p.getNumero() + " - anexo id " + anexoId + " (" + anexo.getNomeArquivo()
+                + ") liberado para os avaliadores por " + quem);
+        ra.addFlashAttribute("msg", "Anonimizacao confirmada: \"" + anexo.getNomeArquivo()
+            + "\" agora entra no PDF enviado aos avaliadores.");
+        return "redirect:/processos/" + id + "#envio";
     }
 
     /**

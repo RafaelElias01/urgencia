@@ -224,6 +224,26 @@ public class SolicitacaoOnlineService {
      * clinicos enviados junto. Equipe/e-mail do solicitante SEMPRE vem do
      * {@code Usuario} logado (nunca do formulario) - evita que o solicitante
      * se declare de outra equipe.
+     *
+     * <p><b>Nao ha copia campo a campo aqui</b> (ao contrario de
+     * {@code UsuarioService.atualizar} / {@code ControleUrgenciaService.atualizar}):
+     * a propria entidade e o objeto do {@code @ModelAttribute}, entao os campos
+     * do formulario {@code solicitante/nova.html} - {@code pacienteNome},
+     * {@code pacienteRgct}, {@code dataSituacaoEspecial},
+     * {@code justificativaClinica} - ja chegam preenchidos e sao persistidos
+     * sem intermediario. Nao existe, por construcao, o risco de "esquecer de
+     * copiar um campo novo do formulario" nesse caminho.
+     *
+     * <p><b>Sobrescritos DE PROPOSITO</b> logo abaixo (defesa contra mass
+     * assignment - nao remover achando que e bug): {@code id} (forcado a null,
+     * senao um POST com id sequestraria a solicitacao de outro),
+     * {@code usuarioSolicitante} / {@code solicitanteEquipe} /
+     * {@code solicitanteEmail} (vem do usuario logado), {@code status}
+     * (sempre ENVIADA), {@code processoGerado} e {@code observacoesTriagem}
+     * (so a triagem preenche) e {@code dataEnvio} (ordena a fila de triagem;
+     * precisa ser o instante real do envio). {@code SolicitacaoOnline} nao tem
+     * nenhum metodo de EDICAO de campos apos o envio - o solicitante so pode
+     * cancelar enquanto nao triado, e a triagem so muda status/observacoes.
      */
     @Transactional
     public SolicitacaoOnline criar(SolicitacaoOnline solicitacao, Usuario usuarioLogado,
@@ -330,10 +350,24 @@ public class SolicitacaoOnlineService {
 
     /**
      * Marca a solicitacao como convertida no processo informado e copia os
-     * documentos clinicos anexados para o processo real, como
-     * {@code TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR} - candidatos que o
-     * operador ainda revisa/anonimiza normalmente no Passo 2 (Envio), igual
-     * a qualquer outro documento clinico anexado manualmente.
+     * documentos clinicos anexados para o processo real.
+     *
+     * <p><b>Trava de anonimizacao:</b> a copia entra como
+     * {@code TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO} (staging), NUNCA como
+     * {@code DOCUMENTO_CLINICO_AVALIADOR}. O documento do solicitante traz o
+     * nome completo do paciente impresso no corpo do laudo; se entrasse direto
+     * como material do avaliador, bastaria o operador clicar em "Registrar
+     * envio" sem revisar nada para os 3 medicos receberem o nome do paciente,
+     * quebrando a regra de imparcialidade (e o estado final ficaria
+     * indistinguivel do fluxo correto). O tipo de staging nao entra no PDF
+     * consolidado nem satisfaz {@code ProcessoValidator.validarRegistroEnvio}:
+     * so vira material do avaliador por confirmacao explicita e auditada do
+     * operador (ver {@code ProcessoDetalheController.confirmarAnonimizacao}).
+     *
+     * <p><b>Processos convertidos ANTES desta trava</b> gravaram o anexo do
+     * portal como {@code DOCUMENTO_CLINICO_AVALIADOR}. Nada muda para eles: o
+     * tipo antigo continua valido, elegivel ao merge e suficiente para
+     * registrar o envio - a trava vale apenas para conversoes novas.
      *
      * Chamado pelo controller de triagem DEPOIS que
      * {@code ProcessoService.cadastrar} ja rodou com sucesso (numero
@@ -349,9 +383,10 @@ public class SolicitacaoOnlineService {
         for (AnexoSolicitacaoOnline anexo : s.getAnexos()) {
             try {
                 byte[] dados = Files.readAllBytes(anexoStorage.resolverArquivo(anexo));
-                anexoStorageProcesso.salvarBytes(processoGerado, TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR,
+                anexoStorageProcesso.salvarBytes(processoGerado, TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO,
                     "Documento enviado pelo solicitante no Portal do Solicitante - NAO ANONIMIZADO: "
-                        + "revisar e anonimizar o corpo (nome do paciente) antes de enviar aos avaliadores",
+                        + "revisar e anonimizar o corpo (nome do paciente) e confirmar a anonimizacao "
+                        + "na aba Envio antes de enviar aos avaliadores",
                     anexo.getNomeArquivo(), anexo.getContentType(), dados);
             } catch (IOException e) {
                 throw new IllegalStateException(

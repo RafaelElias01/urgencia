@@ -33,6 +33,7 @@ public final class NomePadraoAnexo {
             case SOLICITACAO_RECEBIDA -> "Solicitacao recebida";
             case CAPA_PROCESSO -> "Capa do processo";
             case DOCUMENTO_CLINICO_AVALIADOR -> "Documento clinico";
+            case DOCUMENTO_PORTAL_NAO_ANONIMIZADO -> "Documento do portal (nao anonimizado)";
             case DOCUMENTO_PACIENTE -> "Documento paciente";
             case EMAIL_ENVIADO_AVALIADORES -> "Email aos avaliadores";
             case EMAIL_PARECER_RECEBIDO -> "Parecer recebido";

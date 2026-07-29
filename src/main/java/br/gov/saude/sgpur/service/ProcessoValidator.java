@@ -226,15 +226,39 @@ public class ProcessoValidator {
      * ENVIADO sem essa garantia minima.
      */
     public Optional<String> validarRegistroEnvio(Processo processo) {
+        // SO DOCUMENTO_CLINICO_AVALIADOR conta. DOCUMENTO_PORTAL_NAO_ANONIMIZADO
+        // (o que veio do Portal do Solicitante, com o nome do paciente no corpo)
+        // NAO satisfaz esta regra: enquanto o operador nao confirmar a
+        // anonimizacao, o envio fica bloqueado com a mensagem especifica abaixo,
+        // em vez de passar silenciosamente. Processos convertidos antes desta
+        // trava tem o anexo do portal gravado com o tipo antigo e continuam
+        // validos aqui.
         boolean temDocumentoClinicoPdf = processo.getAnexos().stream()
             .anyMatch(a -> a.getTipo() == TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR
                 && a.getContentType() != null
                 && a.getContentType().toLowerCase().contains("application/pdf"));
         if (!temDocumentoClinicoPdf) {
-            return Optional.of(
-                "Anexe ao menos um documento clinico (PDF) antes de registrar o envio.");
+            return Optional.of(temDocumentoPendenteAnonimizacao(processo)
+                ? MSG_PENDENTE_ANONIMIZACAO
+                : "Anexe ao menos um documento clinico (PDF) antes de registrar o envio.");
         }
         return Optional.empty();
+    }
+
+    /**
+     * Mensagem do bloqueio da trava de anonimizacao: o processo so tem
+     * documento(s) do Portal do Solicitante ainda nao revisados, que nunca vao
+     * aos avaliadores.
+     */
+    public static final String MSG_PENDENTE_ANONIMIZACAO =
+        "Confirme a anonimizacao do(s) documento(s) enviado(s) pelo solicitante "
+        + "antes de registrar o envio aos avaliadores (ou anexe um documento clinico "
+        + "ja anonimizado em PDF).";
+
+    /** True se o processo tem algum anexo do portal ainda pendente de anonimizacao. */
+    public boolean temDocumentoPendenteAnonimizacao(Processo processo) {
+        return processo.getAnexos().stream()
+            .anyMatch(a -> a.getTipo() == TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
     }
 
     /**

@@ -368,4 +368,60 @@ class ProcessoValidatorTest {
         p.setSolicitanteEmail("test@test.com");
         assertThat(validator.validarRespostaSolicitante(p)).isEmpty();
     }
+
+    // ----- validarRegistroEnvio / trava de anonimizacao -----
+
+    private Anexo anexoPdf(TipoAnexo tipo) {
+        Anexo a = new Anexo();
+        a.setTipo(tipo);
+        a.setNomeArquivo("doc.pdf");
+        a.setContentType("application/pdf");
+        return a;
+    }
+
+    @Test
+    void validarRegistroEnvioBloqueiaSemNenhumDocumento() {
+        Processo p = new Processo();
+        assertThat(validator.validarRegistroEnvio(p))
+            .hasValueSatisfying(msg -> assertThat(msg).contains("Anexe ao menos um documento clinico"));
+    }
+
+    /**
+     * TRAVA DE ANONIMIZACAO: documento do portal ainda pendente NAO satisfaz o
+     * requisito de envio, e a mensagem tem que ser a especifica (o operador ve
+     * um documento anexado na tela - "anexe um documento" o confundiria).
+     */
+    @Test
+    void validarRegistroEnvioBloqueiaComApenasDocumentoPendenteDeAnonimizacao() {
+        Processo p = new Processo();
+        p.addAnexo(anexoPdf(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO));
+
+        assertThat(validator.temDocumentoPendenteAnonimizacao(p)).isTrue();
+        assertThat(validator.validarRegistroEnvio(p))
+            .hasValue(ProcessoValidator.MSG_PENDENTE_ANONIMIZACAO);
+    }
+
+    @Test
+    void validarRegistroEnvioLiberaAposConfirmacaoDaAnonimizacao() {
+        Processo p = new Processo();
+        // Mesmo anexo, ja promovido pelo operador (confirmar-anonimizacao)
+        p.addAnexo(anexoPdf(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR));
+
+        assertThat(validator.temDocumentoPendenteAnonimizacao(p)).isFalse();
+        assertThat(validator.validarRegistroEnvio(p)).isEmpty();
+    }
+
+    /**
+     * Processo LEGADO (convertido antes da trava): o documento do portal foi
+     * gravado com o tipo antigo e continua liberando o envio normalmente.
+     */
+    @Test
+    void validarRegistroEnvioAceitaProcessoLegadoComTipoAntigo() {
+        Processo p = new Processo();
+        Anexo legado = anexoPdf(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        legado.setDescricao("Documento enviado pelo solicitante no Portal do Solicitante - NAO ANONIMIZADO");
+        p.addAnexo(legado);
+
+        assertThat(validator.validarRegistroEnvio(p)).isEmpty();
+    }
 }

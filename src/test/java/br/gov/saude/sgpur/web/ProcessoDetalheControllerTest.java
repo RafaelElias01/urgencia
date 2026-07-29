@@ -52,6 +52,7 @@ class ProcessoDetalheControllerTest {
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private ParecerRepository parecerRepository;
     @MockitoBean private MensagemSolicitacaoService mensagemSolicitacaoService;
+    @MockitoBean private br.gov.saude.sgpur.repository.AnexoRepository anexoRepository;
 
     private Processo processo;
 
@@ -605,5 +606,135 @@ class ProcessoDetalheControllerTest {
 
         verify(processoService).excluir(1L);
         verify(anexoStorage).removerPastaProcesso(processo);
+    }
+
+    // ----- trava de anonimizacao (documento vindo do Portal do Solicitante) -----
+
+    /**
+     * O documento em staging NAO entra na lista de documentos clinicos (a que
+     * vai para os avaliadores) e a aba Envio o mostra em bloco proprio,
+     * marcado como pendente. Tambem cobre a renderizacao real do template.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void detalheSeparaDocumentoPendenteDeAnonimizacaoDosDocumentosClinicos() throws Exception {
+        Anexo pendente = anexoPendente(7L);
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, true, false, false, false));
+
+        mvc.perform(get("/processos/1"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("documentosClinicos", org.hamcrest.Matchers.empty()))
+            .andExpect(model().attribute("documentosPendentesAnonimizacao",
+                org.hamcrest.Matchers.contains(pendente)))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("pendente de anonimizacao")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "Confirmo que este documento foi anonimizado")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "/processos/1/documento-clinico/7/confirmar-anonimizacao")));
+    }
+
+    /** Anexo em staging (veio do portal, ainda nao revisado) vinculado ao processo. */
+    private Anexo anexoPendente(Long id) {
+        Anexo a = new Anexo();
+        a.setId(id);
+        a.setTipo(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
+        a.setNomeArquivo("laudo.pdf");
+        a.setContentType("application/pdf");
+        processo.addAnexo(a);
+        return a;
+    }
+
+    @Test
+    @WithMockUser(username = "operador1", roles = "OPERADOR")
+    void confirmarAnonimizacaoPromoveOTipoERegistraAuditoria() throws Exception {
+        Anexo pendente = anexoPendente(7L);
+        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
+
+        mvc.perform(post("/processos/1/documento-clinico/7/confirmar-anonimizacao")
+                .param("confirmo", "true").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/processos/1#envio"))
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("Anonimizacao confirmada")));
+
+        org.assertj.core.api.Assertions.assertThat(pendente.getTipo())
+            .isEqualTo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        verify(anexoRepository).save(pendente);
+        // O log de auditoria e o registro de que a revisao humana aconteceu:
+        // precisa dizer QUEM confirmou e QUAL anexo.
+        verify(auditoria).registrar(eq("ANONIMIZACAO_CONFIRMADA"),
+            org.mockito.ArgumentMatchers.contains("operador1"));
+        verify(auditoria).registrar(eq("ANONIMIZACAO_CONFIRMADA"),
+            org.mockito.ArgumentMatchers.contains("laudo.pdf"));
+    }
+
+    @Test
+    @WithMockUser(username = "operador1", roles = "OPERADOR")
+    void confirmarAnonimizacaoSemMarcarACaixaNaoPromove() throws Exception {
+        Anexo pendente = anexoPendente(7L);
+        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
+
+        mvc.perform(post("/processos/1/documento-clinico/7/confirmar-anonimizacao").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("Marque a confirmacao")));
+
+        org.assertj.core.api.Assertions.assertThat(pendente.getTipo())
+            .isEqualTo(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
+        verify(anexoRepository, never()).save(any());
+        verify(auditoria, never()).registrar(eq("ANONIMIZACAO_CONFIRMADA"), anyString());
+    }
+
+    @Test
+    @WithMockUser(username = "operador1", roles = "OPERADOR")
+    void confirmarAnonimizacaoBloqueadaQuandoProcessoEncerrado() throws Exception {
+        Anexo pendente = anexoPendente(7L);
+        when(processoService.edicaoBloqueada(processo)).thenReturn(true);
+
+        mvc.perform(post("/processos/1/documento-clinico/7/confirmar-anonimizacao")
+                .param("confirmo", "true").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("erro", ProcessoValidator.MSG_ENCERRADO));
+
+        org.assertj.core.api.Assertions.assertThat(pendente.getTipo())
+            .isEqualTo(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
+        verify(anexoRepository, never()).save(any());
+    }
+
+    /** Anexo de outro processo (ou inexistente) nunca e promovido por ID solto. */
+    @Test
+    @WithMockUser(username = "operador1", roles = "OPERADOR")
+    void confirmarAnonimizacaoDeAnexoForaDoProcessoFalha() throws Exception {
+        anexoPendente(7L);
+        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
+
+        mvc.perform(post("/processos/1/documento-clinico/999/confirmar-anonimizacao")
+                .param("confirmo", "true").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("nao encontrado")));
+
+        verify(anexoRepository, never()).save(any());
+    }
+
+    /**
+     * Idempotencia/coerencia: um documento que ja e material do avaliador
+     * (inclusive os de processos LEGADOS, convertidos antes da trava) nao esta
+     * "pendente" e nao passa por esta acao.
+     */
+    @Test
+    @WithMockUser(username = "operador1", roles = "OPERADOR")
+    void confirmarAnonimizacaoDeDocumentoJaLiberadoFalha() throws Exception {
+        Anexo legado = new Anexo();
+        legado.setId(8L);
+        legado.setTipo(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR);
+        legado.setNomeArquivo("laudo-legado.pdf");
+        processo.addAnexo(legado);
+        when(processoService.edicaoBloqueada(processo)).thenReturn(false);
+
+        mvc.perform(post("/processos/1/documento-clinico/8/confirmar-anonimizacao")
+                .param("confirmo", "true").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("nao esta pendente")));
+
+        verify(anexoRepository, never()).save(any());
     }
 }

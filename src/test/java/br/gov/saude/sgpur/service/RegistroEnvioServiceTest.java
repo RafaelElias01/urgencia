@@ -155,6 +155,91 @@ class RegistroEnvioServiceTest {
         verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
     }
 
+    /** Anexo do Portal do Solicitante ainda nao revisado (staging). */
+    private Anexo documentoPortalPendente(String nome) throws Exception {
+        Anexo a = new Anexo();
+        a.setTipo(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO);
+        a.setNomeArquivo(nome);
+        a.setContentType("application/pdf");
+        Path arquivo = tempDir.resolve(nome);
+        Files.write(arquivo, pdfValido());
+        org.mockito.Mockito.lenient().when(anexoStorage.resolverArquivo(a)).thenReturn(arquivo);
+        return a;
+    }
+
+    /**
+     * TRAVA DE ANONIMIZACAO: com SO o documento vindo do portal (staging), o
+     * envio e BLOQUEADO com mensagem especifica - nao passa silenciosamente
+     * nem entrega o laudo com o nome do paciente aos 3 avaliadores.
+     */
+    @Test
+    void bloqueiaQuandoSoHaDocumentoDoPortalPendenteDeAnonimizacao() throws Exception {
+        processo.addAnexo(documentoPortalPendente("laudo-original.pdf"));
+
+        RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
+
+        assertThat(resultado.ok()).isFalse();
+        assertThat(resultado.mensagemErro())
+            .contains("Confirme a anonimizacao")
+            .contains("laudo-original.pdf");
+        verifyNoInteractions(solicitacaoAvaliadorService);
+        verify(processoService, org.mockito.Mockito.never()).registrarEnvio(any());
+    }
+
+    /**
+     * O documento em staging NUNCA entra no PDF consolidado: mesmo havendo um
+     * documento anonimizado valido (que libera o envio), so ele e fundido, e o
+     * pendente vira aviso nao bloqueante.
+     */
+    @Test
+    void documentoDoPortalPendenteNaoEntraNoPdfConsolidado() throws Exception {
+        byte[] bytesAnonimizado = pdfValido();
+        processo.addAnexo(documentoClinicoPdf("anonimizado.pdf", bytesAnonimizado));
+        processo.addAnexo(documentoPortalPendente("laudo-original.pdf"));
+
+        when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
+        when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
+        Anexo novoAnexo = new Anexo();
+        novoAnexo.setId(101L);
+        when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
+            anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
+        when(processoService.registrarEnvio(1L)).thenReturn(processo);
+
+        RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
+
+        assertThat(resultado.ok()).isTrue();
+        assertThat(resultado.avisos()).anyMatch(a -> a.contains("laudo-original.pdf"));
+        // So o documento anonimizado foi para a consolidacao
+        var captor = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        verify(solicitacaoAvaliadorService).consolidar(captor.capture());
+        assertThat(captor.getValue()).hasSize(1);
+        assertThat((byte[]) captor.getValue().get(0)).isEqualTo(bytesAnonimizado);
+    }
+
+    /**
+     * Processo LEGADO (convertido antes da trava): o anexo do portal foi
+     * gravado como DOCUMENTO_CLINICO_AVALIADOR e continua elegivel - a
+     * mudanca nao quebra processos ja existentes.
+     */
+    @Test
+    void processoLegadoComDocumentoDoPortalNoTipoAntigoContinuaEnviando() throws Exception {
+        processo.addAnexo(documentoClinicoPdf("laudo-legado.pdf", pdfValido()));
+
+        when(solicitacaoAvaliadorService.consolidar(any())).thenReturn(pdfValido());
+        when(solicitacaoAvaliadorService.carimbarCabecalho(any(), eq(processo))).thenReturn(pdfValido());
+        Anexo novoAnexo = new Anexo();
+        novoAnexo.setId(102L);
+        when(anexoStorage.salvarBytes(eq(processo), eq(TipoAnexo.SOLICITACAO_AVALIADOR),
+            anyString(), anyString(), anyString(), any(byte[].class))).thenReturn(novoAnexo);
+        when(processoService.registrarEnvio(1L)).thenReturn(processo);
+
+        RegistroEnvioService.RegistroEnvioResultado resultado = service.registrar(1L);
+
+        assertThat(resultado.ok()).isTrue();
+        assertThat(resultado.avisos()).isEmpty();
+        verify(processoService).registrarEnvio(1L);
+    }
+
     @Test
     void bloqueiaQuandoTodosOsPdfsEstaoCorrompidos() throws Exception {
         processo.addAnexo(documentoClinicoPdf("corrompido.pdf", "nao e pdf".getBytes()));

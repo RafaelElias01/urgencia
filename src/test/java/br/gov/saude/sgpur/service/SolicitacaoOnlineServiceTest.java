@@ -189,6 +189,48 @@ class SolicitacaoOnlineServiceTest {
         assertThat(s.getProcessoGerado()).isSameAs(processo);
     }
 
+    /**
+     * TRAVA DE ANONIMIZACAO: o documento que o solicitante anexou no portal
+     * traz o nome completo do paciente no corpo do laudo. Ele NAO pode ser
+     * copiado como DOCUMENTO_CLINICO_AVALIADOR (tipo que o
+     * RegistroEnvioService funde e entrega aos 3 medicos) - entra como
+     * staging (DOCUMENTO_PORTAL_NAO_ANONIMIZADO) e so e promovido por
+     * confirmacao explicita do operador.
+     */
+    @Test
+    void converterCopiaAnexoDoPortalComoStagingNaoAnonimizado(@org.junit.jupiter.api.io.TempDir
+                                                              java.nio.file.Path tempDir) throws Exception {
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(17L);
+        s.setStatus(StatusSolicitacaoOnline.ENVIADA);
+        AnexoSolicitacaoOnline anexo = new AnexoSolicitacaoOnline();
+        anexo.setNomeArquivo("laudo.pdf");
+        anexo.setContentType("application/pdf");
+        s.addAnexo(anexo);
+        when(repository.findById(17L)).thenReturn(java.util.Optional.of(s));
+        java.nio.file.Path arquivo = tempDir.resolve("laudo.pdf");
+        java.nio.file.Files.write(arquivo, "conteudo com nome do paciente".getBytes());
+        when(anexoStorage.resolverArquivo(anexo)).thenReturn(arquivo);
+        Processo processo = new Processo();
+        processo.setId(99L);
+        processo.setNumero("01/2026");
+
+        service.converter(17L, processo);
+
+        org.mockito.Mockito.verify(anexoStorageProcesso).salvarBytes(
+            org.mockito.ArgumentMatchers.eq(processo),
+            org.mockito.ArgumentMatchers.eq(TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.eq("laudo.pdf"),
+            org.mockito.ArgumentMatchers.eq("application/pdf"),
+            org.mockito.ArgumentMatchers.any(byte[].class));
+        org.mockito.Mockito.verify(anexoStorageProcesso, org.mockito.Mockito.never()).salvarBytes(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq(TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR),
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(byte[].class));
+    }
+
     @Test
     void converterSolicitacaoJaTriadaLancaExcecao() {
         SolicitacaoOnline s = solicitacaoPedido();

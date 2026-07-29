@@ -80,8 +80,19 @@ public class RegistroEnvioService {
         List<byte[]> partes = new ArrayList<>();
         List<String> partesNomes = new ArrayList<>();
         List<String> ignorados = new ArrayList<>();
+        List<String> pendentesAnonimizacao = new ArrayList<>();
         try {
             for (Anexo doc : p.getAnexos()) {
+                // TRAVA DE ANONIMIZACAO: o documento que veio do Portal do
+                // Solicitante entra como DOCUMENTO_PORTAL_NAO_ANONIMIZADO e
+                // NUNCA pode ser fundido no PDF dos avaliadores - ele traz o
+                // nome completo do paciente no corpo do laudo. So depois de o
+                // operador confirmar a anonimizacao (virando
+                // DOCUMENTO_CLINICO_AVALIADOR) ele entra aqui.
+                if (doc.getTipo() == TipoAnexo.DOCUMENTO_PORTAL_NAO_ANONIMIZADO) {
+                    pendentesAnonimizacao.add(doc.getNomeArquivo());
+                    continue;
+                }
                 if (doc.getTipo() != TipoAnexo.DOCUMENTO_CLINICO_AVALIADOR) {
                     continue;
                 }
@@ -99,11 +110,30 @@ public class RegistroEnvioService {
         }
 
         if (partes.isEmpty()) {
-            String detalhe = ignorados.isEmpty()
-                ? "Anexe ao menos um documento clinico (PDF) antes de registrar o envio."
-                : "Os documentos anexados nao sao PDF e nao podem ser consolidados ("
+            // Caso mais comum da trava: o unico documento do processo e o que
+            // veio do portal, ainda pendente de revisao. Mensagem especifica -
+            // "anexe um documento clinico" confundiria o operador, que ve um
+            // documento anexado na tela.
+            String detalhe;
+            if (!pendentesAnonimizacao.isEmpty()) {
+                detalhe = "Confirme a anonimizacao do(s) documento(s) enviado(s) pelo solicitante ("
+                    + String.join(", ", pendentesAnonimizacao)
+                    + ") antes de registrar o envio aos avaliadores. Enquanto isso nao for feito, "
+                    + "eles NAO sao enviados aos medicos.";
+            } else if (ignorados.isEmpty()) {
+                detalhe = "Anexe ao menos um documento clinico (PDF) antes de registrar o envio.";
+            } else {
+                detalhe = "Os documentos anexados nao sao PDF e nao podem ser consolidados ("
                     + String.join(", ", ignorados) + "). Anexe ao menos um documento clinico em PDF.";
+            }
             return RegistroEnvioResultado.erro(detalhe);
+        }
+        // Aviso nao bloqueante: ja ha documento anonimizado suficiente para
+        // enviar, mas sobrou documento do portal sem revisao - ele fica de fora
+        // do PDF (comportamento correto), e o operador precisa saber disso.
+        if (!pendentesAnonimizacao.isEmpty()) {
+            ignorados.add(String.join(", ", pendentesAnonimizacao)
+                + " (pendente de confirmacao de anonimizacao - nao enviado aos avaliadores)");
         }
 
         // Valida se os PDFs tem paginas antes de consolidar. Um PDF corrompido
