@@ -409,6 +409,28 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   `org.springframework.test.context.bean.override.mockito.MockitoBean`), **não**
   o `@MockBean` antigo (`org.springframework.boot.test.mock.mockito.MockBean`)
   — depreciado desde o Spring Boot 3.4 e removido em versão futura.
+- **Rota que grava algo irreversível exige um teste do CAMINHO DE FALHA, sem
+  mock do serviço.** `@WebMvcTest` + `@MockitoBean` no service **não consegue**
+  pegar erro de transação: sem o proxy do Spring não existe transação, então a
+  classe inteira de bug é *inexprimível* nesse tipo de teste. Foi assim que
+  passaram despercebidos, com a suíte verde, o voto do avaliador sendo perdido
+  (`AvaliadorController`, 2026-07-29) e ~15 endpoints devolvendo "Erro interno"
+  no lugar da mensagem de negócio. Para voto, decisão, envio de e-mail oficial,
+  exclusão e qualquer escrita irreversível: escreva ao menos um
+  `@SpringBootTest` (H2 real, serviço real) que **force a falha do
+  pós-processamento** e comprove que a escrita principal sobreviveu e que o
+  usuário recebeu erro tratado — não 500. Ver
+  `AvaliadorVotoTransacaoIntegrationTest` como modelo.
+- **Teste de atualização deve reler do banco e conferir campo a campo.** Os
+  métodos `atualizar()` copiam campo a campo; esquecer um campo faz o usuário
+  salvar, ver "sucesso" e perder o dado **sem nenhum erro**. Já aconteceu 3x:
+  `UsuarioService.atualizar` (e-mail), `MembroController.salvar`
+  (`persist` em vez de `merge`) e `ControleUrgenciaService.atualizar`
+  (`dataVencimento`, achado em 2026-07-29 — o form oferecia o campo e o
+  serviço o ignorava). O teste que impede a recaída altera **todos** os campos
+  editáveis com valores distintos, salva, **relê a entidade do banco** e
+  asseve **cada campo**; com mock do repositório ele passa mesmo com o bug,
+  que foi exatamente como a família escapou.
 - `SecurityConfig`: `requestMatchers(String...)` usa padrão de string simples
   (ex.: `"/h2-console/**"`), **não** `AntPathRequestMatcher.antMatcher(...)`
   — o Spring Security resolve o matcher automaticamente; `AntPathRequestMatcher`
