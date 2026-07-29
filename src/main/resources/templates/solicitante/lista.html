@@ -20,6 +20,20 @@
         Envie sua solicitacao pelo sistema — nossa equipe vai analisar e retornar por e-mail.
     </p>
 
+    <!-- Banner de destaque: "acao necessaria" hoje so aparecia como um badge
+         pequeno numa coluna da tabela, facil de nao notar. Isso repete a
+         mesma informacao de forma impossivel de passar despercebido. -->
+    <div th:if="${totalAcaoNecessaria} > 0" class="alert alert-warning d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+        <span>
+            Voce tem <strong th:text="${totalAcaoNecessaria}">0</strong>
+            <span th:text="${totalAcaoNecessaria == 1} ? 'solicitacao aguardando sua resposta' : 'solicitacoes aguardando sua resposta'">solicitacoes aguardando sua resposta</span>
+            — a equipe de Urgencia Renal pediu informacao complementar. Veja o destaque
+            <span class="badge rounded-pill bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle-fill"></i> Acao necessaria</span> na lista abaixo.
+        </span>
+    </div>
+
     <!-- Cards de resumo por status -->
     <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 g-3 mb-4">
         <div class="col">
@@ -79,7 +93,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <!-- Desktop/tablet: tabela (>=768px, breakpoint md do Bootstrap) -->
+    <div class="card d-none d-md-block">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
@@ -135,6 +150,49 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Mobile (<768px): cards empilhados em vez de tabela espremida - mais
+         nativo pra quem acessa do celular fora do hospital. Mesmos dados/
+         atributos do model que a tabela acima, so a apresentacao muda. -->
+    <div class="d-md-none">
+        <div th:if="${solicitacoes.isEmpty()}" class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                Voce ainda nao enviou nenhuma solicitacao.
+            </div>
+        </div>
+        <a th:each="s : ${solicitacoes}" th:href="@{/solicitante/{id}(id=${s.id})}"
+           class="card mb-2 text-decoration-none text-body">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                    <span class="fw-semibold" th:text="${s.pacienteNome}">Paciente</span>
+                    <span th:if="${mensagensNaoLidas.get(s.id)}"
+                          class="badge bg-warning text-dark flex-shrink-0" title="Nova resposta da equipe">
+                        <i class="bi bi-chat-dots-fill"></i>
+                    </span>
+                </div>
+                <div class="small text-muted mb-2">
+                    RGCT <span th:text="${s.pacienteRgct}">RGCT</span> &bull;
+                    <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy')}">-</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    <a th:if="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
+                       th:href="@{/solicitante/{id}(id=${s.id})}"
+                       class="badge rounded-pill bg-warning text-dark text-decoration-none">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Acao necessaria
+                    </a>
+                    <span th:unless="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
+                          class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
+                        <i class="bi" th:classappend="${'bi-' + s.status.badgeIcone}"></i>
+                        <span th:text="${s.status.descricao}">Status</span>
+                    </span>
+                    <span th:if="${s.status.name() == 'ENVIADA'}"
+                          class="badge rounded-pill" th:classappend="${diasEspera.get(s.id).badgeClass}"
+                          th:text="${diasEspera.get(s.id).dias == 0} ? 'Enviado hoje' : (${diasEspera.get(s.id).dias} + (${diasEspera.get(s.id).dias == 1} ? ' dia de espera' : ' dias de espera'))">Enviado hoje</span>
+                </div>
+            </div>
+        </a>
     </div>
 </div>
 

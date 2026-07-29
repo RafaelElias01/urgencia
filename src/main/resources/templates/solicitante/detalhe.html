@@ -109,6 +109,12 @@
                                   th:switch="${solicitacao.status.name()}">
                             <span th:case="'CONVERTIDA'">
                                 Seu pedido virou um processo oficial e esta em analise pelos medicos avaliadores.
+                                <span th:if="${previsaoPrazo != null}" class="d-block small text-muted mt-1">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    Previsao baseada no historico: normalmente decidido em torno de
+                                    <strong th:text="${previsaoPrazo}">7 dias</strong>
+                                    apos o envio para analise (nao e um prazo formal, so uma referencia).
+                                </span>
                             </span>
                             <span th:case="'APROVADA'">
                                 A equipe de Urgencia Renal aprovou o pedido. O comprovante de insercao no SNT

@@ -14,6 +14,8 @@ import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.service.TempoRespostaService;
+import br.gov.saude.sgpur.domain.StatusProcesso;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -65,6 +67,7 @@ public class SolicitanteController {
     private final AnexoSolicitacaoOnlineStorageService anexoStorage;
     private final AnexoStorageService anexoStorageProcesso;
     private final MensagemSolicitacaoService mensagemService;
+    private final TempoRespostaService tempoRespostaService;
 
     public SolicitanteController(UsuarioRepository usuarioRepo,
                                  SolicitacaoOnlineService solicitacaoService,
@@ -72,7 +75,8 @@ public class SolicitanteController {
                                  AnexoSolicitacaoOnlineRepository anexoRepo,
                                  AnexoSolicitacaoOnlineStorageService anexoStorage,
                                  AnexoStorageService anexoStorageProcesso,
-                                 MensagemSolicitacaoService mensagemService) {
+                                 MensagemSolicitacaoService mensagemService,
+                                 TempoRespostaService tempoRespostaService) {
         this.usuarioRepo = usuarioRepo;
         this.solicitacaoService = solicitacaoService;
         this.auditoria = auditoria;
@@ -80,6 +84,7 @@ public class SolicitanteController {
         this.anexoRepo = anexoRepo;
         this.anexoStorage = anexoStorage;
         this.mensagemService = mensagemService;
+        this.tempoRespostaService = tempoRespostaService;
     }
 
     /**
@@ -116,8 +121,10 @@ public class SolicitanteController {
             mensagensNaoLidas.put(s.getId(),
                 mensagemService.contarNaoLidasSolicitantePorSolicitacao(s.getId(), usuario.getId()) > 0);
         }
+        long totalAcaoNecessaria = acaoNecessaria.values().stream().filter(Boolean::booleanValue).count();
         model.addAttribute("diasEspera", diasEspera);
         model.addAttribute("acaoNecessaria", acaoNecessaria);
+        model.addAttribute("totalAcaoNecessaria", totalAcaoNecessaria);
         model.addAttribute("mensagensNaoLidas", mensagensNaoLidas);
         model.addAttribute("equipe", usuario.getEquipeSolicitante());
         return "solicitante/lista";
@@ -163,6 +170,17 @@ public class SolicitanteController {
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
         model.addAttribute("jaEnviouInfoComplementar", solicitacaoService.jaEnviouInformacaoComplementarNestaRodada(s));
+        // Previsao de prazo (so faz sentido enquanto os avaliadores estao de fato
+        // analisando - nao antes da triagem, nem pausado em "Solicita informacao"
+        // (aguardando o proprio solicitante), nem depois de decidido). Baseada na
+        // media historica real dos avaliadores (mesmo indicador de /membros),
+        // nao uma promessa de prazo formal - so uma referencia pro solicitante.
+        boolean emAnaliseAtiva = s.getProcessoGerado() != null
+            && (s.getProcessoGerado().getStatus() == StatusProcesso.ENVIADO
+                || s.getProcessoGerado().getStatus() == StatusProcesso.EM_ANALISE);
+        model.addAttribute("previsaoPrazo", emAnaliseAtiva
+            ? TempoRespostaService.formatarDias(tempoRespostaService.calcular().mediaGeralDias())
+            : null);
         if (s.getProcessoGerado() != null) {
             model.addAttribute("comprovanteSntAnexo",
                 anexoStorageProcesso.buscarUltimoPorTipo(s.getProcessoGerado().getId(), TipoAnexo.COMPROVANTE_SNT));

@@ -13,6 +13,7 @@ import br.gov.saude.sgpur.service.AnexoStorageService;
 import br.gov.saude.sgpur.service.AuditoriaService;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.service.TempoRespostaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -57,6 +58,7 @@ class SolicitanteControllerTest {
     @MockitoBean private AnexoSolicitacaoOnlineRepository anexoRepo;
     @MockitoBean private AnexoSolicitacaoOnlineStorageService anexoStorage;
     @MockitoBean private AnexoStorageService anexoStorageProcesso;
+    @MockitoBean private TempoRespostaService tempoRespostaService;
 
     @TempDir
     Path tempDir;
@@ -130,6 +132,29 @@ class SolicitanteControllerTest {
 
     @Test
     @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void detalheExibePrevisaoDePrazoQuandoProcessoEstaEmAnaliseAtiva() throws Exception {
+        solicitacaoDoDono.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        br.gov.saude.sgpur.domain.Processo processo = new br.gov.saude.sgpur.domain.Processo();
+        processo.setId(7L);
+        processo.setStatus(br.gov.saude.sgpur.domain.StatusProcesso.ENVIADO);
+        solicitacaoDoDono.setProcessoGerado(processo);
+
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(0, "bg-secondary"));
+        when(mensagemService.listarPorSolicitacao(50L)).thenReturn(java.util.List.of());
+        when(tempoRespostaService.calcular()).thenReturn(
+            new TempoRespostaService.ResumoTempo(10, 5.0, 1, 7, java.util.Map.of()));
+
+        mvc.perform(get("/solicitante/50"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("previsaoPrazo", "5 dias"))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Previsao baseada no historico")));
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
     void cancelarAPropriaSolicitacaoFunciona() throws Exception {
         when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
         when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
@@ -159,6 +184,25 @@ class SolicitanteControllerTest {
             .andExpect(view().name("solicitante/lista"))
             .andExpect(model().attributeExists("resumo"))
             .andExpect(model().attributeExists("diasEspera"));
+    }
+
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void listaExibeBannerDeAcaoNecessariaQuandoHaSolicitacaoAguardandoResposta() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.listarMinhas(1L)).thenReturn(java.util.List.of(solicitacaoDoDono));
+        when(solicitacaoService.resumir(java.util.List.of(solicitacaoDoDono)))
+            .thenReturn(new br.gov.saude.sgpur.service.SolicitacaoOnlineService.Resumo(1, 0, 0, 0, 1));
+        when(mensagemService.contarNaoLidasSolicitantePorSolicitacao(any(), any())).thenReturn(0L);
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(2, "bg-secondary"));
+        when(solicitacaoService.precisaInformacaoComplementar(solicitacaoDoDono)).thenReturn(true);
+
+        mvc.perform(get("/solicitante"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("totalAcaoNecessaria", 1L))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "aguardando sua resposta")));
     }
 
     @Test
