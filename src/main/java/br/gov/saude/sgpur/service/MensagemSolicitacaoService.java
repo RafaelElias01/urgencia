@@ -71,12 +71,6 @@ public class MensagemSolicitacaoService {
     }
 
     @Transactional(readOnly = true)
-    public long contarNaoLidasSolicitante(Long solicitacaoOnlineId, Long solicitanteUsuarioId) {
-        return repository.countBySolicitacaoOnlineIdAndLidaFalseAndRemetenteAndRemetenteIdNot(
-            solicitacaoOnlineId, RemetenteMensagem.OPERADOR, solicitanteUsuarioId);
-    }
-
-    @Transactional(readOnly = true)
     public long contarNaoLidasSolicitantePorSolicitacao(Long solicitacaoOnlineId, Long solicitanteUsuarioId) {
         return repository.countBySolicitacaoOnlineIdAndLidaFalseAndRemetenteAndRemetenteIdNot(
             solicitacaoOnlineId, RemetenteMensagem.OPERADOR, solicitanteUsuarioId);
