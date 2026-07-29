@@ -444,23 +444,56 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   salvamento de qualquer usuário já existente (editar cadastro, ativar/
   desativar, trocar a própria senha, "esqueci minha senha") quebra com 500.
 - **`ddl-auto: update` também não atualiza CHECK constraints de enum.**
-  Mesma classe do pitfall acima, mas para colunas de status/enum
-  (`@Enumerated(EnumType.STRING)`) que têm uma constraint `CHECK (status IN
-  (...))` manual no Postgres de produção (criada fora do Hibernate, em algum
-  momento do histórico do banco). Adicionar um valor novo ao enum Java
-  **não** propaga pra essa constraint — o Hibernate nem sabe que ela existe.
-  Aconteceu em 2026-07-27: `StatusSolicitacaoOnline.PROCESSO_EXCLUIDO`
-  (commits `a7f9974`/`18ec060`) funcionava em dev/H2 (schema recriado do
-  zero a cada teste, sem a constraint antiga) mas quebrava em prod com
+  Mesma classe do pitfall acima, mas para colunas de enum
+  (`@Enumerated(EnumType.STRING)`), que ganham uma constraint
+  `CHECK (coluna IN (...))` com a lista de valores **congelada no momento em
+  que a tabela foi criada**. Adicionar um valor novo ao enum Java **não**
+  propaga pra essa constraint: o `ddl-auto: update` só faz `ALTER TABLE ADD
+  COLUMN`, nunca `DROP/ADD CONSTRAINT`.
+
+  **Correção de premissa (verificada em 2026-07-29):** versões anteriores
+  deste arquivo diziam que essas constraints eram "criadas fora do
+  Hibernate, em algum momento do histórico do banco". **É falso** — quem as
+  cria é o próprio Hibernate. Gerando o DDL Postgres do schema atual
+  (Hibernate 6.6 + `PostgreSQLDialect`) saem CHECKs para **todas as 8
+  colunas `@Enumerated(STRING)`** do projeto (`anexo.tipo`,
+  `usuario.perfil`, `processo.status`, `solicitacao_online.status`,
+  `parecer.resultado`, `parecer.origem`, `controle_urgencia.situacao`,
+  `mensagem_solicitacao.remetente`). Ou seja, o incidente de 2026-07-27 não
+  foi um caso isolado de dívida histórica: é o comportamento padrão, e vale
+  para **toda tabela nova** criada pelo Hibernate em produção daqui pra
+  frente.
+
+  Incidente original: `StatusSolicitacaoOnline.PROCESSO_EXCLUIDO` (commits
+  `a7f9974`/`18ec060`, 2026-07-27) funcionava em dev/H2 (schema recriado do
+  zero a cada teste, sempre com a lista atual) mas quebrava em prod com
   `violates check constraint "solicitacao_online_status_check"` — qualquer
-  exclusão de processo originado do Portal falhava (nada a ver com
-  permissão; erro só aparecia com `ADMIN` também). Corrigido via
-  `ALTER TABLE solicitacao_online DROP/ADD CONSTRAINT ...` manual na VM.
-  **Sempre que adicionar um valor a um enum usado numa coluna de status já
-  populada em prod, conferir se existe uma CHECK constraint na coluna
-(`SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE
-   conrelid = '<tabela>'::regclass AND contype = 'c';`) e atualizá-la junto —
-   nenhum teste local pega isso, só se manifesta contra o Postgres real.
+  exclusão de processo originado do Portal falhava. Corrigido com
+  `ALTER TABLE ... DROP/ADD CONSTRAINT` manual na VM.
+
+  **Estado real de produção em 2026-07-29** (consultado no Postgres da VM,
+  não presumido): sobraram apenas **2** dessas constraints, ambas completas
+  e corretas — `controle_urgencia_situacao_check` (4 valores) e
+  `mensagem_solicitacao_remetente_check` (2 valores). As colunas de `anexo`,
+  `usuario`, `parecer`, `processo` e `solicitacao_online` **não têm CHECK
+  nenhuma** hoje (a de `solicitacao_online` foi derrubada na correção de
+  27/07 e nunca recriada, e as demais nunca chegaram a existir nessas
+  tabelas). Por isso `TipoAnexo.ANEXO_AVALIADOR` (2026-07-27) e
+  `Perfil.SOLICITANTE` (2026-07-25) **não** causam erro em produção, apesar
+  de terem sido adicionados depois — é sorte estrutural, não garantia.
+
+  **Proteção automática:** existe um verificador que roda no boot e compara
+  cada CHECK de enum do banco com os valores do enum Java, avisando (sem
+  derrubar a aplicação) quando divergem — ver `EnumCheckConstraintValidator`
+  na seção de configuração. Ele torna desnecessário lembrar dessa regra na
+  mão, mas o diagnóstico manual continua sendo:
+  ```sql
+  SELECT conrelid::regclass AS tabela, conname, pg_get_constraintdef(oid)
+  FROM pg_constraint WHERE contype = 'c'
+    AND conrelid = '<tabela>'::regclass;
+  ```
+  Nenhum teste local pega isso sozinho: só se manifesta contra o Postgres
+  real.
 
 ## Sessão de 2026-07-28 (correções na VM)
 Todas as pendências de infra resolvidas neste ciclo:
