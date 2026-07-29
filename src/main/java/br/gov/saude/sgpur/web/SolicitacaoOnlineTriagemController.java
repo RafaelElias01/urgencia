@@ -10,6 +10,7 @@ import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -30,11 +31,27 @@ import java.util.Set;
  * ProcessoDetalheController.novo) ou "devolver" (pede correcao ao
  * solicitante). O acesso ja e restrito a ADMIN/OPERADOR pela regra
  * "/processos/**" do SecurityConfig, ja que esta rota vive sob /processos.
+ *
+ * <p><b>Sem {@code @Transactional} de nivel de classe (removido em
+ * 2026-07-29).</b> Essa anotacao fazia {@link #apagarMensagem} e
+ * {@link #devolver} compartilharem a MESMA transacao fisica com os servicos
+ * chamados dentro do try/catch de cada um ({@code mensagemService.apagar}/
+ * {@code service.devolver}, ambos {@code @Transactional} com propagacao
+ * REQUIRED). Uma falha de negocio esperada nesses metodos (concorrencia,
+ * mensagem de outro usuario) marcava a transacao compartilhada como
+ * rollback-only: o {@code catch} tratava o erro e devolvia o flash amigavel
+ * normalmente, mas o commit no fim do metodo do controller estourava
+ * {@code UnexpectedRollbackException} (500 cru) — mesma classe de bug ja
+ * corrigida em {@code AvaliadorController.registrarVoto} (voto perdido) e em
+ * {@code ProcessoDecisaoController.finalizar}. Aqui nao ha nenhuma escrita
+ * critica anterior ao try/catch que pudesse ser perdida (ao contrario do
+ * voto do avaliador), entao {@code Propagation.NOT_SUPPORTED} sozinho basta
+ * — nao precisou de {@code TransactionTemplate}. Cada metodo abaixo agora
+ * declara sua PROPRIA estrategia de transacao, documentada individualmente.
  */
 @Controller
 @RequestMapping("/processos/solicitacoes-online")
 @ConditionalOnProperty(prefix = "app.solicitante", name = "habilitado", havingValue = "true", matchIfMissing = true)
-@Transactional
 public class SolicitacaoOnlineTriagemController {
 
     private final SolicitacaoOnlineService service;
@@ -97,11 +114,21 @@ public class SolicitacaoOnlineTriagemController {
      */
     @GetMapping("/nao-lidas-count")
     @ResponseBody
+    // So le (delega para mensagemService.contarNaoLidasOperador, ja
+    // @Transactional(readOnly = true) por conta propria); sem a transacao de
+    // classe de antes, declarar aqui deixa explicito e evita depender do
+    // metodo do service abrir a transacao sozinho.
+    @Transactional(readOnly = true)
     public Map<String, Object> naoLidasCount() {
         return Map.of("total", mensagemService.contarNaoLidasOperador());
     }
 
+    // Escrita direta via mensagemService.enviar (@Transactional propria), sem
+    // try/catch de risco em volta - nenhuma excecao de negocio esperada aqui
+    // que pudesse marcar rollback-only e ser escondida por um catch. Uma
+    // transacao simples no metodo do controller basta.
     @PostMapping("/{id}/mensagem")
+    @Transactional
     public String enviarMensagem(@PathVariable Long id, @RequestParam String texto,
             Principal principal, RedirectAttributes ra) {
         SolicitacaoOnline s = service.buscar(id);
@@ -117,7 +144,27 @@ public class SolicitacaoOnlineTriagemController {
         return "redirect:/processos/solicitacoes-online/" + id;
     }
 
+    /**
+     * Apaga (soft delete) uma mensagem do proprio operador.
+     *
+     * <p>{@code Propagation.NOT_SUPPORTED}: suspende qualquer transacao
+     * ambiente (nao ha mais transacao de classe desde 2026-07-29, mas o
+     * atributo documenta a intencao mesmo assim) para que
+     * {@code mensagemService.apagar} rode na SUA PROPRIA transacao,
+     * independente deste metodo. {@code IllegalArgumentException} (mensagem
+     * de outro usuario, ja apagada, etc.) e um erro de NEGOCIO esperado, nao
+     * um bug - sem NOT_SUPPORTED, se este metodo algum dia ganhar uma
+     * transacao de classe/metodo cobrindo o try/catch, a falha marcaria essa
+     * transacao compartilhada como rollback-only e o commit no fim do
+     * metodo estouraria {@code UnexpectedRollbackException} (500 cru) em vez
+     * do flash de erro tratado abaixo - mesma familia de bug corrigida em
+     * {@code AvaliadorController.registrarVoto}/{@code ProcessoDecisaoController.finalizar}.
+     * Nao ha nenhuma escrita anterior neste metodo que precisasse ser
+     * atomica com o apagar, entao NOT_SUPPORTED sozinho basta (sem
+     * TransactionTemplate).
+     */
     @PostMapping("/{id}/mensagem/{mensagemId}/apagar")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String apagarMensagem(@PathVariable Long id, @PathVariable Long mensagemId,
                                   Principal principal, RedirectAttributes ra) {
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
@@ -130,9 +177,15 @@ public class SolicitacaoOnlineTriagemController {
         return "redirect:/processos/solicitacoes-online/" + id;
     }
 
-    /** Polling do chat (AJAX) - equivalente ao usado nas outras 2 telas de chat. */
+    /**
+     * Polling do chat (AJAX) - equivalente ao usado nas outras 2 telas de
+     * chat. Sem try/catch, mas ESCREVE (marcarComoLidas antes de montar o
+     * JSON) - precisa de transacao leitura-escrita direta no metodo (a
+     * classe nao tem mais transacao ambiente desde 2026-07-29).
+     */
     @GetMapping("/{id}/mensagens")
     @ResponseBody
+    @Transactional
     public Map<String, Object> mensagensJson(@PathVariable Long id, Principal principal) {
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
@@ -144,8 +197,12 @@ public class SolicitacaoOnlineTriagemController {
         return resp;
     }
 
+    // Mesmo raciocinio de enviarMensagem: escrita direta via
+    // mensagemService.enviar (@Transactional propria), sem try/catch de
+    // risco - transacao simples no metodo basta.
     @PostMapping("/{id}/mensagem/ajax")
     @ResponseBody
+    @Transactional
     public org.springframework.http.ResponseEntity<Map<String, Object>> enviarMensagemAjax(@PathVariable Long id,
             @RequestParam String texto, Principal principal) {
         SolicitacaoOnline s = service.buscar(id);
@@ -161,8 +218,13 @@ public class SolicitacaoOnlineTriagemController {
         return org.springframework.http.ResponseEntity.ok(Map.of("ok", true));
     }
 
+    // Mesmo raciocinio de apagarMensagem (versao classica): NOT_SUPPORTED
+    // para que mensagemService.apagar rode em transacao propria e a
+    // IllegalArgumentException de negocio (400 tratado abaixo) nunca marque
+    // uma transacao ambiente como rollback-only.
     @PostMapping("/{id}/mensagem/{mensagemId}/apagar/ajax")
     @ResponseBody
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public org.springframework.http.ResponseEntity<Map<String, Object>> apagarMensagemAjax(@PathVariable Long id,
             @PathVariable Long mensagemId, Principal principal) {
         Usuario operador = usuarioRepo.findByUsername(principal.getName())
@@ -177,14 +239,30 @@ public class SolicitacaoOnlineTriagemController {
 
     /**
      * Encaminha para o formulario normal de cadastro, pre-preenchido com os dados
-     * do pedido.
+     * do pedido. Sem @Transactional: nao acessa banco nenhum, so monta a URL
+     * do redirect com o id recebido (a leitura/validacao real acontece
+     * depois, em ProcessoDetalheController.novo).
      */
     @GetMapping("/{id}/converter")
     public String converter(@PathVariable Long id) {
         return "redirect:/processos/novo?origemSolicitacaoOnlineId=" + id;
     }
 
+    /**
+     * Devolve a solicitacao ao solicitante para correcao.
+     *
+     * <p>{@code Propagation.NOT_SUPPORTED}: mesma razao de
+     * {@link #apagarMensagem} - {@code service.devolver} tem sua propria
+     * transacao, e a {@code IllegalStateException} de concorrencia (comentada
+     * abaixo, "outro operador ja triou") e um erro de negocio esperado, nao
+     * um bug. Sem isso, uma transacao ambiente cobrindo o try/catch marcaria
+     * rollback-only nesse cenario e o commit do metodo estouraria
+     * {@code UnexpectedRollbackException} em vez do flash de erro tratado.
+     * {@code service.buscar(id)} antes do try e so leitura, sem nada que
+     * precise ser atomico com o devolver.
+     */
     @PostMapping("/{id}/devolver")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String devolver(@PathVariable Long id, @RequestParam String observacoes, RedirectAttributes ra) {
         SolicitacaoOnline s = service.buscar(id);
         try {
