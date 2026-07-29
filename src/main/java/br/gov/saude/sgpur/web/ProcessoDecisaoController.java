@@ -13,6 +13,7 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RegistroEnvioService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -233,6 +234,15 @@ public class ProcessoDecisaoController {
      * (5-6) e justamente a papelada pos-decisao.
      */
     @PostMapping("/{id}/finalizar")
+    // NOT_SUPPORTED suspende a transacao de classe: finalizarResposta() e
+    // auto-suficiente (@Transactional propria) e so usa campos simples de p
+    // (getNumero/getStatus) depois, sem depender de lazy-loading compartilhado
+    // com o service. Sem isso, uma IllegalStateException de negocio dentro de
+    // finalizarResposta (ex.: falha de SMTP) marca a transacao da classe como
+    // rollback-only; o catch abaixo intercepta normalmente, mas o commit no
+    // fim do metodo falha com UnexpectedRollbackException (500 cru em vez do
+    // flash de erro esperado). Achado rodando o e2e real sem SMTP configurado.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String finalizar(@PathVariable Long id, HttpServletRequest request, RedirectAttributes ra) {
         try {
             Processo p = processoService.finalizarResposta(id);
