@@ -819,6 +819,22 @@ tr.linha-inativa > td:first-child {
     }
 }
 
+/* PDF do avaliador (votar.html): calc(100vh - 220px) so faz sentido no
+   layout split-pane lado a lado (>=992px, col-lg-7/col-lg-5 em votar.html).
+   Abaixo do breakpoint lg do Bootstrap as colunas empilham, e esse calculo
+   deixava o iframe alto demais, empurrando o formulario de voto (que fica
+   logo abaixo) para muito longe do topo. */
+.pdf-avaliador-frame {
+    height: calc(100vh - 220px);
+    min-height: 400px;
+}
+@media (max-width: 991.98px) {
+    .pdf-avaliador-frame {
+        height: 60vh;
+        min-height: 320px;
+    }
+}
+
 /* === Responsivo: celulares pequenos (< 576px) === */
 @media (max-width: 576px) {
     /* Reduz tamanho dos stat-cards no dashboard */

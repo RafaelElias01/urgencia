@@ -9,7 +9,7 @@
 <div class="container-fluid px-lg-5 my-4">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3 animate-fade-in">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                 <a th:href="@{/processos}" class="btn btn-sm btn-outline-secondary rounded-circle p-1"
                    title="Voltar para lista" aria-label="Voltar para lista" style="width:32px;height:32px;">
                     <i class="bi bi-arrow-left"></i>
@@ -200,7 +200,7 @@
 
             <!-- Chat com o solicitante (visivel apenas se veio do portal) -->
             <div th:if="${solicitacaoOnlineOrigemId != null}" class="card mt-3 animate-fade-in-d1">
-                <div class="card-header d-flex justify-content-between align-items-center" role="button"
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-1" role="button"
                      data-bs-toggle="collapse" data-bs-target="#chatBodyProcesso" aria-expanded="true">
                     <span><i class="bi bi-chat-dots"></i> Conversa com o solicitante</span>
                     <span class="d-flex align-items-center gap-1">

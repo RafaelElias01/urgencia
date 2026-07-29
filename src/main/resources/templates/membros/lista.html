@@ -52,7 +52,8 @@
             <tbody>
             <tr th:each="m : ${membros}" th:classappend="${!m.ativo} ? 'linha-inativa'">
                 <td th:text="${m.instituicao}">SIGLA</td>
-                <td th:text="${m.nome}">Nome
+                <td>
+                    <span th:text="${m.nome}">Nome</span>
                     <span th:if="${m.coordenador}" class="badge bg-warning text-dark ms-1">Coordenador</span>
                 </td>
                 <td class="small text-muted" th:text="${m.email} ?: '-'"></td>

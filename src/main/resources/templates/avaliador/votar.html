@@ -39,9 +39,9 @@
                     </div>
                     <div th:if="${!pdfsAvaliador.isEmpty()}">
                         <div th:each="pdf, iterStat : ${pdfsAvaliador}" th:class="${!iterStat.last} ? 'mb-4' : ''">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small fw-semibold text-truncate" th:text="${pdf.nomeArquivo}">processo.pdf</span>
-                                <div class="d-flex gap-2 flex-shrink-0 ms-2">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                <span class="small fw-semibold text-truncate flex-grow-1" style="min-width:0;" th:text="${pdf.nomeArquivo}">processo.pdf</span>
+                                <div class="d-flex gap-2 flex-shrink-0">
                                     <button type="button" class="btn btn-outline-secondary btn-sm btn-tela-cheia"
                                             th:attr="data-iframe-alvo='pdfFrame' + ${iterStat.index}"
                                             title="Ver em tela cheia">
@@ -55,7 +55,7 @@
                             </div>
                             <iframe th:id="'pdfFrame' + ${iterStat.index}"
                                     th:src="@{/avaliador/{id}/pdf/{pdfId}(id=${processo.id},pdfId=${pdf.id})}"
-                                    class="w-100 rounded border" style="height: calc(100vh - 220px); min-height: 400px;" loading="lazy"
+                                    class="w-100 rounded border pdf-avaliador-frame" loading="lazy"
                                     th:title="${'Visualizacao do processo anonimizado: ' + pdf.nomeArquivo}">
                                 <p class="small text-muted">
                                     Seu navegador nao suporta visualizacao embutida de PDF.

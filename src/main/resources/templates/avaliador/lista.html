@@ -118,7 +118,8 @@
             <div class="card-header bg-danger-subtle text-danger-emphasis fw-semibold">
                 <i class="bi bi-exclamation-triangle-fill"></i> Atrasados (acima do prazo-meta)
             </div>
-            <div class="table-responsive">
+            <!-- Desktop/tablet (>=768px): tabela -->
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -172,11 +173,47 @@
                     </tbody>
                 </table>
             </div>
+            <!-- Mobile (<768px): cards, com "Ver e votar" (a acao principal
+                 desta tela) em destaque total, em vez de escondido atras de
+                 scroll horizontal de uma tabela de 6 colunas. -->
+            <div class="d-md-none list-group list-group-flush">
+                <div th:each="par : ${pareceresAtrasados}" class="list-group-item p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                        <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
+                        <span class="font-monospace small" th:text="${iniciaisPorProcesso[par.processoId]}">X.X.X.</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        Enviado em
+                        <span th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</span>
+                    </div>
+                    <th:block th:with="dias=${diasDesdeEnvio[par.processoId]}, textoDias=${dias} + (${dias == 1} ? ' dia' : ' dias')">
+                        <span class="badge bg-danger mb-2">
+                            <i class="bi bi-exclamation-triangle-fill"></i> <span th:text="${textoDias}">0 dias</span> de espera
+                        </span>
+                    </th:block>
+                    <div class="d-flex gap-2">
+                        <th:block th:with="pdf=${pdfPorProcesso[par.processoId]}">
+                            <a th:if="${pdf != null}"
+                               th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processoId},pdfId=${pdf.id})}"
+                               class="btn btn-outline-danger btn-sm" target="_blank"
+                               title="Visualizar o processo anonimizado para avaliacao">
+                                <i class="bi bi-file-earmark-pdf"></i> Ver processo
+                            </a>
+                            <span th:if="${pdf == null}" class="badge bg-secondary align-self-center">PDF indisponivel</span>
+                        </th:block>
+                        <a th:href="@{/avaliador/{id}(id=${par.processoId})}"
+                           class="btn btn-primary btn-sm flex-fill">
+                            <i class="bi bi-pencil-square"></i> Ver e votar
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="card mb-4" th:if="${!pareceresAtrasados.isEmpty() or !pareceresDemais.isEmpty()}">
             <div class="card-header" th:if="${!pareceresAtrasados.isEmpty()}">Demais pendentes</div>
-            <div class="table-responsive">
+            <!-- Desktop/tablet (>=768px): tabela -->
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -229,6 +266,39 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            <!-- Mobile (<768px): cards, mesmo padrao da secao Atrasados acima. -->
+            <div class="d-md-none list-group list-group-flush">
+                <div th:each="par : ${pareceresDemais}" class="list-group-item p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                        <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
+                        <span class="font-monospace small" th:text="${iniciaisPorProcesso[par.processoId]}">X.X.X.</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        Enviado em
+                        <span th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</span>
+                        <th:block th:with="dias=${diasDesdeEnvio[par.processoId]}">
+                            <span th:if="${dias != null}">
+                                &bull; <span th:text="${dias == 0} ? 'hoje' : (${dias} + (${dias == 1} ? ' dia' : ' dias'))">0 dias</span>
+                            </span>
+                        </th:block>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <th:block th:with="pdf=${pdfPorProcesso[par.processoId]}">
+                            <a th:if="${pdf != null}"
+                               th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processoId},pdfId=${pdf.id})}"
+                               class="btn btn-outline-danger btn-sm" target="_blank"
+                               title="Visualizar o processo anonimizado para avaliacao">
+                                <i class="bi bi-file-earmark-pdf"></i> Ver processo
+                            </a>
+                            <span th:if="${pdf == null}" class="badge bg-secondary align-self-center">PDF indisponivel</span>
+                        </th:block>
+                        <a th:href="@{/avaliador/{id}(id=${par.processoId})}"
+                           class="btn btn-primary btn-sm flex-fill">
+                            <i class="bi bi-pencil-square"></i> Ver e votar
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
         <div th:if="${pareceresAtrasados.isEmpty() and pareceresDemais.isEmpty()}" class="card mb-4">
