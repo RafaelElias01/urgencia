@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +51,12 @@ class AvaliadorControllerTest {
     @MockitoBean private DecisaoFinalService decisaoFinalService;
     @MockitoBean private AuditoriaService auditoria;
     @MockitoBean private TempoRespostaService tempoRespostaService;
+    // O POST de voto usa um TransactionTemplate proprio (transacoes curtas e
+    // independentes - ver AvaliadorController.registrarVoto). Aqui basta o
+    // gerenciador mockado: o TransactionTemplate executa o callback normalmente
+    // e commit/rollback viram no-ops. A garantia transacional de verdade e
+    // coberta por AvaliadorVotoTransacaoIntegrationTest (contexto real + H2).
+    @MockitoBean private PlatformTransactionManager txManager;
 
     private MembroUrgenciaRenal membro;
     private Usuario usuario;

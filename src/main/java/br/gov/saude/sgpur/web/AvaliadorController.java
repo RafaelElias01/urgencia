@@ -20,7 +20,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,6 +66,13 @@ public class AvaliadorController {
     private final ProcessoService processoService;
     private final AuditoriaService auditoria;
     private final DecisaoFinalService decisaoFinalService;
+    /**
+     * Transacoes explicitas e CURTAS do POST de voto. Ver o comentario grande em
+     * {@link #registrarVoto}: o voto do medico precisa ser commitado numa
+     * transacao propria, ANTES do pos-processamento (status/decisao automatica/
+     * PDFs), para que uma falha desses passos nunca desfaca o voto.
+     */
+    private final TransactionTemplate txTemplate;
     private final int prazoDias;
 
     public AvaliadorController(UsuarioRepository usuarioRepo,
@@ -71,6 +82,7 @@ public class AvaliadorController {
                                ProcessoService processoService,
                                AuditoriaService auditoria,
                                DecisaoFinalService decisaoFinalService,
+                               PlatformTransactionManager txManager,
                                // Prazo-meta vem do TempoRespostaService (nao um @Value proprio):
                                // fonte unica de verdade pro mesmo criterio "fora do prazo" usado
                                // em /membros e no Painel - evita os dois valores divergirem se o
@@ -83,6 +95,7 @@ public class AvaliadorController {
         this.processoService = processoService;
         this.auditoria = auditoria;
         this.decisaoFinalService = decisaoFinalService;
+        this.txTemplate = new TransactionTemplate(txManager);
         this.prazoDias = tempoRespostaService.getPrazoDias();
     }
 
@@ -243,9 +256,37 @@ public class AvaliadorController {
      * origem=AVALIADOR_SISTEMA. Nao exige anexo (o registro autenticado + IP e a
      * prova de nao-repudio). Chama atualizarStatusPorPareceres para manter a maquina
      * de estados do processo correta (inclusive SOLICITA_INFORMACAO).
+     *
+     * <p><b>O VOTO E COMMITADO ANTES DE QUALQUER POS-PROCESSAMENTO.</b> O metodo
+     * roda em 4 transacoes curtas e independentes, em sequencia:
+     * <ol>
+     *   <li>voto do medico (unica escrita realmente critica);</li>
+     *   <li>anexo opcional do avaliador;</li>
+     *   <li>{@code atualizarStatusPorPareceres};</li>
+     *   <li>{@code tentarDecisaoAutomatica} (+ geracao dos PDFs finais).</li>
+     * </ol>
+     * Motivo: antes o metodo era {@code @Transactional} e os servicos chamados
+     * aqui (todos {@code @Transactional} com propagacao REQUIRED) participavam
+     * da MESMA transacao fisica. Quando um deles lancava
+     * {@code IllegalStateException} (ex.: processo finalizado por outro medico
+     * votando quase junto - janela real entre a checagem de
+     * {@code resolverParecerPendente} e o commit, ampliada pela decisao
+     * automatica de Indeferido), o TransactionInterceptor da chamada aninhada
+     * marcava a transacao compartilhada como rollback-only: o {@code catch}
+     * abaixo tratava o erro e devolvia um flash amigavel, mas o commit no fim
+     * do metodo estourava {@code UnexpectedRollbackException} (500 cru) E
+     * levava junto o {@code parecerRepo.save} do passo 1 - <b>o voto do medico
+     * era perdido</b>. Mesma classe de bug corrigida em
+     * {@code ProcessoDecisaoController.finalizar} (commit 164af0a); la
+     * NOT_SUPPORTED puro bastou porque o metodo so delega, aqui nao: o voto
+     * (+ anexo) precisa de transacao propria, por isso o TransactionTemplate.
      */
     @PostMapping("/{processoId}/votar")
-    @Transactional
+    // NOT_SUPPORTED suspende a transacao readOnly da CLASSE (que serve as telas
+    // GET) para que os blocos do TransactionTemplate abaixo sejam transacoes de
+    // verdade, independentes entre si - e nao meros "participantes" de uma
+    // transacao unica que um passo posterior possa envenenar.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String registrarVoto(@PathVariable Long processoId,
                                 @RequestParam ResultadoParecer resultado,
                                 @RequestParam(required = false) String justificativa,
@@ -257,38 +298,69 @@ public class AvaliadorController {
             ra.addFlashAttribute("erro", "Parecer invalido: " + resultado);
             return "redirect:/avaliador/" + processoId;
         }
-        MembroUrgenciaRenal membro = resolverMembro(principal);
-        Parecer parecer = resolverParecerPendente(processoId, membro);
+        // ---- TX 1: o voto. Unica escrita critica; commitada aqui e ponto. ----
+        VotoGravado voto = txTemplate.execute(status -> {
+            MembroUrgenciaRenal membro = resolverMembro(principal);
+            Parecer parecer = resolverParecerPendente(processoId, membro);
 
-        // Registra o voto com nao-repudio completo
-        parecer.setResultado(resultado);
-        parecer.setDataResposta(LocalDate.now());
-        parecer.setDataHoraVoto(LocalDateTime.now());
-        parecer.setVotadoPor(principal.getName());
-        parecer.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
-        // Justificativa e material INTERNO do operador (nunca vaza a outros
-        // avaliadores). Vazio/em-branco vira null para nao poluir o banco.
-        String justificativaLimpa = (justificativa == null || justificativa.isBlank())
-            ? null : justificativa.trim();
-        parecer.setJustificativa(justificativaLimpa);
-        parecerRepo.save(parecer);
+            // Registra o voto com nao-repudio completo
+            parecer.setResultado(resultado);
+            parecer.setDataResposta(LocalDate.now());
+            parecer.setDataHoraVoto(LocalDateTime.now());
+            parecer.setVotadoPor(principal.getName());
+            parecer.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
+            // Justificativa e material INTERNO do operador (nunca vaza a outros
+            // avaliadores). Vazio/em-branco vira null para nao poluir o banco.
+            String justificativaLimpa = (justificativa == null || justificativa.isBlank())
+                ? null : justificativa.trim();
+            parecer.setJustificativa(justificativaLimpa);
+            parecerRepo.save(parecer);
 
-        // Anexo opcional (ex.: exame/documento de apoio do proprio avaliador).
-        // O voto autenticado ja dispensa anexo como comprovante - isso e so um
-        // material extra que o avaliador pode querer deixar registrado.
+            // Toca em getProcesso() AQUI DENTRO: com open-in-view = false, o
+            // proxy LAZY precisa ser inicializado antes do commit para os passos
+            // seguintes (anexo/auditoria) poderem ler numero e id do processo.
+            return new VotoGravado(parecer, parecer.getProcesso(), membro.getNome());
+        });
+
+        // Auditoria do voto: logo apos o commit (antes o registro vinha no fim
+        // do metodo e era PULADO pelos returns de erro dos passos seguintes -
+        // ficava voto gravado sem trilha de auditoria).
+        auditoria.registrar("PARECER_VOTADO",
+            "Processo " + voto.processo().getNumero()
+                + " - " + voto.membroNome()
+                + " - " + resultado.getDescricao(),
+            request.getRemoteAddr());
+
+        // ---- TX 2: anexo opcional (ex.: exame/documento de apoio do proprio
+        // avaliador). O voto autenticado ja dispensa anexo como comprovante -
+        // isso e so material extra. Em transacao separada: falha aqui vira
+        // aviso, nunca desfaz o voto ja commitado.
         if (arquivo != null && !arquivo.isEmpty()) {
             try {
-                Anexo anexo = anexoStorage.salvar(parecer.getProcesso(), TipoAnexo.ANEXO_AVALIADOR,
-                    "Documento anexado por " + membro.getNome() + " junto ao parecer", arquivo);
-                anexo.setParecer(parecer);
-                anexoRepo.save(anexo);
-            } catch (IllegalArgumentException | IOException e) {
+                txTemplate.executeWithoutResult(status -> {
+                    Anexo anexo;
+                    try {
+                        anexo = anexoStorage.salvar(voto.processo(), TipoAnexo.ANEXO_AVALIADOR,
+                            "Documento anexado por " + voto.membroNome() + " junto ao parecer", arquivo);
+                    } catch (IOException e) {
+                        // IOException e checada e o callback nao pode declara-la:
+                        // envelopa para o catch abaixo (desembrulhado na mensagem).
+                        throw new UncheckedIOException(e);
+                    }
+                    anexo.setParecer(voto.parecer());
+                    anexoRepo.save(anexo);
+                });
+            } catch (RuntimeException e) {
+                Throwable causa = (e instanceof UncheckedIOException) ? e.getCause() : e;
+                log.warn("Falha ao anexar documento do avaliador ao parecer {}: {}",
+                    voto.parecer().getId(), causa.toString());
                 ra.addFlashAttribute("aviso",
-                    "Voto registrado, mas houve falha ao anexar o documento: " + e.getMessage());
+                    "Voto registrado, mas houve falha ao anexar o documento: " + causa.getMessage());
             }
         }
 
-        // Atualiza o status do processo (pode ir para SOLICITA_INFORMACAO)
+        // ---- TX 3: atualiza o status do processo (pode ir para SOLICITA_INFORMACAO).
+        // Transacao propria do servico: se lancar, so ela e desfeita.
         try {
             processoService.atualizarStatusPorPareceres(processoId);
         } catch (IllegalStateException e) {
@@ -298,8 +370,9 @@ public class AvaliadorController {
             return "redirect:/avaliador";
         }
 
-        // Decisao automatica: se a maioria foi atingida e nao ha pareceres sem
-        // anexo pendentes (AVALIADOR_SISTEMA dispensa o anexo), decide imediatamente.
+        // ---- TX 4: decisao automatica. Se a maioria foi atingida e nao ha
+        // pareceres sem anexo pendentes (AVALIADOR_SISTEMA dispensa o anexo),
+        // decide imediatamente. Idem: transacao propria do servico.
         Processo pDecidido;
         try {
             pDecidido = processoService.tentarDecisaoAutomatica(processoId);
@@ -309,9 +382,17 @@ public class AvaliadorController {
                 + e.getMessage());
             return "redirect:/avaliador";
         }
-        if (pDecidido.getStatus().isFinalizado()) {
-            try { decisaoFinalService.gerarDocumentos(pDecidido); }
-            catch (IllegalStateException e) {
+        if (pDecidido != null && pDecidido.getStatus().isFinalizado()) {
+            try {
+                // Oficio/Relatorio Final navegam colecoes LAZY do processo
+                // (getAnexos/getPareceres), entao precisam de uma sessao aberta:
+                // transacao curta e propria, com o processo RECARREGADO dentro
+                // dela (o pDecidido devolvido pelo servico ja esta desanexado).
+                // Fica fora da transacao do voto - a geracao dos PDFs (I/O de
+                // arquivo) nao segura mais a conexao usada para gravar o parecer.
+                txTemplate.executeWithoutResult(status ->
+                    decisaoFinalService.gerarDocumentos(processoService.buscar(processoId)));
+            } catch (IllegalStateException e) {
                 log.warn("Falha ao gerar documentos finais do processo {} apos decisao automatica no portal: {}",
                     pDecidido.getNumero(), e.getMessage());
             }
@@ -320,17 +401,18 @@ public class AvaliadorController {
                 + pDecidido.getStatus().getDescricao());
         }
 
-        String ip = request.getRemoteAddr();
-        auditoria.registrar("PARECER_VOTADO",
-            "Processo " + parecer.getProcesso().getNumero()
-                + " - " + membro.getNome()
-                + " - " + resultado.getDescricao(),
-            ip);
-
         ra.addFlashAttribute("msg",
             "Voto registrado: " + resultado.getDescricao() + ". Obrigado pela avaliacao.");
         return "redirect:/avaliador";
     }
+
+    /**
+     * Dados do voto ja commitado (TX 1) que os passos seguintes precisam.
+     * Carrega as proprias entidades porque elas ja foram inicializadas dentro
+     * da transacao - o anexo opcional as reaproveita (ManyToOne sem cascade so
+     * usa o id) sem precisar de uma segunda ida ao banco.
+     */
+    private record VotoGravado(Parecer parecer, Processo processo, String membroNome) {}
 
     /**
      * Download do PDF anonimizado (SOLICITACAO_AVALIADOR) do processo pelo
