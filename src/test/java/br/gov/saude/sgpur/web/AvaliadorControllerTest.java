@@ -102,6 +102,23 @@ class AvaliadorControllerTest {
 
     @Test
     @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void listaSeparaAtrasadosDosDemaisPendentes() throws Exception {
+        // dataEnvio bem no passado + prazo-meta de 7 dias (mock padrao do setUp) => atrasado
+        parecer.setDataEnvio(LocalDate.now().minusDays(30));
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+            .thenReturn(List.of(parecer));
+        when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
+            .thenReturn(List.of());
+
+        mvc.perform(get("/avaliador"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("avaliador/lista"))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Atrasados")));
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
     void painelExibeContadoresEHistoricoDoMembroLogado() throws Exception {
         when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
         when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
@@ -194,6 +211,22 @@ class AvaliadorControllerTest {
 
         verify(parecerRepo, never())
             .findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(any());
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void votarExibeFormularioComIniciaisSemPdf() throws Exception {
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByProcessoIdAndMembroId(1L, 10L)).thenReturn(Optional.of(parecer));
+        when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
+            .thenReturn(List.of());
+
+        mvc.perform(get("/avaliador/1"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("avaliador/votar"))
+            .andExpect(model().attribute("iniciais", "M.R.S."))
+            .andExpect(content().string(org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString("Maria Rosa Silva"))));
     }
 
     @Test

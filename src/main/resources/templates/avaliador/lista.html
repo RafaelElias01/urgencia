@@ -45,9 +45,22 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card text-center h-100">
+            <div class="card h-100">
                 <div class="card-body py-3">
-                    <div class="d-flex justify-content-around small">
+                    <div class="small text-muted mb-2">Meus votos por resultado</div>
+                    <!-- Mini grafico de barra empilhada: proporcao visual dos 3 resultados.
+                         Cores validadas (colorblind-safe, node scripts/validate_palette.js) -
+                         identidade nunca depende so da cor, os numeros/icones abaixo repetem
+                         a mesma informacao (ver dataviz skill). -->
+                    <div th:if="${totalAvaliados} > 0" class="d-flex" role="img"
+                         th:aria-label="'Favoravel ' + ${favoraveis} + ', Nao favoravel ' + ${naoFavoraveis} + ', Solicita informacao ' + ${solicitaInfo}"
+                         style="height:8px;border-radius:4px;overflow:hidden;background:var(--rs-gray-200);gap:2px;">
+                        <div th:if="${favoraveis} > 0" th:style="'flex:' + ${favoraveis} + ';background:#38a169;'"></div>
+                        <div th:if="${naoFavoraveis} > 0" th:style="'flex:' + ${naoFavoraveis} + ';background:#c62828;'"></div>
+                        <div th:if="${solicitaInfo} > 0" th:style="'flex:' + ${solicitaInfo} + ';background:#0d6efd;'"></div>
+                    </div>
+                    <div th:unless="${totalAvaliados} > 0" class="text-center text-muted small py-1">Sem votos ainda</div>
+                    <div class="d-flex justify-content-around small mt-2">
                         <span title="Favoravel">
                             <i class="bi bi-hand-thumbs-up text-success"></i>
                             <span class="fw-bold" th:text="${favoraveis}">0</span>
@@ -61,7 +74,6 @@
                             <span class="fw-bold" th:text="${solicitaInfo}">0</span>
                         </span>
                     </div>
-                    <div class="small text-muted mt-2">Meus votos por resultado</div>
                 </div>
             </div>
         </div>
@@ -90,74 +102,134 @@
     </div>
 
     <h2 class="h5 mb-2"><i class="bi bi-clipboard2-pulse"></i> Pendentes de voto</h2>
-    <div class="card mb-4">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Processo</th>
-                        <th>Paciente</th>
-                        <th>Enviado em</th>
-                        <th>Aguardando</th>
-                        <th>Material para analise</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="par : ${pareceres}">
-                        <td>
-                            <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
-                        </td>
-                        <td>
-                            <!-- SOMENTE INICIAIS — nunca nome completo, equipe ou co-avaliadores -->
-                            <span class="font-monospace"
-                                  th:text="${iniciaisPorProcesso[par.processoId]}">X.X.X.</span>
-                        </td>
-                        <td class="small text-muted"
-                            th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</td>
-                        <td class="small">
-                            <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio).
-                                 Fora do prazo-meta: cor + icone (nao so cor), para nao depender
-                                 so de matiz em caso de daltonismo. -->
-                            <th:block th:with="dias=${diasDesdeEnvio[par.processoId]}, foraPrazo=${foraDoPrazoPorProcesso[par.processoId]} == true">
-                                <span th:if="${dias != null}"
-                                      th:with="textoDias=${dias} + (${dias == 1} ? ' dia' : ' dias'),
-                                               textoPrazo=${prazoDias} + (${prazoDias == 1} ? ' dia' : ' dias')"
-                                      th:classappend="${foraPrazo} ? 'text-danger fw-semibold' : 'text-muted'"
-                                      th:title="${foraPrazo} ? ('Acima do prazo-meta de ' + ${textoPrazo}) : null">
-                                    <i th:if="${foraPrazo}" class="bi bi-exclamation-triangle-fill"></i>
-                                    <span th:text="${foraPrazo} ? ${textoDias} : (${dias == 0} ? 'hoje' : ${textoDias})">0 dias</span>
-                                </span>
-                                <span th:if="${dias == null}" class="text-muted">-</span>
-                            </th:block>
-                        </td>
-                        <td>
-                            <!-- PDF anonimizado passado pelo controller via pdfPorProcesso -->
-                            <th:block th:with="pdf=${pdfPorProcesso[par.processoId]}">
-                                <a th:if="${pdf != null}"
-                                   th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processoId},pdfId=${pdf.id})}"
-                                   class="btn btn-sm btn-outline-danger" target="_blank"
-                                   title="Visualizar o processo anonimizado para avaliacao">
-                                    <i class="bi bi-file-earmark-pdf"></i> Ver processo
+
+    <div th:with="temAtrasados=${foraDoPrazoPorProcesso.containsValue(true)}">
+
+        <!-- Atrasados primeiro, em destaque proprio: informacao critica precisa
+             estar "a velocidade de escaneamento", nao misturada linha a linha
+             numa lista plana ordenada so por data. -->
+        <div th:if="${temAtrasados}" class="card mb-3 border-danger">
+            <div class="card-header bg-danger-subtle text-danger-emphasis fw-semibold">
+                <i class="bi bi-exclamation-triangle-fill"></i> Atrasados (acima do prazo-meta)
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Processo</th>
+                            <th>Paciente</th>
+                            <th>Enviado em</th>
+                            <th>Aguardando</th>
+                            <th>Material para analise</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="par : ${pareceres}" th:if="${foraDoPrazoPorProcesso.get(par.processoId)} == true">
+                            <td>
+                                <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
+                            </td>
+                            <td>
+                                <!-- SOMENTE INICIAIS — nunca nome completo, equipe ou co-avaliadores -->
+                                <span class="font-monospace"
+                                      th:text="${iniciaisPorProcesso[par.processoId]}">X.X.X.</span>
+                            </td>
+                            <td class="small text-muted"
+                                th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</td>
+                            <td class="small">
+                                <th:block th:with="dias=${diasDesdeEnvio[par.processoId]}, textoDias=${dias} + (${dias == 1} ? ' dia' : ' dias'), textoPrazo=${prazoDias} + (${prazoDias == 1} ? ' dia' : ' dias')">
+                                    <span class="text-danger fw-semibold" th:title="'Acima do prazo-meta de ' + ${textoPrazo}">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                        <span th:text="${textoDias}">0 dias</span>
+                                    </span>
+                                </th:block>
+                            </td>
+                            <td>
+                                <!-- PDF anonimizado passado pelo controller via pdfPorProcesso -->
+                                <th:block th:with="pdf=${pdfPorProcesso[par.processoId]}">
+                                    <a th:if="${pdf != null}"
+                                       th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processoId},pdfId=${pdf.id})}"
+                                       class="btn btn-sm btn-outline-danger" target="_blank"
+                                       title="Visualizar o processo anonimizado para avaliacao">
+                                        <i class="bi bi-file-earmark-pdf"></i> Ver processo
+                                    </a>
+                                    <span th:if="${pdf == null}" class="badge bg-secondary">PDF indisponivel</span>
+                                </th:block>
+                            </td>
+                            <td class="text-end">
+                                <a th:href="@{/avaliador/{id}(id=${par.processoId})}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="bi bi-pencil-square"></i> Ver e votar
                                 </a>
-                                <span th:if="${pdf == null}" class="badge bg-secondary">PDF indisponivel</span>
-                            </th:block>
-                        </td>
-                        <td class="text-end">
-                            <a th:href="@{/avaliador/{id}(id=${par.processoId})}"
-                               class="btn btn-primary btn-sm">
-                                <i class="bi bi-pencil-square"></i> Ver e votar
-                            </a>
-                        </td>
-                    </tr>
-                    <tr th:if="${pareceres.isEmpty()}">
-                        <td colspan="6" class="text-center text-muted py-5">
-                            <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
-                            Nenhum processo pendente de avaliacao no momento.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header" th:if="${temAtrasados}">Demais pendentes</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Processo</th>
+                            <th>Paciente</th>
+                            <th>Enviado em</th>
+                            <th>Aguardando</th>
+                            <th>Material para analise</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="par : ${pareceres}" th:if="${foraDoPrazoPorProcesso.get(par.processoId)} != true">
+                            <td>
+                                <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
+                            </td>
+                            <td>
+                                <!-- SOMENTE INICIAIS — nunca nome completo, equipe ou co-avaliadores -->
+                                <span class="font-monospace"
+                                      th:text="${iniciaisPorProcesso[par.processoId]}">X.X.X.</span>
+                            </td>
+                            <td class="small text-muted"
+                                th:text="${par.dataEnvio != null} ? ${#temporals.format(par.dataEnvio, 'dd/MM/yyyy')} : '-'">-</td>
+                            <td class="small">
+                                <!-- Informacao auxiliar: dias desde o envio (nao ha SLA no dominio). -->
+                                <th:block th:with="dias=${diasDesdeEnvio[par.processoId]}">
+                                    <span th:if="${dias != null}" class="text-muted"
+                                          th:text="${dias == 0} ? 'hoje' : (${dias} + (${dias == 1} ? ' dia' : ' dias'))">0 dias</span>
+                                    <span th:if="${dias == null}" class="text-muted">-</span>
+                                </th:block>
+                            </td>
+                            <td>
+                                <!-- PDF anonimizado passado pelo controller via pdfPorProcesso -->
+                                <th:block th:with="pdf=${pdfPorProcesso[par.processoId]}">
+                                    <a th:if="${pdf != null}"
+                                       th:href="@{/avaliador/{id}/pdf/{pdfId}(id=${par.processoId},pdfId=${pdf.id})}"
+                                       class="btn btn-sm btn-outline-danger" target="_blank"
+                                       title="Visualizar o processo anonimizado para avaliacao">
+                                        <i class="bi bi-file-earmark-pdf"></i> Ver processo
+                                    </a>
+                                    <span th:if="${pdf == null}" class="badge bg-secondary">PDF indisponivel</span>
+                                </th:block>
+                            </td>
+                            <td class="text-end">
+                                <a th:href="@{/avaliador/{id}(id=${par.processoId})}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="bi bi-pencil-square"></i> Ver e votar
+                                </a>
+                            </td>
+                        </tr>
+                        <tr th:if="${pareceres.isEmpty()}">
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
+                                Nenhum processo pendente de avaliacao no momento.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
