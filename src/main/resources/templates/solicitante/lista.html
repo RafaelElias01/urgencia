@@ -177,11 +177,10 @@
                     <span th:text="${#temporals.format(s.dataEnvio, 'dd/MM/yyyy')}">-</span>
                 </div>
                 <div class="d-flex flex-wrap gap-1">
-                    <a th:if="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
-                       th:href="@{/solicitante/{id}(id=${s.id})}"
-                       class="badge rounded-pill bg-warning text-dark text-decoration-none">
+                    <span th:if="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
+                          class="badge rounded-pill bg-warning text-dark">
                         <i class="bi bi-exclamation-triangle-fill"></i> Acao necessaria
-                    </a>
+                    </span>
                     <span th:unless="${s.status.name() == 'CONVERTIDA' and acaoNecessaria.get(s.id)}"
                           class="badge rounded-pill" th:classappend="${s.status.bootstrapBadge}">
                         <i class="bi" th:classappend="${'bi-' + s.status.badgeIcone}"></i>

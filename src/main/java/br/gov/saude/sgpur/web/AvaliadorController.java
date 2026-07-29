@@ -137,6 +137,22 @@ public class AvaliadorController {
             pareceresView.add(new ParecerPendenteView(pid, par.getProcesso().getNumero(), par.getDataEnvio()));
         }
 
+        // Particiona server-side (nao na view) os atrasados dos demais: evita
+        // repetir a mesma decisao de filtro duas vezes no template e, mais
+        // importante, evita a secao "Demais pendentes" ficar com tabela vazia
+        // e sem nenhuma mensagem quando TODOS os pendentes estiverem atrasados
+        // (o antigo th:if="${pareceres.isEmpty()}" nao cobria esse caso, so o
+        // caso de nao haver pendente nenhum).
+        List<ParecerPendenteView> pareceresAtrasados = new java.util.ArrayList<>();
+        List<ParecerPendenteView> pareceresDemais = new java.util.ArrayList<>();
+        for (ParecerPendenteView pv : pareceresView) {
+            if (Boolean.TRUE.equals(foraDoPrazoPorProcesso.get(pv.processoId()))) {
+                pareceresAtrasados.add(pv);
+            } else {
+                pareceresDemais.add(pv);
+            }
+        }
+
         // Historico: pareceres ja votados pelo membro (mais recente primeiro).
         List<Parecer> historicoEntidades = parecerRepo
             .findByMembroIdAndResultadoIsNotNullOrderByDataRespostaDesc(membroId);
@@ -160,6 +176,8 @@ public class AvaliadorController {
             .countByMembroIdAndResultado(membroId, ResultadoParecer.SOLICITA_INFORMACAO);
 
         model.addAttribute("pareceres", pareceresView);
+        model.addAttribute("pareceresAtrasados", pareceresAtrasados);
+        model.addAttribute("pareceresDemais", pareceresDemais);
         model.addAttribute("pdfPorProcesso", pdfPorProcesso);
         model.addAttribute("iniciaisPorProcesso", iniciaisPorProcesso);
         model.addAttribute("diasDesdeEnvio", diasDesdeEnvio);

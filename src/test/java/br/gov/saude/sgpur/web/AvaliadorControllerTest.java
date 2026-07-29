@@ -114,7 +114,28 @@ class AvaliadorControllerTest {
         mvc.perform(get("/avaliador"))
             .andExpect(status().isOk())
             .andExpect(view().name("avaliador/lista"))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("Atrasados")));
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Atrasados")))
+            .andExpect(model().attribute("pareceresAtrasados", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(model().attribute("pareceresDemais", org.hamcrest.Matchers.hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void listaNaoMostraSecaoAtrasadosQuandoNenhumEstaForaDoPrazo() throws Exception {
+        // dataEnvio recente (hoje) + prazo-meta de 7 dias => dentro do prazo
+        parecer.setDataEnvio(LocalDate.now());
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+            .thenReturn(List.of(parecer));
+        when(anexoRepo.findByProcessoIdAndTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR))
+            .thenReturn(List.of());
+
+        mvc.perform(get("/avaliador"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("pareceresAtrasados", org.hamcrest.Matchers.hasSize(0)))
+            .andExpect(model().attribute("pareceresDemais", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(content().string(org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString("Atrasados (acima"))));
     }
 
     @Test

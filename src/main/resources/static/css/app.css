@@ -9,6 +9,10 @@
     --rs-blue-light: #e3edf7;
     --rs-blue-dark: #0f3163;
     --rs-blue-darker: #061a33;      /* 3o stop do gradiente de fundo de login/esqueci-senha */
+    --rs-chart-blue: #0d6efd;       /* NAO usar --rs-blue em grafico categorico: falha no
+                                        teste de faixa de luminosidade (L=0.424, fora de
+                                        0.43-0.77) do validador da skill de dataviz -
+                                        node scripts/validate_palette.js "#38a169,#c62828,#0d6efd" */
     --rs-gold: #f5a623;
     --rs-gold-light: #fef3e2;
     --rs-gold-dark: #755a12;        /* texto de badge/alert ouro com contraste AA */

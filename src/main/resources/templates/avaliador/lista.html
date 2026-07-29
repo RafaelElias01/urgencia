@@ -55,9 +55,9 @@
                     <div th:if="${totalAvaliados} > 0" class="d-flex" role="img"
                          th:aria-label="'Favoravel ' + ${favoraveis} + ', Nao favoravel ' + ${naoFavoraveis} + ', Solicita informacao ' + ${solicitaInfo}"
                          style="height:8px;border-radius:4px;overflow:hidden;background:var(--rs-gray-200);gap:2px;">
-                        <div th:if="${favoraveis} > 0" th:style="'flex:' + ${favoraveis} + ';background:#38a169;'"></div>
-                        <div th:if="${naoFavoraveis} > 0" th:style="'flex:' + ${naoFavoraveis} + ';background:#c62828;'"></div>
-                        <div th:if="${solicitaInfo} > 0" th:style="'flex:' + ${solicitaInfo} + ';background:#0d6efd;'"></div>
+                        <div th:if="${favoraveis} > 0" th:style="'flex:' + ${favoraveis} + ';background:var(--rs-green-bright);'"></div>
+                        <div th:if="${naoFavoraveis} > 0" th:style="'flex:' + ${naoFavoraveis} + ';background:var(--rs-red);'"></div>
+                        <div th:if="${solicitaInfo} > 0" th:style="'flex:' + ${solicitaInfo} + ';background:var(--rs-chart-blue);'"></div>
                     </div>
                     <div th:unless="${totalAvaliados} > 0" class="text-center text-muted small py-1">Sem votos ainda</div>
                     <div class="d-flex justify-content-around small mt-2">
@@ -103,12 +103,18 @@
 
     <h2 class="h5 mb-2"><i class="bi bi-clipboard2-pulse"></i> Pendentes de voto</h2>
 
-    <div th:with="temAtrasados=${foraDoPrazoPorProcesso.containsValue(true)}">
+    <div>
 
         <!-- Atrasados primeiro, em destaque proprio: informacao critica precisa
              estar "a velocidade de escaneamento", nao misturada linha a linha
-             numa lista plana ordenada so por data. -->
-        <div th:if="${temAtrasados}" class="card mb-3 border-danger">
+             numa lista plana ordenada so por data. Particionado no controller
+             (pareceresAtrasados/pareceresDemais), nao filtrado aqui - evita
+             repetir a mesma decisao duas vezes e evitou um bug real: com
+             th:if filtrando ${pareceres} duas vezes, se TODOS os pendentes
+             estivessem atrasados a tabela "Demais pendentes" ficava vazia
+             sem nenhuma mensagem (o th:if de vazio so cobria pareceres.isEmpty(),
+             nao "todos foram pro outro grupo"). -->
+        <div th:if="${!pareceresAtrasados.isEmpty()}" class="card mb-3 border-danger">
             <div class="card-header bg-danger-subtle text-danger-emphasis fw-semibold">
                 <i class="bi bi-exclamation-triangle-fill"></i> Atrasados (acima do prazo-meta)
             </div>
@@ -125,7 +131,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="par : ${pareceres}" th:if="${foraDoPrazoPorProcesso.get(par.processoId)} == true">
+                        <tr th:each="par : ${pareceresAtrasados}">
                             <td>
                                 <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
                             </td>
@@ -168,8 +174,8 @@
             </div>
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header" th:if="${temAtrasados}">Demais pendentes</div>
+        <div class="card mb-4" th:if="${!pareceresAtrasados.isEmpty() or !pareceresDemais.isEmpty()}">
+            <div class="card-header" th:if="${!pareceresAtrasados.isEmpty()}">Demais pendentes</div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -183,7 +189,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="par : ${pareceres}" th:if="${foraDoPrazoPorProcesso.get(par.processoId)} != true">
+                        <tr th:each="par : ${pareceresDemais}">
                             <td>
                                 <span class="fw-semibold" th:text="${par.processoNumero}">00/0000</span>
                             </td>
@@ -221,14 +227,14 @@
                                 </a>
                             </td>
                         </tr>
-                        <tr th:if="${pareceres.isEmpty()}">
-                            <td colspan="6" class="text-center text-muted py-5">
-                                <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
-                                Nenhum processo pendente de avaliacao no momento.
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+        <div th:if="${pareceresAtrasados.isEmpty() and pareceresDemais.isEmpty()}" class="card mb-4">
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
+                Nenhum processo pendente de avaliacao no momento.
             </div>
         </div>
     </div>
