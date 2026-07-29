@@ -210,7 +210,11 @@
             </div>
         </div>
 
-        <div class="card mb-4" th:if="${!pareceresAtrasados.isEmpty() or !pareceresDemais.isEmpty()}">
+        <!-- So aparece se houver alguma pendencia NAO atrasada: com "or" o card
+             era renderizado tambem quando todos os pendentes estavam atrasados,
+             mostrando so os cabecalhos e nenhuma linha - exatamente o caso que o
+             particionamento no controller existe para evitar. -->
+        <div class="card mb-4" th:if="${!pareceresDemais.isEmpty()}">
             <div class="card-header" th:if="${!pareceresAtrasados.isEmpty()}">Demais pendentes</div>
             <!-- Desktop/tablet (>=768px): tabela -->
             <div class="table-responsive d-none d-md-block">

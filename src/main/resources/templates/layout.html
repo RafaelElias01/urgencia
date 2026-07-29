@@ -13,7 +13,13 @@
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}">
     <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.11.3/font/bootstrap-icons.css}">
-    <link rel="stylesheet" th:href="@{/css/app.css(v=${#dates.format(#dates.createNow(),'yyyyMMddHHmmss')})}">
+    <!--/* Sem cache-buster manual: spring.web.resources.chain.strategy.content
+           esta ativo (application.yml) e o proprio nome do arquivo ja carrega o
+           hash do conteudo (app-<hash>.css), mudando sozinho quando o CSS muda.
+           Um ?v=timestamp gerado por request invalidava o cache a cada
+           navegacao, obrigando o navegador a rebaixar o CSS inteiro em toda
+           tela. Comentario de parser (<!--/* */-->): nao vai para o HTML. */-->
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <nav class="navbar navbar-expand-md navbar-dark navbar-sgpur" th:fragment="navbar">

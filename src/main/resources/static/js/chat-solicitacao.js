@@ -21,11 +21,20 @@ function iniciarChatSolicitacao(cfg) {
 
     var idsRecebidosConhecidos = null; // null ate o 1o poll (evita notificar do que ja estava na tela)
     var pollAtivo = true;
+    var assinaturaRenderizada = null;  // ver assinatura()/atualizarTela()
 
     function escapeHtml(s) {
         var d = document.createElement('div');
         d.textContent = s == null ? '' : s;
         return d.innerHTML;
+    }
+
+    function confirmarApagar() {
+        var msg = 'Apagar esta mensagem?';
+        if (typeof window.confirmarAcao === 'function') return window.confirmarAcao(msg);
+        // Tela sem o modal generico carregado: mesma rede de seguranca
+        // documentada em confirmar-acao.js - nunca apagar sem confirmar.
+        return Promise.resolve(window.confirm(msg));
     }
 
     function estaProximoDoFim() {
@@ -103,14 +112,37 @@ function iniciarChatSolicitacao(cfg) {
         if (badgeNaoLida) badgeNaoLida.classList.add('d-none');
     }
 
+    /**
+     * Assinatura do estado visivel das mensagens. Serve para NAO reescrever o
+     * chatBox quando o poll (a cada 5s) devolve exatamente a mesma conversa -
+     * reescrever innerHTML destroi os filhos, zera o scrollTop e cancela
+     * qualquer selecao de texto em andamento. Cobre tudo que renderMensagem
+     * usa e pode mudar entre polls (texto editado nunca muda hoje, mas
+     * "deletada" e "lida" mudam).
+     */
+    function assinatura(mensagens) {
+        return mensagens.map(function (m) {
+            return [m.id, m.deletada ? 1 : 0, m.lida ? 1 : 0, m.podeApagar ? 1 : 0, m.texto].join('');
+        }).join('');
+    }
+
     function atualizarTela(mensagens) {
-        var seguirFim = estaProximoDoFim();
         if (emptyMsg) emptyMsg.classList.toggle('d-none', mensagens.length > 0);
         if (chatBox) {
-            chatBox.classList.toggle('d-none', mensagens.length === 0);
-            chatBox.innerHTML = mensagens.map(renderMensagem).join('');
+            var nova = assinatura(mensagens);
+            if (nova !== assinaturaRenderizada) {
+                var seguirFim = estaProximoDoFim();
+                var scrollAnterior = chatBox.scrollTop;
+                chatBox.classList.toggle('d-none', mensagens.length === 0);
+                chatBox.innerHTML = mensagens.map(renderMensagem).join('');
+                assinaturaRenderizada = nova;
+                // Quem esta lendo o historico (rolado pra cima) mantem a
+                // posicao; quem estava acompanhando o fim continua no fim.
+                chatBox.scrollTop = seguirFim ? chatBox.scrollHeight : scrollAnterior;
+            }
+            // Timestamps sao relativos ("3 min atras"): precisam ser
+            // reavaliados a cada poll mesmo sem mensagem nova.
             aplicarTimestampsRelativos();
-            if (seguirFim) chatBox.scrollTop = chatBox.scrollHeight;
         }
         atualizarBadges(mensagens);
     }
@@ -173,15 +205,22 @@ function iniciarChatSolicitacao(cfg) {
         chatBox.addEventListener('click', function (e) {
             var btn = e.target.closest('.btn-apagar-msg-chat');
             if (!btn) return;
-            if (!confirm('Apagar esta mensagem?')) return;
-            var headers = {};
-            if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
-            fetch(cfg.deleteUrlBase + btn.getAttribute('data-id') + '/apagar/ajax',
-                {method: 'POST', headers: headers, credentials: 'same-origin'})
-                .then(function (r) { return r.ok ? poll() : Promise.reject(new Error('HTTP ' + r.status)); })
-                .catch(function () {
-                    if (typeof mostrarToast === 'function') mostrarToast('Nao foi possivel apagar a mensagem.', 'error');
-                });
+            // Modal padrao do sistema (confirmar-acao.js), como as demais acoes
+            // destrutivas. O confirm() nativo era ignorado (retorna false) em
+            // navegadores com "impedir dialogos adicionais" marcado, deixando o
+            // botao de apagar sem nenhum efeito. O fallback para confirm() que
+            // existe DENTRO de confirmarAcao() e proposital e continua valendo.
+            confirmarApagar().then(function (confirmado) {
+                if (!confirmado) return;
+                var headers = {};
+                if (csrfHeader && csrfToken) headers[csrfHeader] = csrfToken;
+                fetch(cfg.deleteUrlBase + btn.getAttribute('data-id') + '/apagar/ajax',
+                    {method: 'POST', headers: headers, credentials: 'same-origin'})
+                    .then(function (r) { return r.ok ? poll() : Promise.reject(new Error('HTTP ' + r.status)); })
+                    .catch(function () {
+                        if (typeof mostrarToast === 'function') mostrarToast('Nao foi possivel apagar a mensagem.', 'error');
+                    });
+            });
         });
     }
 

@@ -143,7 +143,15 @@ tr.linha-inativa > td:first-child {
        inner-radius e nao precisa mais de border-radius com !important */
     --bs-card-border-radius: 12px;
     --bs-card-inner-border-radius: 11px;
-    border: none;
+    /* Card padrao e "sem moldura", mas NAO se pode zerar border-style/width
+       aqui: as utilitarias .border-primary/.border-success/... do Bootstrap 5.3
+       so definem border-COLOR (!important) e herdam a espessura/estilo do
+       proprio .card. Com "border: none" (ou "border: 0") elas viravam borda
+       invisivel - os 4 cards de resumo de /controle-urgencias ficavam todos
+       brancos e identicos e o card "Atrasados" de /avaliador perdia a moldura
+       vermelha. Deixando so a COR transparente, o 1px solid do Bootstrap
+       continua valendo e as utilitarias de cor voltam a funcionar. */
+    border-color: transparent;
     box-shadow: var(--rs-shadow);
     transition: var(--rs-transition);
 }

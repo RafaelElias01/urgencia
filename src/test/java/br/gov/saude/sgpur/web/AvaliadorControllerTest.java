@@ -123,7 +123,41 @@ class AvaliadorControllerTest {
             .andExpect(view().name("avaliador/lista"))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Atrasados")))
             .andExpect(model().attribute("pareceresAtrasados", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(model().attribute("pareceresDemais", org.hamcrest.Matchers.hasSize(0)));
+            .andExpect(model().attribute("pareceresDemais", org.hamcrest.Matchers.hasSize(0)))
+            // Com TODOS os pendentes atrasados, o card "Demais pendentes" nao pode
+            // ser renderizado: com o th:if antigo (or) ele aparecia so com os
+            // cabecalhos e nenhuma linha - tabela vazia na cara do avaliador.
+            // (o texto tambem aparece num comentario HTML do template, por isso
+            // a busca e pelo cabecalho renderizado: >Demais pendentes<)
+            .andExpect(content().string(org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString(">Demais pendentes<"))));
+    }
+
+    @Test
+    @WithMockUser(username = "avaliador1", roles = "AVALIADOR")
+    void listaMostraCardDemaisPendentesQuandoHaPendenteDentroDoPrazo() throws Exception {
+        parecer.setDataEnvio(LocalDate.now().minusDays(30)); // atrasado
+
+        Processo noPrazo = new Processo();
+        noPrazo.setId(2L);
+        noPrazo.setNumero("02/2026");
+        noPrazo.setPacienteNome("Ana Beatriz Lima");
+        noPrazo.setStatus(StatusProcesso.ENVIADO);
+        Parecer parecerNoPrazo = new Parecer(membro);
+        parecerNoPrazo.setId(101L);
+        parecerNoPrazo.setProcesso(noPrazo);
+        parecerNoPrazo.setDataEnvio(LocalDate.now());
+
+        when(usuarioRepo.findByUsername("avaliador1")).thenReturn(Optional.of(usuario));
+        when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(10L))
+            .thenReturn(List.of(parecer, parecerNoPrazo));
+        when(anexoRepo.findByProcessoIdAndTipo(any(Long.class), any())).thenReturn(List.of());
+
+        mvc.perform(get("/avaliador"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("pareceresAtrasados", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(model().attribute("pareceresDemais", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(">Demais pendentes<")));
     }
 
     @Test

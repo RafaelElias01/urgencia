@@ -36,6 +36,17 @@ spring:
     open-in-view: false
   web:
     resources:
+      # Cache longo so e seguro porque a chain abaixo poe o hash do conteudo no
+      # NOME do arquivo (app-<hash>.css): mudou o arquivo, muda a URL. Sem esta
+      # secao o Spring Security aplica "Cache-Control: no-store" tambem aos
+      # estaticos e o navegador rebaixa CSS/JS inteiros a cada tela - o mesmo
+      # efeito do ?v=timestamp que foi removido do layout.html.
+      # Todos os estaticos servidos ao navegador sao referenciados via @{...}
+      # nos templates, entao todos ganham o hash (nenhum escapa com URL fixa).
+      cache:
+        cachecontrol:
+          max-age: 30d
+          cache-public: true
       chain:
         strategy:
           content:

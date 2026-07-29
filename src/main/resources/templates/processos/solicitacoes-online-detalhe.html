@@ -117,7 +117,13 @@
     </div>
 </div>
 
+<!-- Modal generico de confirmacao: usado pelo "apagar mensagem" do chat
+     (chat-solicitacao.js chama window.confirmarAcao), no lugar do confirm()
+     nativo, igual as demais telas com acao destrutiva. -->
+<div th:replace="~{layout :: confirmModal}"></div>
+
 <script th:replace="~{layout :: scripts}"></script>
+<script th:replace="~{layout :: confirmarAcaoScript}"></script>
 <script th:src="@{/js/chat-solicitacao.js}"></script>
 <script th:inline="javascript">
     iniciarChatSolicitacao({
