@@ -94,6 +94,29 @@ public class UsuarioService {
     /**
      * Atualiza dados com suporte ao membro vinculado (AVALIADOR) e a equipe
      * solicitante (SOLICITANTE).
+     *
+     * <p><b>Copia campo a campo</b> tudo o que o formulario
+     * ({@code templates/usuarios/form.html}) envia: {@code username},
+     * {@code nome}, {@code email}, {@code perfil}, {@code ativo}, mais
+     * {@code membroId} e {@code equipeSolicitante} (que chegam como
+     * {@code @RequestParam}, nao no objeto {@code form}) e a senha, so quando
+     * informada. <b>Esquecer um desses = a edicao e descartada em silencio</b>,
+     * com mensagem de sucesso na tela - ja aconteceu com {@code email}. O teste
+     * {@code UsuarioAtualizacaoIntegrationTest} confere campo a campo relendo
+     * do banco, inclusive derivando a lista de campos do proprio HTML.
+     *
+     * <p><b>Ignorados de proposito</b> (nao "corrigir" numa proxima vistoria):
+     * <ul>
+     *   <li>{@code form.getSenha()} - o formulario manda a senha em
+     *       {@code name="senha"} (parametro {@code senhaPura}), ja codificada
+     *       aqui; copiar o campo cru da entidade gravaria texto puro.</li>
+     *   <li>{@code form.getId()} - o alvo e o {@code id} do path, nunca o do
+     *       corpo do POST (evita editar outro usuario forjando o campo).</li>
+     *   <li>{@code form.getMembro()} / {@code form.getEquipeSolicitante()} -
+     *       aplicados pelos parametros explicitos, validados por perfil em
+     *       {@link #aplicarMembro} / {@link #aplicarEquipeSolicitante}.</li>
+     *   <li>{@code versao} ({@code @Version}) - controlado pelo Hibernate.</li>
+     * </ul>
      */
     @Transactional
     public Usuario atualizar(Long id, Usuario form, String senhaPura, Long membroId, String equipeSolicitante) {

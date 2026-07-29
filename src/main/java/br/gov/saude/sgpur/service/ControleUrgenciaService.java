@@ -70,17 +70,60 @@ public class ControleUrgenciaService {
     }
 
     /**
-     * Atualiza dados descritivos de um registro (nome, rgct, equipe, abo, observacoes).
-     * Nao altera situacao nem vencimento.
+     * Atualiza um registro com os dados vindos do formulario de edicao
+     * ({@code templates/controle-urgencias/form.html}): nome, rgct, equipe,
+     * abo, <b>data de vencimento</b> e observacoes - exatamente os campos que
+     * aquele formulario envia.
+     *
+     * <p><b>Por que o vencimento e editavel aqui:</b> a prorrogacao normal de
+     * 30 dias continua sendo o botao "Renovar" ({@link #renovar(Long)}, que
+     * alem da data marca a situacao como RENOVADA e carimba
+     * {@code dataUltimaRenovacao}). Esta edicao serve para <i>corrigir</i> uma
+     * data digitada errada no cadastro - sem ela, a unica forma de arrumar um
+     * vencimento errado seria "renovar", falsificando um ciclo de renovacao que
+     * nunca existiu. Editar a data por aqui NAO altera a situacao nem registra
+     * renovacao: sao operacoes com semanticas distintas e nao concorrentes.
+     * (Ate 2026-07-29 este metodo simplesmente ignorava o campo: o formulario
+     * exibia a data, o operador a alterava, recebia "Urgencia atualizada com
+     * sucesso" e o vencimento continuava o antigo - prorrogacao fantasma numa
+     * tela cuja unica funcao e controlar o prazo de 30 dias.)
+     *
+     * <p><b>Campos ignorados DE PROPOSITO</b> (nao "corrigir" numa proxima
+     * vistoria - copia-los seria o bug, nao a correcao): o formulario nao envia
+     * nenhum deles, logo o objeto recebido traz apenas o valor default do
+     * construtor/inicializador, e copiar esse default sobrescreveria o estado
+     * real do registro.
+     * <ul>
+     *   <li>{@code situacao} - chega sempre ATIVA (inicializador do campo);
+     *       copiar "ressuscitaria" em silencio uma urgencia CANCELADA/EXPIRADA
+     *       a cada correcao de nome. Muda so em renovar/cancelar.</li>
+     *   <li>{@code ativo} - chega sempre {@code true} pelo mesmo motivo.</li>
+     *   <li>{@code dataUltimaRenovacao} - carimbo de sistema, exclusivo de
+     *       {@link #renovar(Long)}.</li>
+     *   <li>{@code dataCadastro} - {@code updatable = false} na entidade.</li>
+     *   <li>{@code processoId} - vinculo com o processo de origem, nao
+     *       editavel por esta tela.</li>
+     *   <li>{@code id} - chave usada para localizar o registro gerenciado.</li>
+     * </ul>
+     *
+     * @throws IllegalStateException se a data de vencimento vier vazia - a
+     *         coluna e {@code NOT NULL} e o formulario a marca como obrigatoria;
+     *         falhar alto e melhor do que descartar a edicao em silencio.
      */
     @Transactional
     public ControleUrgencia atualizar(ControleUrgencia dados) {
         ControleUrgencia c = repo.findById(dados.getId())
             .orElseThrow(() -> new IllegalArgumentException("Registro nao encontrado: " + dados.getId()));
+        if (dados.getDataVencimento() == null) {
+            throw new IllegalStateException(
+                "Informe a data de vencimento da urgencia. Para prorrogar por mais "
+                + DIAS_URGENCIA + " dias, use o botao Renovar.");
+        }
         c.setNomePaciente(dados.getNomePaciente());
         c.setRgct(dados.getRgct());
         c.setEquipe(dados.getEquipe());
         c.setAbo(dados.getAbo());
+        c.setDataVencimento(dados.getDataVencimento());
         c.setObservacoes(dados.getObservacoes());
         return repo.save(c);
     }

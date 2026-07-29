@@ -112,16 +112,22 @@ class ControleUrgenciaServiceTest {
         assertThat(cancelado.getObservacoes()).isEqualTo("Original");
     }
 
+    /**
+     * O formulario de edicao envia tambem a data de vencimento - ela precisa
+     * ser copiada (correcao de data digitada errada). Ate 2026-07-29 o metodo
+     * ignorava esse campo e o operador via "atualizado com sucesso" sem
+     * nenhuma alteracao no prazo.
+     */
     @Test
-    void atualizarCopiaCamposDescritivosSemAlterarSituacaoOuVencimento() {
+    void atualizarCopiaTodosOsCamposDoFormularioInclusiveVencimento() {
         service = new ControleUrgenciaService(repo);
         ControleUrgencia existente = registro(1L);
-        existente.setSituacao(SituacaoUrgencia.RENOVADA);
-        LocalDate vencimentoOriginal = existente.getDataVencimento();
         when(repo.findById(1L)).thenReturn(Optional.of(existente));
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ControleUrgencia dados = new ControleUrgencia("Maria Nova", "RGCT9", "Equipe Nova", "B+", null, null);
+        LocalDate novoVencimento = LocalDate.now().plusDays(97);
+        ControleUrgencia dados = new ControleUrgencia("Maria Nova", "RGCT9", "Equipe Nova", "B+",
+            null, novoVencimento);
         dados.setId(1L);
         dados.setObservacoes("Obs nova");
 
@@ -132,8 +138,52 @@ class ControleUrgenciaServiceTest {
         assertThat(atualizado.getEquipe()).isEqualTo("Equipe Nova");
         assertThat(atualizado.getAbo()).isEqualTo("B+");
         assertThat(atualizado.getObservacoes()).isEqualTo("Obs nova");
-        assertThat(atualizado.getSituacao()).isEqualTo(SituacaoUrgencia.RENOVADA);
-        assertThat(atualizado.getDataVencimento()).isEqualTo(vencimentoOriginal);
+        assertThat(atualizado.getDataVencimento()).isEqualTo(novoVencimento);
+    }
+
+    /**
+     * Situacao e os carimbos de sistema NAO sao copiados de proposito: o
+     * formulario nao os envia, entao o objeto vinculado chega com o default
+     * ATIVA/true e copiar isso ressuscitaria uma urgencia cancelada a cada
+     * correcao de nome.
+     */
+    @Test
+    void atualizarNaoAlteraSituacaoNemCarimbosDeSistema() {
+        service = new ControleUrgenciaService(repo);
+        ControleUrgencia existente = registro(1L);
+        existente.setSituacao(SituacaoUrgencia.CANCELADA);
+        existente.setDataUltimaRenovacao(LocalDate.now().minusDays(3));
+        existente.setProcessoId(42L);
+        when(repo.findById(1L)).thenReturn(Optional.of(existente));
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ControleUrgencia dados = new ControleUrgencia("Maria Nova", "RGCT9", "Equipe Nova", "B+",
+            SituacaoUrgencia.ATIVA, LocalDate.now().plusDays(5));
+        dados.setId(1L);
+        dados.setAtivo(true);
+        dados.setDataUltimaRenovacao(LocalDate.now());
+        dados.setProcessoId(999L);
+
+        ControleUrgencia atualizado = service.atualizar(dados);
+
+        assertThat(atualizado.getSituacao()).isEqualTo(SituacaoUrgencia.CANCELADA);
+        assertThat(atualizado.getDataUltimaRenovacao()).isEqualTo(LocalDate.now().minusDays(3));
+        assertThat(atualizado.getProcessoId()).isEqualTo(42L);
+    }
+
+    @Test
+    void atualizarRejeitaVencimentoVazioEmVezDeDescartarEmSilencio() {
+        service = new ControleUrgenciaService(repo);
+        ControleUrgencia existente = registro(1L);
+        when(repo.findById(1L)).thenReturn(Optional.of(existente));
+
+        ControleUrgencia dados = new ControleUrgencia("Maria Nova", "RGCT9", "Equipe Nova", "B+", null, null);
+        dados.setId(1L);
+
+        assertThatThrownBy(() -> service.atualizar(dados))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("data de vencimento");
+        verify(repo, never()).save(any());
     }
 
     @Test

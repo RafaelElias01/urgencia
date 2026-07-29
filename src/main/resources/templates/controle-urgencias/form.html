@@ -35,7 +35,19 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Vencimento</label>
-                    <input type="date" th:field="*{dataVencimento}" class="form-control">
+                    <!-- Obrigatorio so na edicao: no cadastro, vazio significa
+                         "calcular automaticamente hoje + 30 dias"
+                         (ControleUrgenciaService.criar). Na edicao o registro ja
+                         tem data e a coluna e NOT NULL. -->
+                    <input type="date" th:field="*{dataVencimento}" class="form-control"
+                           th:required="${registro.id != null}">
+                    <div class="form-text text-muted" th:if="${registro.id == null}">
+                        Vazio = hoje + 30 dias.
+                    </div>
+                    <div class="form-text text-muted" th:if="${registro.id != null}">
+                        Use para <strong>corrigir</strong> a data. Para prorrogar por mais
+                        30 dias, use o botao <strong>Renovar</strong> na lista.
+                    </div>
                 </div>
             </div>
 
