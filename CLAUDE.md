@@ -458,13 +458,12 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   não-nula numa entidade já populada, rodar esse tipo de backfill em prod
   logo após o deploy** (não há Flyway/Liquibase neste projeto — é
   responsabilidade manual).
-  **⚠️ BACKFILL PENDENTE (2026-07-29): `Usuario.versao`.** `@Version` foi
+  **Backfill de `Usuario.versao` feito (2026-07-29).** `@Version` foi
   adicionado a `domain/Usuario.java` (era a única entidade "quente" sem lock
   otimista; Processo, Parecer, MembroUrgenciaRenal, SolicitacaoOnline e
-  MensagemSolicitacao já tinham). **Rodar em prod logo após o deploy:**
-  `UPDATE usuario SET versao = 0 WHERE versao IS NULL;` — sem isso, o próximo
-  salvamento de qualquer usuário já existente (editar cadastro, ativar/
-  desativar, trocar a própria senha, "esqueci minha senha") quebra com 500.
+  MensagemSolicitacao já tinham). Rodado em prod logo após o deploy do commit
+  `b34643a` (2026-07-29 17:09 UTC): `UPDATE usuario SET versao = 0 WHERE
+  versao IS NULL;` — 8 linhas corrigidas, confirmado 0 nulos restantes.
 - **`ddl-auto: update` também não atualiza CHECK constraints de enum.**
   Mesma classe do pitfall acima, mas para colunas de enum
   (`@Enumerated(EnumType.STRING)`), que ganham uma constraint
