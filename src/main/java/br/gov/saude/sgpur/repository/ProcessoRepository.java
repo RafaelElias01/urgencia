@@ -38,6 +38,33 @@ public interface ProcessoRepository extends JpaRepository<Processo, Long> {
         """)
     List<Processo> findByAnoComPareceres(@Param("ano") int ano);
 
+    /**
+     * Candidatos a decisao automatica pela varredura periodica
+     * ({@code DecisaoAutomaticaScheduler}): processos NAO finalizados, nos
+     * status informados, que ja tenham ao menos um parecer respondido.
+     *
+     * <p>Traz {@code pareceres} e {@code membro} por fetch join porque o
+     * varredor precisa avaliar o pre-filtro em memoria (voto do coordenador
+     * CET-RS) com o processo ja desanexado — sem isso seriam 2 selects extras
+     * por processo (N+1) e {@code LazyInitializationException} com
+     * {@code open-in-view: false}.</p>
+     *
+     * <p>O {@code exists} descarta de saida os processos sem nenhum voto (a
+     * esmagadora maioria dos "em andamento"): eles nunca teriam maioria e so
+     * dariam trabalho ao varredor. O filtro de status fica com o chamador para
+     * que a lista de status elegiveis viva num lugar so (o varredor).</p>
+     */
+    @Query("""
+        select distinct p from Processo p
+        left join fetch p.pareceres par
+        left join fetch par.membro
+        where p.status in :status
+          and exists (select 1 from Parecer x where x.processo = p and x.resultado is not null)
+        order by p.ano asc, p.sequencial asc
+        """)
+    List<Processo> findCandidatosDecisaoAutomatica(
+        @Param("status") java.util.Collection<StatusProcesso> status);
+
     Optional<Processo> findByNumero(String numero);
 
     /** Maior sequencial ja usado em um ano (para gerar o proximo numero). */

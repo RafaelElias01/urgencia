@@ -46,3 +46,11 @@ app:
   # em producao ate o time decidir usar. Liga com SGPUR_SOLICITANTE_HABILITADO=true.
   solicitante:
     habilitado: ${SGPUR_SOLICITANTE_HABILITADO:false}
+  # Rede de seguranca da decisao automatica: LIGADA por padrao em producao
+  # (default oposto ao de application.yml/dev, onde o job poluiria os testes).
+  # E aqui que ela precisa rodar — o buraco que ela fecha (processo com
+  # maioria formada e nenhum evento futuro para dispara-la) so acontece com
+  # processos reais. Desliga com SGPUR_VARREDURA_DECISAO=false.
+  decisao-automatica:
+    varredura:
+      habilitado: ${SGPUR_VARREDURA_DECISAO:true}

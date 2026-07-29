@@ -97,6 +97,33 @@ app:
   avaliador:
     prazo-dias: ${SGPUR_PRAZO_AVALIADOR:7}
 
+  # Varredura periodica de decisao automatica (DecisaoAutomaticaScheduler).
+  # A decisao automatica normal e orientada a EVENTO (dispara no voto do
+  # Portal do Avaliador); esta varredura e a REDE DE SEGURANCA para os
+  # processos que ja tem maioria formada mas nunca vao receber um voto novo
+  # (ex.: processo reaberto pelo ADMIN, decisao que falhou no instante do
+  # voto, votos anteriores a existencia da automacao).
+  #
+  # DESLIGADA por padrao aqui (dev/teste): um job escrevendo no banco em
+  # paralelo poluiria os testes. application-prod.yml liga por padrao.
+  # Quando desligada, nem o componente nem o agendador do Spring sao
+  # registrados (@ConditionalOnProperty em AgendamentoConfig).
+  #
+  # Intervalo de 15 min (fixedDelay, conta a partir do FIM da passada
+  # anterior): a decisao em tempo real continua sendo a do evento (segundos);
+  # esta varredura so precisa garantir que nenhum processo fique parado
+  # indefinidamente. 15 min mantem o atraso maximo muito abaixo de qualquer
+  # janela clinicamente relevante numa urgencia renal (cujo desfecho depende
+  # de dias de fila no SNT, nao de minutos) e ao mesmo tempo e conservador
+  # com o banco: ~96 consultas por dia, todas filtradas no proprio SQL.
+  decisao-automatica:
+    varredura:
+      habilitado: ${SGPUR_VARREDURA_DECISAO:false}
+      intervalo-ms: ${SGPUR_VARREDURA_DECISAO_INTERVALO_MS:900000}
+      # Atraso da 1a execucao apos o boot: da tempo do AdminBootstrap e das
+      # validacoes de schema terminarem antes de o job tocar em processos.
+      atraso-inicial-ms: ${SGPUR_VARREDURA_DECISAO_ATRASO_MS:120000}
+
   # Portal do Solicitante (modulo experimental, ver docs/PLANO-SOLICITANTE.md):
   # kill-switch que registra ou nao SolicitanteController/triagem
   # (@ConditionalOnProperty). Ligado por padrao em dev; application-prod.yml
