@@ -530,6 +530,96 @@ class ProcessoServiceTest {
     }
 
     /**
+     * decidir() espelha a decisao na SolicitacaoOnline de origem
+     * (DEFERIDO -> APROVADA). reabrir() precisa desfazer esse espelhamento,
+     * senao a solicitacao fica presa em APROVADA e o Portal do Solicitante
+     * segue mostrando "Aprovada" definitivo para um processo que voltou para
+     * analise (o template so consulta processoGerado.status quando o status
+     * e CONVERTIDA).
+     */
+    @Test
+    void reabrirDevolveSolicitacaoAprovadaParaConvertida() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(31L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(31L, StatusProcesso.DEFERIDO, null);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.APROVADA);
+
+        service.reabrir(31L);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
+    }
+
+    /** Mesma regra pelo lado do indeferimento (REPROVADA -> CONVERTIDA). */
+    @Test
+    void reabrirDevolveSolicitacaoReprovadaParaConvertida() {
+        Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
+        anexarRespostasParaTodosRecebidos(p);
+        when(processoRepository.findById(32L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(32L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(32L, StatusProcesso.INDEFERIDO, "motivo");
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.REPROVADA);
+
+        service.reabrir(32L);
+
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
+    }
+
+    /**
+     * reabrir() so desfaz o espelhamento de decidir() (APROVADA/REPROVADA).
+     * Status que nada tem a ver com a decisao — aqui PROCESSO_EXCLUIDO — nao
+     * podem ser sobrescritos por engano.
+     */
+    @Test
+    void reabrirNaoSobrescreveStatusAlheioDaSolicitacao() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        p.setStatus(StatusProcesso.DEFERIDO);
+        when(processoRepository.findById(33L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.PROCESSO_EXCLUIDO);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(33L)).thenReturn(java.util.Optional.of(s));
+
+        service.reabrir(33L);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.PROCESSO_EXCLUIDO);
+        org.mockito.Mockito.verify(solicitacaoOnlineRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    /** Processo que nao veio do Portal: reabrir nao toca em nenhuma solicitacao. */
+    @Test
+    void reabrirNaoTocaSolicitacaoQuandoProcessoNaoVeioDoPortal() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
+                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        p.setStatus(StatusProcesso.DEFERIDO);
+        when(processoRepository.findById(34L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(34L)).thenReturn(java.util.Optional.empty());
+
+        service.reabrir(34L);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+        org.mockito.Mockito.verify(solicitacaoOnlineRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    /**
      * Defesa contra mass assignment: o form faz bind da entidade Processo
      * inteira (@ModelAttribute), entao um request malicioso poderia setar
      * status=DEFERIDO (ou outro campo pos-decisao) antes de chamar cadastrar().
@@ -619,14 +709,17 @@ class ProcessoServiceTest {
     }
 
     /**
-     * Indeferido tambem finaliza automaticamente (decisao de produto
-     * confirmada em 2026-07-29): com 2 de 3 pareceres desfavoraveis e sem
-     * voto favoravel do coordenador, o processo vira INDEFERIDO sozinho, com
-     * o motivo gerado consolidando as justificativas dos pareceres
-     * desfavoraveis.
+     * REGRESSAO (confidencialidade): o motivo gerado automaticamente vira
+     * documento EXTERNO — e impresso no oficio oficial em PDF (OficioService)
+     * e no e-mail a equipe solicitante (EmailTemplateService). A tela de voto
+     * promete ao medico que a justificativa fica "registrada internamente"
+     * (avaliador/votar.html), entao o motivo NAO pode conter nome de
+     * avaliador nem a justificativa verbatim: isso entregaria ao lado
+     * avaliado quem votou contra e o texto clinico cru que ele escreveu.
+     * As justificativas continuam gravadas no Parecer (uso interno).
      */
     @Test
-    void indefereAutomaticamenteComDoisDesfavoraveisEGeraMotivoComJustificativas() {
+    void motivoAutomaticoNaoVazaNomeDeAvaliadorNemJustificativa() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         p.getPareceres().get(0).getMembro().setNome("Dr. Favoravel");
@@ -644,17 +737,24 @@ class ProcessoServiceTest {
         assertThat(resultado.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
         assertThat(resultado.getMotivoIndeferimento())
                 .isNotBlank()
-                .contains("Dra. Ana").contains("Exames nao confirmam a urgencia.")
-                .contains("Dr. Bruno").contains("Ausencia de indicacao clinica.")
-                .doesNotContain("Dr. Favoravel");
+                .doesNotContain("Dra. Ana")
+                .doesNotContain("Dr. Bruno")
+                .doesNotContain("Dr. Favoravel")
+                .doesNotContain("Exames nao confirmam a urgencia.")
+                .doesNotContain("Ausencia de indicacao clinica.");
+        // As justificativas seguem gravadas no parecer (uso interno).
+        assertThat(p.getPareceres().get(1).getJustificativa())
+                .isEqualTo("Exames nao confirmam a urgencia.");
     }
 
     /**
-     * Quando nenhum dos pareceres desfavoraveis tem justificativa preenchida,
-     * o motivo gerado automaticamente e um texto simples (sem lista vazia).
+     * Indeferido tambem finaliza automaticamente (decisao de produto
+     * confirmada em 2026-07-29): com 2 de 3 pareceres desfavoraveis e sem
+     * voto favoravel do coordenador, o processo vira INDEFERIDO sozinho, com
+     * um motivo institucional e impessoal (so a contagem da maioria).
      */
     @Test
-    void indefereAutomaticamenteGeraMotivoGenericoSemJustificativas() {
+    void indefereAutomaticamenteComMotivoInstitucionalImpessoal() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         anexarRespostasParaTodosRecebidos(p);
@@ -665,8 +765,30 @@ class ProcessoServiceTest {
         Processo resultado = service.tentarDecisaoAutomatica(51L);
 
         assertThat(resultado.getStatus()).isEqualTo(StatusProcesso.INDEFERIDO);
-        assertThat(resultado.getMotivoIndeferimento())
-                .isEqualTo("Indeferido por maioria dos avaliadores (2 de 3 pareceres desfavoraveis).");
+        assertThat(resultado.getMotivoIndeferimento()).isEqualTo(
+                "Indeferido por decisao da maioria dos membros da Urgencia Renal "
+                        + "(2 de 3 pareceres desfavoraveis).");
+    }
+
+    /**
+     * O texto e o mesmo (impessoal) quando os 3 pareceres sao desfavoraveis —
+     * so muda a contagem.
+     */
+    @Test
+    void motivoAutomaticoContaTodosOsDesfavoraveis() {
+        Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
+                ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
+        p.getPareceres().forEach(par -> par.setJustificativa("texto clinico interno"));
+        anexarRespostasParaTodosRecebidos(p);
+
+        when(processoRepository.findById(52L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        Processo resultado = service.tentarDecisaoAutomatica(52L);
+
+        assertThat(resultado.getMotivoIndeferimento()).isEqualTo(
+                "Indeferido por decisao da maioria dos membros da Urgencia Renal "
+                        + "(3 de 3 pareceres desfavoraveis).");
     }
 
     /**

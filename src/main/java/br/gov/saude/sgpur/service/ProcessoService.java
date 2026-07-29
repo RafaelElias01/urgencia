@@ -58,10 +58,6 @@ public class ProcessoService {
         this.anexoStorage = anexoStorage;
     }
 
-    public List<Processo> listarTodos() {
-        return processoRepository.findAllByOrderByAnoDescSequencialDesc();
-    }
-
     public org.springframework.data.domain.Page<Processo> buscar(
             String q, StatusProcesso status, org.springframework.data.domain.Pageable pageable) {
         String termo = (q == null || q.isBlank()) ? null : q.trim();
@@ -240,32 +236,35 @@ public class ProcessoService {
     /**
      * Gera o texto do motivo de indeferimento quando a decisao automatica
      * finaliza o processo por maioria de pareceres desfavoraveis (sem o
-     * coordenador ter votado favoravel). Consolida as justificativas dos
-     * pareceres desfavoraveis; o operador pode editar o texto depois via
-     * reabertura (ADMIN) + redecisao na aba Decisao.
+     * coordenador ter votado favoravel).
+     *
+     * <p><b>O texto e institucional e impessoal de proposito — nao e questao
+     * de estilo de redacao, e confidencialidade.</b> {@code motivoIndeferimento}
+     * nao fica no sistema: ele e impresso no <i>oficio oficial</i> em PDF
+     * ({@code OficioService}) e no corpo do e-mail enviado a <i>equipe
+     * solicitante</i> ({@code EmailTemplateService}) — ou seja, sai da
+     * instituicao e chega ao lado que esta sendo avaliado. Ja a tela de voto
+     * do Portal do Avaliador promete ao medico, com todas as letras, que a
+     * justificativa "sera registrada <i>internamente</i> para subsidiar a
+     * decisao do processo" ({@code avaliador/votar.html}). Copiar para ca o
+     * nome de quem votou contra e o texto clinico cru que ele escreveu
+     * quebraria essa promessa e exporia os avaliadores ao solicitante,
+     * comprometendo a imparcialidade dos proximos pareceres.</p>
+     *
+     * <p>As justificativas continuam gravadas em {@link Parecer#getJustificativa()}
+     * para uso <b>interno</b> (operador, relatorio final, auditoria) — elas
+     * apenas nao sao copiadas para este campo, que vira documento externo. O
+     * operador que quiser um motivo mais detalhado pode escreve-lo a mao:
+     * ADMIN reabre o processo em {@code /processos/{id}/reabrir} e redecide
+     * pelo formulario da aba Decisao, que reenvia o motivo.</p>
      */
     private String gerarMotivoIndeferimentoAutomatico(Processo p) {
-        List<Parecer> desfavoraveis = p.getPareceres().stream()
+        long desfavoraveis = p.getPareceres().stream()
             .filter(par -> par.getResultado() == ResultadoParecer.NAO_FAVORAVEL)
-            .toList();
-        boolean algumaJustificativa = desfavoraveis.stream()
-            .anyMatch(par -> par.getJustificativa() != null && !par.getJustificativa().isBlank());
-        if (!algumaJustificativa) {
-            return "Indeferido por maioria dos avaliadores ("
-                + desfavoraveis.size() + " de " + AVALIADORES_POR_PROCESSO
-                + " pareceres desfavoraveis).";
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("Indeferido por maioria dos avaliadores (parecer desfavoravel de ")
-            .append(desfavoraveis.size()).append(" de ").append(AVALIADORES_POR_PROCESSO)
-            .append(" membros).\nPareceres:");
-        for (Parecer par : desfavoraveis) {
-            String nome = par.getMembro() != null ? par.getMembro().getNome() : "(membro nao identificado)";
-            String justificativa = (par.getJustificativa() == null || par.getJustificativa().isBlank())
-                ? "(sem justificativa registrada)" : par.getJustificativa();
-            sb.append("\n- ").append(nome).append(": ").append(justificativa);
-        }
-        return sb.toString();
+            .count();
+        return "Indeferido por decisao da maioria dos membros da Urgencia Renal ("
+            + desfavoraveis + " de " + AVALIADORES_POR_PROCESSO
+            + " pareceres desfavoraveis).";
     }
 
     /**
@@ -483,6 +482,10 @@ public class ProcessoService {
      * (COMPROVANTE_SNT / OFICIO_INDEFERIMENTO), salva o texto da mensagem no
      * processo e marca emailEnviadoSolicitante=true. Exige que o documento
      * obrigatorio ja esteja anexado (validado por ProcessoValidator).
+     *
+     * <p><b>Ordem deliberada: envia o e-mail ANTES do save/commit.</b> Ver o
+     * comentario no corpo do metodo — as duas ordens possiveis tem falhas
+     * diferentes e a escolhida e a menos grave para este dominio.</p>
      */
     @Transactional
     public Processo finalizarResposta(Long id) {
@@ -513,6 +516,28 @@ public class ProcessoService {
             : TipoAnexo.OFICIO_INDEFERIMENTO;
         Anexo anexo = anexoStorage.buscarUltimoPorTipo(p.getId(), tipoAnexo);
 
+        // TRADE-OFF CONSCIENTE (nao e descuido): o e-mail sai ANTES do save,
+        // portanto fora da garantia transacional. Se a transacao falhar depois
+        // do envio (lock otimista, erro no commit), o solicitante recebe a
+        // resposta mas o processo NAO fica marcado como respondido — o
+        // operador reenvia e ele recebe duplicado.
+        //
+        // A alternativa (disparar em afterCommit via
+        // TransactionSynchronizationManager) inverte a falha: o processo seria
+        // marcado como respondido e, se o SMTP estivesse fora do ar naquele
+        // instante, o e-mail simplesmente nunca sairia — sem ninguem perceber,
+        // porque em afterCommit a falha de envio ja nao pode reverter nada
+        // (o IllegalStateException abaixo deixaria de proteger).
+        //
+        // Neste dominio (oficio de saude publica, resposta a uma urgencia
+        // renal) o segundo cenario e claramente pior: um processo constando
+        // como "respondido" sem que a equipe solicitante tenha recebido o
+        // deferimento/indeferimento e uma falha silenciosa com impacto
+        // assistencial, enquanto uma resposta duplicada e so um incomodo
+        // visivel e trivial de explicar. Mantida, por isso, a ordem atual:
+        // se o SMTP falha, nada e gravado (rollback) e o operador tenta de
+        // novo; o pior caso possivel e o solicitante ficar sabendo da decisao
+        // duas vezes, nunca nenhuma.
         boolean enviado = emailSenderService.enviarComAnexo(
             p.getSolicitanteEmail(),
             template.assunto(),
@@ -536,6 +561,14 @@ public class ProcessoService {
      * indeferimento); os pareceres sao mantidos como estao. Acao restrita ao
      * ADMIN (imposta no {@code SecurityConfig}). Lanca erro se o processo nao
      * estiver finalizado (nao ha o que reabrir).
+     *
+     * <p>Tambem desfaz o espelhamento da decisao na {@link SolicitacaoOnline}
+     * de origem feito por {@link #decidir} (DEFERIDO -&gt; APROVADA /
+     * INDEFERIDO -&gt; REPROVADA): sem isso a solicitacao fica presa em
+     * APROVADA/REPROVADA e o Portal do Solicitante continua mostrando um
+     * resultado definitivo para um processo que voltou para analise (o
+     * template trata esses dois status com badge fixo, sem consultar o
+     * processo).</p>
      */
     @Transactional
     public Processo reabrir(Long id) {
@@ -548,7 +581,22 @@ public class ProcessoService {
         p.setMotivoIndeferimento(null);
         p.setEmailEnviadoSolicitante(false);
         p.setMensagemResposta(null);
-        return processoRepository.save(p);
+        Processo salvo = processoRepository.save(p);
+        // Devolve a solicitacao de origem para CONVERTIDA ("convertida em
+        // processo, em andamento") — o unico status que o template do
+        // solicitante resolve consultando processoGerado.status, refletindo
+        // de novo o andamento real. So mexe se ela estiver justamente no
+        // estado que decidir() gravou; CANCELADA / PROCESSO_EXCLUIDO /
+        // DEVOLVIDA / ENVIADA nao tem nada a ver com a decisao e nao podem
+        // ser sobrescritos aqui.
+        solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
+            if (s.getStatus() == StatusSolicitacaoOnline.APROVADA
+                    || s.getStatus() == StatusSolicitacaoOnline.REPROVADA) {
+                s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+                solicitacaoOnlineRepository.save(s);
+            }
+        });
+        return salvo;
     }
 
     private int extrairSequencial(String numero, int ano) {
