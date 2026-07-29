@@ -107,6 +107,7 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void finalizacaoAtualizaAsDatasDoOficio() throws Exception {
+        processo.setStatus(StatusProcesso.INDEFERIDO);
         mvc.perform(post("/processos/1/finalizacao")
                 .param("dataEmissaoOficio", "2026-07-01")
                 .param("dataEnvioOficio", "2026-07-02")
@@ -127,6 +128,7 @@ class ProcessoAnexoControllerTest {
     void respostaSolicitanteSemConfirmarNaoValidaESalva() throws Exception {
         // Regra de validacao (SNT/oficio) agora vive dentro de
         // ProcessoService.confirmarRespostaSolicitante - o controller so delega.
+        processo.setStatus(StatusProcesso.DEFERIDO);
         when(processoService.confirmarRespostaSolicitante(1L, false)).thenReturn(processo);
 
         mvc.perform(post("/processos/1/resposta-solicitante").with(csrf()))
@@ -140,6 +142,7 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaSolicitanteConfirmadaSemComprovanteEhBloqueada() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
         when(processoService.confirmarRespostaSolicitante(1L, true))
             .thenThrow(new IllegalStateException("Anexe o comprovante SNT antes de confirmar."));
 
@@ -154,6 +157,7 @@ class ProcessoAnexoControllerTest {
     @Test
     @WithMockUser(roles = "OPERADOR")
     void respostaSolicitanteConfirmadaComComprovanteSalva() throws Exception {
+        processo.setStatus(StatusProcesso.DEFERIDO);
         processo.setEmailEnviadoSolicitante(true);
         when(processoService.confirmarRespostaSolicitante(1L, true)).thenReturn(processo);
 

@@ -105,8 +105,8 @@ public class ProcessoAnexoController {
                               LocalDate dataEnvioOficio,
                               RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
-        if (validator.edicaoBloqueada(p)) {
-            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+        if (p.getStatus() != StatusProcesso.INDEFERIDO) {
+            ra.addFlashAttribute("erro", "Datas do oficio so podem ser registradas em processos Indeferidos.");
             return "redirect:/processos/" + id + "#finalizacao";
         }
         p.setDataEmissaoOficio(dataEmissaoOficio);
@@ -125,8 +125,8 @@ public class ProcessoAnexoController {
         // dentro do servico - ProcessoService.confirmarRespostaSolicitante -
         // para nao existir so aqui na camada web.
         Processo p = processoService.buscar(id);
-        if (validator.edicaoBloqueada(p)) {
-            ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
+        if (!p.getStatus().isFinalizado()) {
+            ra.addFlashAttribute("erro", "Resposta ao solicitante so pode ser confirmada apos a decisao.");
             return "redirect:/processos/" + id + "#finalizacao";
         }
         try {
