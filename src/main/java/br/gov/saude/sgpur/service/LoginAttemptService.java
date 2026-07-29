@@ -18,58 +18,43 @@ import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Protecao basica contra forca bruta no login: apos {@value #MAX_TENTATIVAS}
- * tentativas com senha errada para a MESMA COMBINACAO usuario+IP, bloqueia
- * novas tentativas dessa combinacao por 15 minutos (janela deslizante em
- * memoria).
+ * Trilha de auditoria das tentativas de login: registra em log TODA tentativa
+ * de autenticacao (sucesso e falha) com o usuario informado e o IP de origem.
  *
- * <p><b>Por que username+IP (e nao so username):</b> a versao anterior
- * bloqueava so por username. Isso permitia que QUALQUER atacante anonimo
- * bloqueasse a conta de outra pessoa (ex.: o ADMIN de verdade) so errando a
- * senha 5 vezes a partir do proprio IP - um DoS trivial e repetivel contra uma
- * conta especifica. Combinando username+IP na chave, o bloqueio fica isolado
- * por origem: o atacante so consegue bloquear a si mesmo (aquele IP), sem
- * afetar o login legitimo do dono da conta a partir de outro lugar.
+ * <p><b>Nao existe mais bloqueio por forca bruta.</b> A versao anterior desta
+ * classe travava a combinacao usuario+IP por 15 minutos apos 5 senhas erradas;
+ * isso foi <b>removido deliberadamente</b> (decisao de produto, nao bug - ver
+ * CLAUDE.md): o log de auditoria com IP passou a ser a defesa adotada, para
+ * nunca deixar um usuario legitimo trancado fora do sistema. O metodo
+ * {@code estaBloqueado} (que ja so devolvia {@code false}), a contagem de
+ * falhas em memoria, o {@code LockedException} lancado no
+ * {@code UsuarioDetailsService}, o ramo {@code LockedException} do
+ * {@code loginFailureHandler} e o alerta {@code param.bloqueado} do
+ * {@code login.html} foram todos removidos junto por serem codigo inalcancavel.
+ * <b>Se algum dia o bloqueio voltar</b>, sera preciso reintroduzir esses quatro
+ * pontos em conjunto - nenhum deles sobrevive isolado.
  *
- * <p><b>Como o IP chega ate aqui:</b> {@code UsuarioDetailsService.loadUserByUsername}
- * (que faz a pre-checagem via {@link #estaBloqueado}) roda DENTRO da cadeia de
- * filtros do Spring Security, ANTES do DispatcherServlet - {@code RequestContextHolder}
- * ainda NAO esta disponivel nesse ponto (so e vinculado pelo DispatcherServlet,
- * que sequer chega a ser acionado para a URL de login, tratada inteiramente
- * pelo filtro de autenticacao do Security). Por isso esta propria classe
- * tambem se registra como {@link Filter} (o Spring Boot registra
- * automaticamente qualquer bean {@code Filter} encontrado no contexto) com a
- * maior precedencia possivel ({@link Ordered#HIGHEST_PRECEDENCE}), rodando
- * ANTES da cadeia do Spring Security, so para capturar
- * {@code request.getRemoteAddr()} num ThreadLocal. Nos eventos de autenticacao
- * (falha/sucesso) o IP e obtido preferencialmente do proprio
- * {@code WebAuthenticationDetails} da autenticacao (mais direto e sempre
- * disponivel nesse ponto), caindo para o ThreadLocal so como reforco.
- *
- * <p>Nao substitui um WAF/rate-limit por IP mais sofisticado, mas encarece um
- * ataque de dicionario contra um login especifico sem abrir uma via de DoS
- * contra contas alheias. Estado em memoria (nao persistido): reinicia a
- * contagem a cada restart da aplicacao - aceitavel para o volume deste sistema
- * (poucos usuarios, uso interno).
+ * <p><b>Como o IP chega ate aqui:</b> os eventos de autenticacao do Spring
+ * Security sao publicados DENTRO da cadeia de filtros, ANTES do
+ * DispatcherServlet - {@code RequestContextHolder} ainda NAO esta disponivel
+ * nesse ponto (so e vinculado pelo DispatcherServlet, que sequer chega a ser
+ * acionado para a URL de login, tratada inteiramente pelo filtro de
+ * autenticacao do Security). Por isso esta propria classe tambem se registra
+ * como {@link Filter} (o Spring Boot registra automaticamente qualquer bean
+ * {@code Filter} encontrado no contexto) com a maior precedencia possivel
+ * ({@link Ordered#HIGHEST_PRECEDENCE}), rodando ANTES da cadeia do Spring
+ * Security, so para capturar {@code request.getRemoteAddr()} num ThreadLocal.
+ * Nos eventos de autenticacao (falha/sucesso) o IP e obtido preferencialmente
+ * do proprio {@code WebAuthenticationDetails} da autenticacao (mais direto e
+ * sempre disponivel nesse ponto), caindo para o ThreadLocal so como reforco.
  */
 @Service
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class LoginAttemptService implements Filter {
 
     private static final Logger log = LoggerFactory.getLogger(LoginAttemptService.class);
-
-    private static final int MAX_TENTATIVAS = 5;
-    private static final Duration BLOQUEIO = Duration.ofMinutes(15);
-
-    private record Estado(int tentativas, Instant bloqueadoAte) {}
-
-    private final ConcurrentHashMap<String, Estado> tentativasPorUsuario = new ConcurrentHashMap<>();
 
     /** IP da requisicao HTTP corrente nesta thread - ver javadoc da classe. */
     private static final ThreadLocal<String> IP_REQUISICAO_ATUAL = new ThreadLocal<>();
@@ -92,21 +77,12 @@ public class LoginAttemptService implements Filter {
         }
     }
 
-    /**
-     * O bloqueio por tentativas foi removido. Sempre devolvemos false para que
-     * o login possa continuar a ser tentado sem travar a conta temporariamente.
-     */
-    public boolean estaBloqueado(String username) {
-        return false;
-    }
-
     @EventListener
     public void aoFalhar(AbstractAuthenticationFailureEvent evento) {
         String username = String.valueOf(evento.getAuthentication().getPrincipal());
         String ip = ipDaAutenticacao(evento.getAuthentication());
         log.warn("Login falhou para usuario '{}' (ip {}): {}", username, ip,
             evento.getException().getMessage());
-        registrarFalha(username, ip);
     }
 
     @EventListener
@@ -114,15 +90,6 @@ public class LoginAttemptService implements Filter {
         String username = evento.getAuthentication().getName();
         String ip = ipDaAutenticacao(evento.getAuthentication());
         log.info("Login bem-sucedido para usuario '{}' (ip {})", username, ip);
-        tentativasPorUsuario.remove(chave(username, ip));
-    }
-
-    private void registrarFalha(String username, String ip) {
-        String k = chave(username, ip);
-        tentativasPorUsuario.compute(k, (key, atual) -> {
-            int tentativas = (atual == null ? 0 : atual.tentativas()) + 1;
-            return new Estado(tentativas, null);
-        });
     }
 
     /**
@@ -136,16 +103,5 @@ public class LoginAttemptService implements Filter {
             return web.getRemoteAddress();
         }
         return IP_REQUISICAO_ATUAL.get();
-    }
-
-    /**
-     * Chave do bloqueio: username + IP (separados por '|'), para isolar o
-     * bloqueio por origem (ver javadoc da classe). Se o IP nao estiver
-     * disponivel (fallback raro, ex.: login programatico sem request HTTP),
-     * cai para username sozinho - pior que username+IP, mas ainda bloqueia algo.
-     */
-    private String chave(String username, String ip) {
-        String u = username == null ? "" : username.toLowerCase(Locale.ROOT);
-        return (ip == null || ip.isBlank()) ? u : u + "|" + ip;
     }
 }

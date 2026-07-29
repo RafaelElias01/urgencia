@@ -7,7 +7,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -246,15 +245,18 @@ public class SecurityConfig {
     }
 
     /**
-     * Distingue o bloqueio por forca bruta ({@link LoginAttemptService}) de uma
-     * simples senha errada, para a tela de login mostrar a mensagem certa
-     * (ver login.html: param.bloqueado vs param.error).
+     * Toda falha de autenticacao volta para {@code /login?error} com a mesma
+     * mensagem generica ("Usuario ou senha invalidos"), sem revelar o motivo
+     * exato (usuario inexistente x senha errada x conta inativa).
+     *
+     * <p>Antes havia um ramo extra que mandava {@code LockedException} para
+     * {@code /login?bloqueado}; ele foi removido junto com o bloqueio por
+     * forca bruta (ver javadoc de {@code LoginAttemptService}) - nada mais
+     * lanca {@code LockedException} neste sistema.
      */
     @Bean
     public AuthenticationFailureHandler loginFailureHandler() {
-        return (request, response, exception) -> {
-            String destino = (exception instanceof LockedException) ? "bloqueado" : "error";
-            response.sendRedirect(request.getContextPath() + "/login?" + destino);
-        };
+        return (request, response, exception) ->
+            response.sendRedirect(request.getContextPath() + "/login?error");
     }
 }

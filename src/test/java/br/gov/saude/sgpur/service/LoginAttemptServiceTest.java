@@ -12,18 +12,28 @@ import org.springframework.security.authentication.event.AuthenticationSuccessEv
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+/**
+ * O bloqueio por forca bruta foi removido do sistema (decisao de produto, ver
+ * javadoc de {@link LoginAttemptService}); o que sobra - e o que estes testes
+ * cobrem - e a trilha de auditoria: nenhuma tentativa de login pode derrubar a
+ * autenticacao com excecao, e o IP precisa continuar sendo capturado pelo
+ * filtro para aparecer no log.
+ */
 class LoginAttemptServiceTest {
 
     private final LoginAttemptService service = new LoginAttemptService();
 
     /**
      * Simula uma requisicao HTTP passando pelo filtro (que captura o IP no
-     * ThreadLocal) e executa {@code dentro} do chain, igual ao Security faria
-     * durante a autenticacao - assim {@code estaBloqueado} consegue ler o
-     * mesmo IP usado para registrar as falhas.
+     * ThreadLocal) e executa {@code dentroDoChain} dentro do chain, igual ao
+     * Security faria durante a autenticacao.
      */
     private void requisicaoDe(String ip, Runnable dentroDoChain) {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -54,55 +64,82 @@ class LoginAttemptServiceTest {
         service.aoLogarComSucesso(new AuthenticationSuccessEvent(auth));
     }
 
-    @Test
-    void naoBloqueiaAntesDoLimite() {
-        for (int i = 0; i < 4; i++) {
-            falhar("admin", "10.0.0.1");
+    /** Le o ThreadLocal privado que guarda o IP da requisicao corrente. */
+    @SuppressWarnings("unchecked")
+    private String ipCapturadoAgora() {
+        try {
+            Field f = LoginAttemptService.class.getDeclaredField("IP_REQUISICAO_ATUAL");
+            f.setAccessible(true);
+            return ((ThreadLocal<String>) f.get(null)).get();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("admin")).isFalse());
     }
 
     @Test
-    void naoBloqueiaMesmoAposCincoFalhasMesmoUsuarioMesmoIp() {
+    void filtroCapturaOIpDaRequisicaoDuranteAExecucaoDoChain() {
+        AtomicReference<String> visto = new AtomicReference<>();
+        requisicaoDe("10.0.0.1", () -> visto.set(ipCapturadoAgora()));
+
+        assertThat(visto.get()).isEqualTo("10.0.0.1");
+    }
+
+    @Test
+    void filtroLimpaOThreadLocalDepoisDaRequisicao() {
+        requisicaoDe("10.0.0.1", () -> {});
+
+        assertThat(ipCapturadoAgora()).isNull();
+    }
+
+    @Test
+    void filtroLimpaOThreadLocalMesmoQuandoOChainLancaExcecao() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.9");
+        FilterChain chain = (req, res) -> {
+            throw new IllegalStateException("erro dentro do chain");
+        };
+
+        assertThatCode(() -> service.doFilter(request, new MockHttpServletResponse(), chain))
+            .isInstanceOf(IllegalStateException.class);
+        assertThat(ipCapturadoAgora()).isNull();
+    }
+
+    @Test
+    void filtroSempreSegueACadeia() {
+        AtomicBoolean chamou = new AtomicBoolean(false);
+        requisicaoDe("10.0.0.1", () -> chamou.set(true));
+
+        assertThat(chamou).isTrue();
+    }
+
+    @Test
+    void muitasFalhasSeguidasNaoBloqueiamNemLancamExcecao() {
+        // O bloqueio por tentativas foi removido: errar a senha muitas vezes
+        // continua sendo apenas auditado, nunca trava a conta.
+        assertThatCode(() -> {
+            for (int i = 0; i < 20; i++) {
+                falhar("admin", "10.0.0.1");
+            }
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    void sucessoDepoisDeVariasFalhasNaoLancaExcecao() {
         for (int i = 0; i < 5; i++) {
             falhar("admin", "10.0.0.1");
         }
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("admin")).isFalse());
+
+        assertThatCode(() -> logarComSucesso("admin", "10.0.0.1")).doesNotThrowAnyException();
     }
 
     @Test
-    void naoBloqueiaPorIpMesmoComCincoFalhasEmUmIp() {
-        // O bloqueio por tentativas foi removido e, portanto, nenhuma combinacao
-        // username+IP devera ficar bloqueada.
-        for (int i = 0; i < 5; i++) {
-            falhar("admin", "10.0.0.1");
-        }
-        requisicaoDe("10.0.0.2", () -> assertThat(service.estaBloqueado("admin")).isFalse());
-    }
+    void eventoDeFalhaForaDeUmaRequisicaoNaoLanca() {
+        // Sem WebAuthenticationDetails e sem ThreadLocal (ex.: login
+        // programatico), o IP fica nulo - o log ainda assim precisa sair.
+        var auth = new UsernamePasswordAuthenticationToken("ninguem", "x");
 
-    @Test
-    void loginComSucessoLimpaContagemDeFalhas() {
-        for (int i = 0; i < 4; i++) {
-            falhar("admin", "10.0.0.1");
-        }
-        logarComSucesso("admin", "10.0.0.1");
-        falhar("admin", "10.0.0.1"); // so 1 falha desde a limpeza
-
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("admin")).isFalse());
-    }
-
-    @Test
-    void usernameEComparadoIgnorandoMaiusculasEMinusculas() {
-        for (int i = 0; i < 5; i++) {
-            falhar("Admin", "10.0.0.1");
-        }
-        requisicaoDe("10.0.0.1", () -> assertThat(service.estaBloqueado("ADMIN")).isFalse());
-    }
-
-    @Test
-    void semRequisicaoAtualEstaBloqueadoNaoLancaEUsaFallbackVazio() {
-        // estaBloqueado fora de uma requisicao (ThreadLocal vazio) nao deve
-        // lancar excecao - so nao vai achar nenhum estado bloqueado.
-        assertThat(service.estaBloqueado("ninguem")).isFalse();
+        assertThatCode(() ->
+            service.aoFalhar(new AuthenticationFailureBadCredentialsEvent(auth, new BadCredentialsException("bad"))))
+            .doesNotThrowAnyException();
     }
 }

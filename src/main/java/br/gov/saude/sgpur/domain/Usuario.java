@@ -67,6 +67,25 @@ public class Usuario {
     @Column(name = "equipe_solicitante", length = 200)
     private String equipeSolicitante;
 
+    /**
+     * Controle de concorrencia otimista: o Hibernate incrementa a cada UPDATE e
+     * detecta escritas concorrentes conflitantes (OptimisticLockException) em
+     * vez de deixar "o ultimo que salva ganha" silenciosamente - ex.: o ADMIN
+     * editando o perfil/vinculo de um usuario enquanto o proprio usuario troca
+     * a senha em /usuarios/minha-senha.
+     *
+     * <p>Como o {@code Processo.versao}, {@code Parecer.versao} e o
+     * {@code MembroUrgenciaRenal.versao}, adicionar esta coluna numa tabela ja
+     * populada exige <b>backfill manual em prod</b> logo apos o deploy
+     * (nao ha Flyway/Liquibase neste projeto e o {@code ddl-auto: update} cria
+     * a coluna com NULL nas linhas antigas, quebrando o proximo UPDATE nelas):
+     * {@code UPDATE usuario SET versao = 0 WHERE versao IS NULL;}
+     * Ver CLAUDE.md, "Convencoes de codigo".
+     */
+    @Version
+    @Column(name = "versao")
+    private Long versao;
+
     public Usuario() {
     }
 
@@ -140,5 +159,13 @@ public class Usuario {
 
     public void setEquipeSolicitante(String equipeSolicitante) {
         this.equipeSolicitante = equipeSolicitante;
+    }
+
+    public Long getVersao() {
+        return versao;
+    }
+
+    public void setVersao(Long versao) {
+        this.versao = versao;
     }
 }

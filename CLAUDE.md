@@ -436,6 +436,13 @@ enum) — não é mais um caminho ativo de escrita. Ver detalhe da remoção em
   não-nula numa entidade já populada, rodar esse tipo de backfill em prod
   logo após o deploy** (não há Flyway/Liquibase neste projeto — é
   responsabilidade manual).
+  **⚠️ BACKFILL PENDENTE (2026-07-29): `Usuario.versao`.** `@Version` foi
+  adicionado a `domain/Usuario.java` (era a única entidade "quente" sem lock
+  otimista; Processo, Parecer, MembroUrgenciaRenal, SolicitacaoOnline e
+  MensagemSolicitacao já tinham). **Rodar em prod logo após o deploy:**
+  `UPDATE usuario SET versao = 0 WHERE versao IS NULL;` — sem isso, o próximo
+  salvamento de qualquer usuário já existente (editar cadastro, ativar/
+  desativar, trocar a própria senha, "esqueci minha senha") quebra com 500.
 - **`ddl-auto: update` também não atualiza CHECK constraints de enum.**
   Mesma classe do pitfall acima, mas para colunas de status/enum
   (`@Enumerated(EnumType.STRING)`) que têm uma constraint `CHECK (status IN
@@ -508,6 +515,14 @@ autenticação, exposição de dados, IDOR e configuração. 6 correções aplic
   `cfc9f86`): o bloqueio de 15 min foi removido** — decisão deliberada de
   produto (não bug), o log de auditoria com IP continua sendo a defesa
   usada. `LoginAttemptService.estaBloqueado` agora sempre retorna `false`.
+  **Limpeza de 2026-07-29:** o código morto que sobrou dessa remoção foi
+  apagado — `estaBloqueado()` (e a contagem de falhas em memória que só ele
+  lia), o `LockedException` inalcançável do `UsuarioDetailsService`, o ramo
+  `LockedException → /login?bloqueado` do `SecurityConfig.loginFailureHandler`
+  e o alerta `th:if="${param.bloqueado}"` do `login.html`. `LoginAttemptService`
+  continua existindo e intacto no que importa: é o `Filter` que captura o IP
+  + os `@EventListener` que logam sucesso/falha de login. Se o bloqueio um dia
+  voltar, os 4 pontos precisam voltar juntos (documentado no javadoc da classe).
 - LogAuditoria.PROCESSO_CADASTRADO: usa `Iniciais.de()` (antes nome completo
   do paciente no detalhe, visível na tela de auditoria ADMIN)
 - Session management: timeout 30m explícito + `maxSessions=1` (concorrência
