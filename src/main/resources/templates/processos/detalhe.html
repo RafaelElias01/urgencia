@@ -265,7 +265,7 @@
                        data-bs-toggle="tab" th:href="'#' + ${passo.paneId}" role="tab"
                        th:title="${passo.tooltip}">
                         <div class="wizard-circle">
-                             <i class="bi" th:classappend="${passo.numero} == 1 ? 'bi-inbox' : (${passo.numero} == 2 ? 'bi-send' : (${passo.numero} == 3 ? 'bi-chat-square-text' : (${passo.numero} == 4 ? 'bi-scale' : 'bi-flag')))"></i>
+                             <i class="bi" th:classappend="${passo.numero} == 1 ? 'bi-inbox' : (${passo.numero} == 2 ? 'bi-send' : (${passo.numero} == 3 ? 'bi-chat-square-text' : (${passo.numero} == 4 ? 'bi-hammer' : 'bi-flag')))"></i>
                         </div>
                         <span class="wizard-label" th:text="${passo.titulo}">Passo</span>
                         <span class="badge bg-success ms-1" th:if="${passo.numero == 3 and envioFeito and favoraveis > 0}"
@@ -630,7 +630,7 @@
                      id="pane-decisao" role="tabpanel" aria-labelledby="tab-decisao">
             <!-- Decisao -->
             <div class="card mb-4" id="decisao">
-                <div class="card-header"><i class="bi bi-scale"></i> Decisao final</div>
+                <div class="card-header"><i class="bi bi-hammer"></i> Decisao final</div>
                 <div class="card-body">
                     <!-- Processo ja decidido (manual ou automaticamente ao atingir a maioria):
                          some o formulario, so a confirmacao. Evita o formulario "Registrar

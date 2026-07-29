@@ -149,7 +149,7 @@ public class FluxoProcessoService {
                     + ProcessoService.AVALIADORES_POR_PROCESSO + " favoraveis).")
                 .orElse("Aguardando pareceres suficientes para decidir.");
         }
-        etapas.add(montar("Decisao final", "scale", decidido, anterioresConcluidas, detDecisao));
+        etapas.add(montar("Decisao final", "hammer", decidido, anterioresConcluidas, detDecisao));
         anterioresConcluidas = finalizado || (anterioresConcluidas && decidido);
 
         // 5. Oficio de indeferimento (apenas quando indeferido)
