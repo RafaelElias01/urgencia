@@ -197,11 +197,9 @@ public class RelatorioAnualService {
         for (Processo p : processos) {
             contagem.merge(p.getStatus(), 1, Integer::sum);
         }
-        // ENVIADO e EM_ANALISE sao apresentados juntos como "Em andamento".
         int total = processos.size();
         int solicitado = contagem.getOrDefault(StatusProcesso.SOLICITADO, 0);
-        int emAndamento = contagem.getOrDefault(StatusProcesso.ENVIADO, 0)
-            + contagem.getOrDefault(StatusProcesso.EM_ANALISE, 0);
+        int emAndamento = contagem.getOrDefault(StatusProcesso.ENVIADO, 0);
         int solicitaInfo = contagem.getOrDefault(StatusProcesso.SOLICITA_INFORMACAO, 0);
         int deferido = contagem.getOrDefault(StatusProcesso.DEFERIDO, 0);
         int indeferido = contagem.getOrDefault(StatusProcesso.INDEFERIDO, 0);

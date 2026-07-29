@@ -28,13 +28,9 @@ public class FluxoProcessoService {
 
     /**
      * true se o processo foi originado do Portal do Solicitante (convertido a
-     * partir de uma {@code SolicitacaoOnline}). Nesse caso o Passo 1
-     * (Recebimento) dispensa a copia manual da solicitacao original
-     * (TipoAnexo.SOLICITACAO_RECEBIDA) - os dados ja chegaram digitais pelo
-     * proprio sistema, nao existe "e-mail original" pra anexar. Fonte unica
-     * usada tanto por {@link #montarEtapas} quanto por {@link #calcularGating}
-     * (mesmo espirito de nao deixar as duas conta divergirem, ver historico
-     * de bugs de wizard/timeline dessincronizados).
+     * partir de uma {@code SolicitacaoOnline}). Usado para exibir o link "Ver
+     * solicitacao original" no card de Recebimento da tela de detalhe - nao
+     * influencia mais nenhum gating (todo processo nasce do Portal).
      */
     public boolean veioDoPortal(Processo p) {
         return p.getId() != null && solicitacaoOnlineRepository.existsByProcessoGeradoId(p.getId());
@@ -58,7 +54,7 @@ public class FluxoProcessoService {
         //    (ProcessoDetalheController.novo/salvar passaram a exigir
         //    origemSolicitacaoOnlineId) - nao existe mais cadastro manual "do
         //    zero" nem "e-mail original" a anexar, entao esta etapa nunca
-        //    depende de nenhum anexo (SOLICITACAO_RECEBIDA/CAPA_PROCESSO).
+        //    depende de nenhum anexo.
         //    veioDoPortal(p) continua existindo so para achar o link "Ver
         //    solicitacao original" na tela de detalhe.
         String detReceb = "Recebimento automatico (solicitacao enviada pelo Portal do Solicitante).";
@@ -93,24 +89,18 @@ public class FluxoProcessoService {
         etapas.add(montar("Envio aos 3 medicos", "send-fill", enviado, anterioresConcluidas, detEnvio));
         anterioresConcluidas = finalizado || (anterioresConcluidas && enviado);
 
-        // 3. Respostas dos medicos (cada resposta recebida precisa do anexo).
-        //    Por MAIORIA SIMPLES (2 de 3), assim que ha 2 votos do mesmo tipo a
-        //    etapa esta pronta: nao e preciso aguardar o 3o parecer para decidir.
+        // 3. Respostas dos medicos. Por MAIORIA SIMPLES (2 de 3), assim que ha
+        //    2 votos do mesmo tipo a etapa esta pronta: nao e preciso aguardar
+        //    o 3o parecer para decidir.
         long respondidos = processoService.contarRespondidos(p);
         long favoraveis = processoService.contarFavoraveis(p);
-        var recebidosSemAnexo = processoService.pareceresRecebidosSemAnexo(p);
         var sugestaoResp = processoService.sugerirDecisao(p);
         boolean maioria = sugestaoResp.isPresent();
         boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
-        boolean respostasOk = (maioria || todasRespondidas) && recebidosSemAnexo.isEmpty();
+        boolean respostasOk = maioria || todasRespondidas;
         String detResp;
         if (totalMedicos == 0) {
             detResp = "Aguardando definicao dos medicos.";
-        } else if (!recebidosSemAnexo.isEmpty()) {
-            String nomes = recebidosSemAnexo.stream()
-                .map(par -> par.getMembro().getNome())
-                .collect(java.util.stream.Collectors.joining(", "));
-            detResp = "Anexe a resposta de: " + nomes + ".";
         } else if (maioria) {
             detResp = "Maioria formada (" + sugestaoResp.get().getDescricao()
                 + ") - pronto para decidir. Favoraveis: " + favoraveis + ".";
@@ -310,11 +300,9 @@ public class FluxoProcessoService {
         // Maioria simples (2 de 3): assim que ha >=2 favoraveis OU >=2 desfavoraveis
         // o resultado ja esta definido e nao e preciso aguardar o 3o parecer.
         boolean maioriaFormada = processoService.sugerirDecisao(p).isPresent();
-        boolean semAnexoPendente = processoService.pareceresRecebidosSemAnexo(p).isEmpty();
         // A decisao libera quando: (a) maioria ja formada, OU (b) todas as
-        // respostas chegaram. Em ambos os casos os pareceres recebidos precisam
-        // dos seus anexos (decidir exige RESPOSTA_AVALIADOR de todo parecer recebido).
-        boolean respostasOk = (maioriaFormada || todasRespondidas) && semAnexoPendente;
+        // respostas chegaram.
+        boolean respostasOk = maioriaFormada || todasRespondidas;
         boolean decidido = p.getStatus().isFinalizado();
         // PAUSA: enquanto aguarda informacao complementar do solicitante, a
         // decisao e a finalizacao ficam bloqueadas ate o operador retomar a analise.
@@ -340,7 +328,7 @@ public class FluxoProcessoService {
      * sub-rotulo a mostrar (mesmo comportamento anterior).
      */
     public String calcularSubrotuloStatus(Processo p) {
-        if (p.getStatus() != StatusProcesso.ENVIADO && p.getStatus() != StatusProcesso.EM_ANALISE) {
+        if (p.getStatus() != StatusProcesso.ENVIADO) {
             return null;
         }
         boolean envioFeito = envioRegistrado(p);
@@ -348,9 +336,8 @@ public class FluxoProcessoService {
         int totalMedicos = p.getPareceres().size();
         var sugestao = processoService.sugerirDecisao(p);
         boolean maioriaFormada = sugestao.isPresent();
-        boolean semAnexoPendente = processoService.pareceresRecebidosSemAnexo(p).isEmpty();
         boolean todasRespondidas = totalMedicos > 0 && respondidos == totalMedicos;
-        boolean respostasOk = (maioriaFormada || todasRespondidas) && semAnexoPendente;
+        boolean respostasOk = maioriaFormada || todasRespondidas;
 
         if (envioFeito && maioriaFormada) {
             return "Maioria formada - pronto para decidir (" + sugestao.get().getDescricao() + ")";

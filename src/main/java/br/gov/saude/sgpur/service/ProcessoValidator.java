@@ -3,7 +3,6 @@ package br.gov.saude.sgpur.service;
 import br.gov.saude.sgpur.domain.*;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -107,32 +106,11 @@ public class ProcessoValidator {
         return Optional.empty();
     }
 
-    /**
-     * Pareceres ja "recebidos" (com resultado preenchido) que ainda NAO tem o
-     * e-mail/documento de resposta anexado (TipoAnexo.RESPOSTA_AVALIADOR
-     * vinculado ao proprio parecer). Regra: toda resposta de medico registrada
-     * precisa ter o anexo comprobatorio antes de decidir o processo.
-     */
-    public List<Parecer> pareceresRecebidosSemAnexo(Processo processo) {
-        java.util.Set<Long> comAnexo = processo.getAnexos().stream()
-            .filter(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR && a.getParecer() != null)
-            .map(a -> a.getParecer().getId())
-            .collect(java.util.stream.Collectors.toSet());
-        return processo.getPareceres().stream()
-            .filter(par -> par.getResultado() != null)          // recebido
-            // Pareceres votados diretamente pelo avaliador autenticado (AVALIADOR_SISTEMA)
-            // nao exigem anexo: o proprio registro autenticado (usuario + IP + dataHoraVoto)
-            // serve de comprovante. Origem null (legado) e OPERADOR_EMAIL continuam exigindo.
-            .filter(par -> par.getOrigem() != OrigemParecer.AVALIADOR_SISTEMA)
-            .filter(par -> !comAnexo.contains(par.getId()))     // sem anexo de resposta
-            .toList();
-    }
-
     // ----- Validacoes de decisao (retornam a mensagem de erro, ou vazio) -----
     //
     // Sao granulares porque a camada web usa cada grupo para escolher a ancora
-    // de redirecionamento (pausa/anexos -> #respostas; contagem -> topo). O
-    // servico encadeia todas em validarDecisao (defesa em profundidade).
+    // de redirecionamento (pausa -> #respostas; contagem -> topo). O servico
+    // encadeia todas em validarDecisao (defesa em profundidade).
 
     /**
      * Bloqueio por PAUSA: aguardando informacao complementar do solicitante.
@@ -191,31 +169,15 @@ public class ProcessoValidator {
         return Optional.empty();
     }
 
-    /** Toda resposta de medico recebida precisa ter o anexo comprobatorio antes de decidir. */
-    public Optional<String> validarAnexosResposta(Processo processo, StatusProcesso decisao) {
-        if (decisao == StatusProcesso.DEFERIDO || decisao == StatusProcesso.INDEFERIDO) {
-            List<Parecer> semAnexo = pareceresRecebidosSemAnexo(processo);
-            if (!semAnexo.isEmpty()) {
-                String nomes = semAnexo.stream()
-                    .map(par -> par.getMembro().getNome())
-                    .collect(java.util.stream.Collectors.joining(", "));
-                return Optional.of(
-                    "Anexe a resposta dos medicos antes de decidir. Sem anexo: " + nomes + ".");
-            }
-        }
-        return Optional.empty();
-    }
-
     /**
      * Todas as pre-condicoes da decisao final, na mesma ordem imposta pelo
-     * servico: pausa -> contagem de votos -> motivo -> anexos. Retorna a
-     * primeira mensagem de erro encontrada, ou vazio se pode decidir.
+     * servico: pausa -> contagem de votos -> motivo. Retorna a primeira
+     * mensagem de erro encontrada, ou vazio se pode decidir.
      */
     public Optional<String> validarDecisao(Processo processo, StatusProcesso decisao, String motivoIndeferimento) {
         return validarPausaDecisao(processo, decisao)
             .or(() -> validarContagemVotos(processo, decisao))
-            .or(() -> validarMotivoIndeferimento(decisao, motivoIndeferimento))
-            .or(() -> validarAnexosResposta(processo, decisao));
+            .or(() -> validarMotivoIndeferimento(decisao, motivoIndeferimento));
     }
 
     /**

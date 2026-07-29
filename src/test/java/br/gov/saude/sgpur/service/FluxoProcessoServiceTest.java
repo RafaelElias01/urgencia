@@ -70,7 +70,7 @@ class FluxoProcessoServiceTest {
 
     /**
      * Etapa 3 (Respostas) concluida por maioria: 2 pareceres com o resultado
-     * informado e anexo de resposta vinculado; o 3o fica sem responder.
+     * informado; o 3o fica sem responder.
      */
     private void registrarMaioria(Processo p, ResultadoParecer resultado) {
         long id = 1;
@@ -81,10 +81,6 @@ class FluxoProcessoServiceTest {
         for (int i = 0; i < 2; i++) {
             Parecer par = p.getPareceres().get(i);
             par.setResultado(resultado);
-            Anexo resp = new Anexo();
-            resp.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-            resp.setParecer(par);
-            p.addAnexo(resp);
         }
     }
 
@@ -172,7 +168,7 @@ class FluxoProcessoServiceTest {
 
     @Test
     void respostasPodeConcluirComMaioriaSemAguardarTerceiroParecer() {
-        // 2 favoraveis (com anexo de resposta) + 1 ainda sem responder.
+        // 2 favoraveis + 1 ainda sem responder.
         // Por maioria simples a etapa Respostas ja deve estar CONCLUIDA, sem
         // ficar "Aguardando parecer (2/3)".
         Processo p = processoProntoParaDecisao();
@@ -413,10 +409,6 @@ class FluxoProcessoServiceTest {
         Parecer par0 = p.getPareceres().get(0);
         par0.setId(1L);
         par0.setResultado(ResultadoParecer.SOLICITA_INFORMACAO);
-        Anexo respPar0 = new Anexo();
-        respPar0.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        respPar0.setParecer(par0);
-        p.addAnexo(respPar0);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
 
         List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
@@ -437,14 +429,10 @@ class FluxoProcessoServiceTest {
         // complementar" fica ATUAL (a pausa esta "na frente" do fluxo).
         Processo p = processoComTresPareceres();
         registrarEnvioCompleto(p);
-        registrarMaioria(p, ResultadoParecer.FAVORAVEL); // pareceres 0 e 1 favoraveis, com anexo
+        registrarMaioria(p, ResultadoParecer.FAVORAVEL); // pareceres 0 e 1 favoraveis
         Parecer par2 = p.getPareceres().get(2);
         par2.setId(3L);
         par2.setResultado(ResultadoParecer.SOLICITA_INFORMACAO);
-        Anexo respPar2 = new Anexo();
-        respPar2.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        respPar2.setParecer(par2);
-        p.addAnexo(respPar2);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
 
         List<EtapaFluxo> pausado = fluxo().montarEtapas(p);
@@ -497,10 +485,6 @@ class FluxoProcessoServiceTest {
         Parecer par2 = p.getPareceres().get(2);
         par2.setId(3L);
         par2.setResultado(ResultadoParecer.SOLICITA_INFORMACAO);
-        Anexo respPar2 = new Anexo();
-        respPar2.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        respPar2.setParecer(par2);
-        p.addAnexo(respPar2);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
 
         List<EtapaFluxo> etapas = fluxo().montarEtapas(p);
@@ -578,8 +562,7 @@ class FluxoProcessoServiceTest {
     void recebimentoConcluiAutomaticamenteMesmoSemNenhumAnexoEIndependenteDeVeioDoPortal() {
         Processo p = processoComTresPareceres();
         p.setId(10L);
-        // nenhum anexo - nem CAPA_PROCESSO, nem SOLICITACAO_RECEBIDA - e
-        // veioDoPortal(p) false (stub default de fluxo()): mesmo assim a
+        // nenhum anexo e veioDoPortal(p) false (stub default de fluxo()): mesmo assim a
         // etapa 1 ja nasce CONCLUIDA e o Envio (passo 2) ja libera de imediato.
         FluxoProcessoService fluxo = fluxo();
         EtapaFluxo recebimento = fluxo.montarEtapas(p).get(0);

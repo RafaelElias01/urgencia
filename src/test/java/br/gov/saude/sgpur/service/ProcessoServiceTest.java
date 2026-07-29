@@ -70,21 +70,6 @@ class ProcessoServiceTest {
         return p;
     }
 
-    /** Vincula um anexo de RESPOSTA_AVALIADOR ao parecer informado. */
-    private void anexarResposta(Processo p, Parecer parecer) {
-        Anexo a = new Anexo();
-        a.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        a.setParecer(parecer);
-        p.addAnexo(a);
-    }
-
-    /** Anexa a resposta de todos os pareceres ja recebidos (resultado != null). */
-    private void anexarRespostasParaTodosRecebidos(Processo p) {
-        p.getPareceres().stream()
-                .filter(par -> par.getResultado() != null)
-                .forEach(par -> anexarResposta(p, par));
-    }
-
     @Test
     void defereComDoisFavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL, ResultadoParecer.FAVORAVEL, null);
@@ -124,7 +109,6 @@ class ProcessoServiceTest {
         Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
         parCoord.setId(10L);
         p.addParecer(parCoord);
-        anexarResposta(p, parCoord);
         when(processoRepository.findById(30L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
 
@@ -185,7 +169,6 @@ class ProcessoServiceTest {
         par3.setId(101L);
         p.addParecer(par2);
         p.addParecer(par3);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
 
         assertThatThrownBy(() -> service.decidir(31L, StatusProcesso.INDEFERIDO, "motivo"))
@@ -368,7 +351,6 @@ class ProcessoServiceTest {
     void decidirBloqueiaQuandoAguardandoInformacaoComplementar() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.SOLICITA_INFORMACAO);
-        anexarRespostasParaTodosRecebidos(p);
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
         when(processoRepository.findById(21L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(21L, StatusProcesso.INDEFERIDO, "motivo"))
@@ -391,7 +373,6 @@ class ProcessoServiceTest {
     void decidirDeferidoComDoisFavoraveis() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(5L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.decidir(5L, StatusProcesso.DEFERIDO, null);
@@ -412,7 +393,6 @@ class ProcessoServiceTest {
     void decidirIndeferidoComDoisDesfavoraveis() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(7L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.decidir(7L, StatusProcesso.INDEFERIDO, "motivo");
@@ -426,35 +406,11 @@ class ProcessoServiceTest {
         // deve ser rejeitado.
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(24L)).thenReturn(java.util.Optional.of(p));
         assertThatThrownBy(() -> service.decidir(24L, StatusProcesso.INDEFERIDO, "  "))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("motivo");
         assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.INDEFERIDO);
-    }
-
-    @Test
-    void decidirBloqueiaQuandoRespostaRecebidaSemAnexo() {
-        // 2 favoraveis recebidos, mas sem o anexo da resposta -> nao pode deferir
-        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        when(processoRepository.findById(8L)).thenReturn(java.util.Optional.of(p));
-        assertThatThrownBy(() -> service.decidir(8L, StatusProcesso.DEFERIDO, null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Anexe a resposta");
-        assertThat(p.getStatus()).isNotEqualTo(StatusProcesso.DEFERIDO);
-    }
-
-    @Test
-    void pareceresRecebidosSemAnexoListaApenasOsFaltantes() {
-        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-                ResultadoParecer.FAVORAVEL, null);
-        // anexa a resposta apenas do primeiro parecer recebido
-        Parecer primeiro = p.getPareceres().get(0);
-        anexarResposta(p, primeiro);
-        var faltantes = service.pareceresRecebidosSemAnexo(p);
-        assertThat(faltantes).containsExactly(p.getPareceres().get(1));
     }
 
     @Test
@@ -470,32 +426,9 @@ class ProcessoServiceTest {
     }
 
     /**
-     * Parecer votado diretamente pelo avaliador autenticado (AVALIADOR_SISTEMA)
-     * NAO deve aparecer em pareceresRecebidosSemAnexo — a prova e o registro
-     * autenticado, nao um anexo.
-     */
-    @Test
-    void pareceresRecebidosSemAnexoIgnoraOrigemAvaliadorSistema() {
-        Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
-                ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        // Primeiro: operador lancou (origem null = OPERADOR_EMAIL) — sem anexo, deve
-        // aparecer
-        // Segundo: avaliador autenticado (AVALIADOR_SISTEMA) — sem anexo, mas NAO deve
-        // aparecer
-        // Terceiro: operador lancou, mas com anexo — nao deve aparecer
-        Parecer segundo = p.getPareceres().get(1);
-        segundo.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
-        Parecer terceiro = p.getPareceres().get(2);
-        anexarResposta(p, terceiro);
-
-        var faltantes = service.pareceresRecebidosSemAnexo(p);
-        // Apenas o primeiro (origem null, sem anexo) deve constar
-        assertThat(faltantes).containsExactly(p.getPareceres().get(0));
-    }
-
-    /**
-     * Com todos os pareceres de origem AVALIADOR_SISTEMA (sem nenhum anexo),
-     * pareceresRecebidosSemAnexo deve retornar vazio — pode decidir sem anexo.
+     * decidir() nao exige nenhum anexo comprobatorio: o voto direto do
+     * avaliador autenticado no portal (AVALIADOR_SISTEMA) e a unica origem de
+     * parecer, e o proprio registro autenticado ja e a prova do voto.
      */
     @Test
     void decidirPermitidoQuandoTodosVotosForamPeloPortal() {
@@ -507,7 +440,6 @@ class ProcessoServiceTest {
         when(processoRepository.findById(99L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
 
-        // NAO deve lancar excecao de "Anexe a resposta"
         service.decidir(99L, StatusProcesso.DEFERIDO, null);
         assertThat(p.getStatus()).isEqualTo(StatusProcesso.DEFERIDO);
     }
@@ -516,7 +448,6 @@ class ProcessoServiceTest {
     void reabrirVoltaParaEnviadoELimpaDecisao() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(30L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
         service.decidir(30L, StatusProcesso.DEFERIDO, null);
@@ -541,7 +472,6 @@ class ProcessoServiceTest {
     void reabrirDevolveSolicitacaoAprovadaParaConvertida() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(31L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
 
@@ -563,7 +493,6 @@ class ProcessoServiceTest {
     void reabrirDevolveSolicitacaoReprovadaParaConvertida() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         when(processoRepository.findById(32L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
 
@@ -688,12 +617,10 @@ class ProcessoServiceTest {
         Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
         parInfo.setId(1L);
         p.addParecer(parInfo);
-        anexarResposta(p, parInfo);
 
         Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
         parCoord.setId(2L);
         p.addParecer(parCoord);
-        anexarResposta(p, parCoord);
 
         Parecer par3 = parecer(null);
         par3.setId(3L);
@@ -727,7 +654,6 @@ class ProcessoServiceTest {
         p.getPareceres().get(1).setJustificativa("Exames nao confirmam a urgencia.");
         p.getPareceres().get(2).getMembro().setNome("Dr. Bruno");
         p.getPareceres().get(2).setJustificativa("Ausencia de indicacao clinica.");
-        anexarRespostasParaTodosRecebidos(p);
 
         when(processoRepository.findById(50L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -757,7 +683,6 @@ class ProcessoServiceTest {
     void indefereAutomaticamenteComMotivoInstitucionalImpessoal() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
 
         when(processoRepository.findById(51L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -779,7 +704,6 @@ class ProcessoServiceTest {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
         p.getPareceres().forEach(par -> par.setJustificativa("texto clinico interno"));
-        anexarRespostasParaTodosRecebidos(p);
 
         when(processoRepository.findById(52L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -803,12 +727,10 @@ class ProcessoServiceTest {
         Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
         parInfo.setId(1L);
         p.addParecer(parInfo);
-        anexarResposta(p, parInfo);
 
         Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
         parCoord.setId(2L);
         p.addParecer(parCoord);
-        anexarResposta(p, parCoord);
 
         when(processoRepository.findById(41L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -832,17 +754,14 @@ class ProcessoServiceTest {
         Parecer parInfo = parecer(ResultadoParecer.SOLICITA_INFORMACAO);
         parInfo.setId(1L);
         p.addParecer(parInfo);
-        anexarResposta(p, parInfo);
 
         Parecer parCoord = parecerCoordenador(ResultadoParecer.FAVORAVEL);
         parCoord.setId(2L);
         p.addParecer(parCoord);
-        anexarResposta(p, parCoord);
 
         Parecer parDesfav = parecer(ResultadoParecer.NAO_FAVORAVEL);
         parDesfav.setId(3L);
         p.addParecer(parDesfav);
-        anexarResposta(p, parDesfav);
 
         when(processoRepository.findById(42L)).thenReturn(java.util.Optional.of(p));
 
@@ -932,7 +851,6 @@ class ProcessoServiceTest {
     void decidirDeferidoAtualizaSolicitacaoParaAprovada() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         p.setId(200L);
         when(processoRepository.findById(200L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -952,7 +870,6 @@ class ProcessoServiceTest {
     void decidirIndeferidoAtualizaSolicitacaoParaReprovada() {
         Processo p = comPareceres(ResultadoParecer.NAO_FAVORAVEL,
                 ResultadoParecer.NAO_FAVORAVEL, ResultadoParecer.FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         p.setId(201L);
         when(processoRepository.findById(201L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -972,7 +889,6 @@ class ProcessoServiceTest {
     void decidirNaoAtualizaSolicitacaoQuandoProcessoNaoVeioDoPortal() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         p.setId(202L);
         when(processoRepository.findById(202L)).thenReturn(java.util.Optional.of(p));
         when(processoRepository.save(p)).thenReturn(p);
@@ -990,7 +906,6 @@ class ProcessoServiceTest {
     void finalizarRespostaEnviaEmailESalvaMensagem() {
         Processo p = comPareceres(ResultadoParecer.FAVORAVEL,
                 ResultadoParecer.FAVORAVEL, ResultadoParecer.NAO_FAVORAVEL);
-        anexarRespostasParaTodosRecebidos(p);
         p.setId(300L);
         p.setStatus(StatusProcesso.DEFERIDO);
         p.setSolicitanteEmail("solicitante@test.com");

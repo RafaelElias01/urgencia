@@ -371,48 +371,6 @@ class ProcessoAnexoControllerTest {
 
     @Test
     @WithMockUser(roles = "OPERADOR")
-    void excluirRespostaAvaliadorVotadaPeloPortalEhBloqueada() throws Exception {
-        Parecer parecer = new Parecer();
-        parecer.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
-        Anexo anexo = new Anexo();
-        anexo.setId(5L);
-        anexo.setProcesso(processo);
-        anexo.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        anexo.setParecer(parecer);
-        when(anexoStorage.buscar(5L)).thenReturn(anexo);
-
-        mvc.perform(post("/processos/anexos/5/excluir").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#respostas"))
-            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("nao-repudio")));
-
-        verify(anexoStorage, never()).excluir(any());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void excluirRespostaAvaliadorLancadaPeloOperadorNaoEhBloqueada() throws Exception {
-        Parecer parecer = new Parecer();
-        parecer.setOrigem(OrigemParecer.OPERADOR_EMAIL);
-        Anexo anexo = new Anexo();
-        anexo.setId(5L);
-        anexo.setProcesso(processo);
-        anexo.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        anexo.setParecer(parecer);
-        when(anexoStorage.buscar(5L)).thenReturn(anexo);
-        when(anexoStorage.excluir(5L)).thenReturn(1L);
-
-        mvc.perform(post("/processos/anexos/5/excluir").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#anexos"))
-            .andExpect(flash().attribute("msg", "Anexo removido."));
-
-        verify(anexoStorage).excluir(5L);
-        verify(auditoria).registrar(eq("ANEXO_REMOVIDO"), anyString());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
     void excluirAnexoComumRemoveNormalmente() throws Exception {
         Anexo anexo = new Anexo();
         anexo.setId(5L);

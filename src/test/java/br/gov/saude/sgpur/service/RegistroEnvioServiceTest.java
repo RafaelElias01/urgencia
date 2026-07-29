@@ -115,7 +115,7 @@ class RegistroEnvioServiceTest {
         assertThat(resultado.mensagemSucesso()).contains("Envio aos avaliadores registrado em");
         assertThat(resultado.avisos()).isEmpty();
 
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.SOLICITACAO_AVALIADOR, 99L);
+        verify(anexoStorage).removerAntigosDoTipo(processo, TipoAnexo.SOLICITACAO_AVALIADOR, 99L);
         verify(processoService).salvar(processo);
         verify(processoService).registrarEnvio(1L);
         verify(auditoria).registrar(eq("ANEXO_ADICIONADO"), anyString());

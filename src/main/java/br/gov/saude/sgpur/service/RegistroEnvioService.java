@@ -179,7 +179,7 @@ public class RegistroEnvioService {
             Anexo novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.SOLICITACAO_AVALIADOR,
                 "Copia da solicitacao para envio as equipes (documentos clinicos anonimizados com cabecalho; nome completo suprimido)",
                 nomeSolicitacao, "application/pdf", pdfSolicitacao);
-            anexoStorage.removerAntigosDoTipo(processoId, TipoAnexo.SOLICITACAO_AVALIADOR, novoAnexo.getId());
+            anexoStorage.removerAntigosDoTipo(p, TipoAnexo.SOLICITACAO_AVALIADOR, novoAnexo.getId());
 
             // SO depois de o novo anexo estar seguro, efetiva o envio.
             p.getPareceres().forEach(par -> par.setDataEnvio(hoje));

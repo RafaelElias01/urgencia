@@ -101,11 +101,11 @@ class GlobalModelAdviceTest {
         usuario.setMembro(membro);
         when(usuarioRepo.findByUsername("aval1")).thenReturn(Optional.of(usuario));
 
-        Parecer pendenteEmAnalise = parecerComProcesso(StatusProcesso.EM_ANALISE);
-        Parecer pendenteEnviado = parecerComProcesso(StatusProcesso.ENVIADO);
+        Parecer pendenteEnviado1 = parecerComProcesso(StatusProcesso.ENVIADO);
+        Parecer pendenteEnviado2 = parecerComProcesso(StatusProcesso.ENVIADO);
         Parecer pendenteFinalizado = parecerComProcesso(StatusProcesso.DEFERIDO);
         when(parecerRepo.findByMembroIdAndResultadoIsNullAndDataEnvioIsNotNull(7L))
-            .thenReturn(List.of(pendenteEmAnalise, pendenteEnviado, pendenteFinalizado));
+            .thenReturn(List.of(pendenteEnviado1, pendenteEnviado2, pendenteFinalizado));
 
         assertThat(advice.pendentesAvaliador()).isEqualTo(2);
     }

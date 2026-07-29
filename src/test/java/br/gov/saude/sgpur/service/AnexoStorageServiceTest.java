@@ -50,11 +50,11 @@ class AnexoStorageServiceTest {
         when(anexoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         MockMultipartFile arquivo = new MockMultipartFile(
             "arquivo", "scan0012.pdf", "application/pdf", "conteudo".getBytes());
-        var anexo = service.salvar(processo(), TipoAnexo.SOLICITACAO_RECEBIDA, "desc", arquivo);
-        // Nome padrao: "AAAA-MM-DD - CET-RS 07-2026 - Solicitacao recebida.pdf"
+        var anexo = service.salvar(processo(), TipoAnexo.DOCUMENTO_PACIENTE, "desc", arquivo);
+        // Nome padrao: "AAAA-MM-DD - CET-RS 07-2026 - Documento paciente.pdf"
         // (a barra do numero vira traco; o nome original do upload e descartado).
         assertThat(anexo.getNomeArquivo())
-            .matches("\\d{4}-\\d{2}-\\d{2} - CET-RS 07-2026 - Solicitacao recebida\\.pdf");
+            .matches("\\d{4}-\\d{2}-\\d{2} - CET-RS 07-2026 - Documento paciente\\.pdf");
     }
 
     @Test
@@ -73,7 +73,7 @@ class AnexoStorageServiceTest {
     void salvarRejeitaExecutavel() {
         MockMultipartFile arquivo = new MockMultipartFile(
             "arquivo", "malware.exe", "application/octet-stream", "conteudo".getBytes());
-        assertThatThrownBy(() -> service.salvar(processo(), TipoAnexo.SOLICITACAO_RECEBIDA, "desc", arquivo))
+        assertThatThrownBy(() -> service.salvar(processo(), TipoAnexo.DOCUMENTO_PACIENTE, "desc", arquivo))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("nao permitido");
     }
@@ -88,15 +88,17 @@ class AnexoStorageServiceTest {
 
     @Test
     void removerAntigosDoTipoIgnoraAnexoComCaminhoInvalido() {
+        Processo p = processo();
+        p.setId(1L);
         Anexo antigo = new Anexo();
         antigo.setId(10L);
-        antigo.setProcesso(processo());
+        antigo.setProcesso(p);
         antigo.setTipo(TipoAnexo.COMPROVANTE_SNT);
         antigo.setCaminhoArmazenado(null);
         when(anexoRepository.findByProcessoIdAndTipo(1L, TipoAnexo.COMPROVANTE_SNT))
             .thenReturn(java.util.List.of(antigo));
 
-        assertThatCode(() -> service.removerAntigosDoTipo(1L, TipoAnexo.COMPROVANTE_SNT, 99L))
+        assertThatCode(() -> service.removerAntigosDoTipo(p, TipoAnexo.COMPROVANTE_SNT, 99L))
             .doesNotThrowAnyException();
 
         verify(anexoRepository).delete(antigo);

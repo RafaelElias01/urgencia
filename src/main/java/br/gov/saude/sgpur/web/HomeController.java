@@ -69,7 +69,7 @@ public class HomeController {
                 default -> { }
             }
             // "Em andamento" agrupa os status nao finais (SOLICITADO, ENVIADO,
-            // EM_ANALISE, SOLICITA_INFORMACAO). O que falta por processo reusa o
+            // SOLICITA_INFORMACAO). O que falta por processo reusa o
             // FluxoProcessoService.
             if (p.getStatus().isEmAndamento()) {
                 emAndamento++;

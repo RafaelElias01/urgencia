@@ -167,10 +167,46 @@ public class AnexoStorageService {
      * acabou de ser criado - assim, se o save() do novo tivesse falhado, os
      * antigos nunca seriam tocados (evita o processo ficar sem nenhum anexo
      * daquele tipo em caso de falha no meio do caminho).
+     *
+     * <p><b>Recebe o {@code Processo} (nao so o id) desde a correcao de
+     * 2026-07-29.</b> {@code anexoRepository.delete(a)} apaga a linha do
+     * banco e marca aquela instancia de {@code Anexo} como REMOVIDA na
+     * sessao/persistence context atual, mas nunca tirava essa mesma instancia
+     * da colecao {@code Processo.anexos} em memoria. Como
+     * {@code Processo.anexos} e {@code cascade = CascadeType.ALL} (inclui
+     * MERGE), um {@code processoRepository.save(processo)} chamado logo
+     * depois NA MESMA transacao (ex.: {@code RegistroEnvioService.registrar})
+     * cascateava merge para a colecao inteira - inclusive o {@code Anexo} que
+     * acabou de ser deletado aqui, ainda presente na lista - e o Hibernate
+     * recusava com {@code ObjectDeletedException: deleted instance passed to
+     * merge}. Bug real reportado em 2026-07-29 (500 ao registrar o envio de
+     * um processo pela segunda vez, ex.: apos o ADMIN reabrir).
+     *
+     * <p>Corrigido chamando {@link Processo#removerAnexo(Anexo)} logo apos
+     * cada {@code delete()}, que tira a instancia da colecao SEM reatribuir a
+     * referencia da lista (ver javadoc daquele metodo - reatribuir quebra o
+     * orphan-removal, outro bug real ja documentado em
+     * {@code ProcessoAnexoController.substituirAnexo}).
+     *
+     * <p><b>Nem todo chamador tem o {@code Processo} preso a uma sessao
+     * aberta.</b> {@code RegistroEnvioService}/{@code DecisaoFinalService}
+     * chamam este metodo dentro da MESMA transacao em que o {@code Processo}
+     * foi carregado (a colecao continua acessivel), mas
+     * {@code ProcessoAnexoController.substituirAnexo} chama de dentro de um
+     * metodo SEM transacao de controller (cada chamada abre a sua propria,
+     * de proposito - ver javadoc da classe), entao o {@code Processo} recebido
+     * ja esta DESANEXADO de uma sessao ja fechada quando chega aqui. Tentar
+     * remover da colecao nesse caso lanca
+     * {@code LazyInitializationException} (a colecao lazy nao pode ser
+     * carregada sem sessao) - inofensivo de ignorar: sem sessao aberta essa
+     * mesma instancia de {@code Processo} nao vai ser reaproveitada num merge
+     * cascade dentro DESTA chamada mesmo (os 3 uploads que usam
+     * {@code substituirAnexo} nunca salvam o {@code Processo} de novo depois),
+     * entao nao ha risco real de reproduzir o bug original nesse caminho.
      */
     @Transactional
-    public void removerAntigosDoTipo(Long processoId, TipoAnexo tipo, Long manterId) {
-        for (Anexo a : anexoRepository.findByProcessoIdAndTipo(processoId, tipo)) {
+    public void removerAntigosDoTipo(Processo processo, TipoAnexo tipo, Long manterId) {
+        for (Anexo a : anexoRepository.findByProcessoIdAndTipo(processo.getId(), tipo)) {
             if (a.getId().equals(manterId)) {
                 continue;
             }
@@ -180,6 +216,11 @@ public class AnexoStorageService {
                 // best-effort
             }
             anexoRepository.delete(a);
+            try {
+                processo.removerAnexo(a);
+            } catch (org.hibernate.LazyInitializationException ignored) {
+                // Processo desanexado (sessao ja fechada) - ver javadoc acima.
+            }
         }
     }
 

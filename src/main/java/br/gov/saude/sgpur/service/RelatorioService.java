@@ -61,10 +61,9 @@ public class RelatorioService {
             // 1. Gera o sumario executivo (capa + dados + pareceres + decisao + anexos)
             byte[] summary = gerarSummary(p);
 
-            // 2. Coleta os PDFs anexados (exceto RELATORIO_FINAL e CAPA_PROCESSO — evitar ciclo/duplicacao)
+            // 2. Coleta os PDFs anexados (exceto RELATORIO_FINAL — evitar ciclo/duplicacao)
             List<Anexo> pdfs = p.getAnexos().stream()
                 .filter(a -> a.getTipo() != TipoAnexo.RELATORIO_FINAL)
-                .filter(a -> a.getTipo() != TipoAnexo.CAPA_PROCESSO)
                 .filter(a -> a.getContentType() != null
                     && a.getContentType().toLowerCase().contains("pdf"))
                 .sorted(Comparator.comparing(Anexo::getDataUpload))
@@ -73,7 +72,6 @@ public class RelatorioService {
             // 3. Coleta anexos nao-PDF (para pagina informativa)
             List<Anexo> naoPdf = p.getAnexos().stream()
                 .filter(a -> a.getTipo() != TipoAnexo.RELATORIO_FINAL)
-                .filter(a -> a.getTipo() != TipoAnexo.CAPA_PROCESSO)
                 .filter(a -> a.getContentType() == null
                     || !a.getContentType().toLowerCase().contains("pdf"))
                 .sorted(Comparator.comparing(Anexo::getDataUpload))
@@ -136,10 +134,10 @@ public class RelatorioService {
         doc.add(t1);
 
         pdfBuilder.secao(doc, fSecao, "2. Pareceres dos medicos (Urgencia Renal)");
-        PdfPTable t2 = new PdfPTable(new float[]{3, 2, 2, 3});
+        PdfPTable t2 = new PdfPTable(new float[]{3, 2, 2});
         t2.setWidthPercentage(100);
         t2.setSpacingBefore(4);
-        pdfBuilder.cabecalho(t2, "Medico", "Parecer", "Data da resposta", "Anexo");
+        pdfBuilder.cabecalho(t2, "Medico", "Parecer", "Data da resposta");
         for (Parecer par : p.getPareceres()) {
             pdfBuilder.celula(t2, par.getMembro().getRotulo(), Element.ALIGN_LEFT, false);
             String textoParecer = (par.getResultado() != null)
@@ -148,19 +146,11 @@ public class RelatorioService {
             pdfBuilder.celula(t2, textoParecer, Element.ALIGN_LEFT, false);
             pdfBuilder.celula(t2, par.getDataResposta() != null ? par.getDataResposta().format(DATA) : "-",
                 Element.ALIGN_LEFT, false);
-            String nomeAnexo = p.getAnexos().stream()
-                .filter(a -> a.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR
-                    && a.getParecer() != null
-                    && a.getParecer().getId().equals(par.getId()))
-                .findFirst()
-                .map(Anexo::getNomeArquivo)
-                .orElse("-");
-            pdfBuilder.celula(t2, nomeAnexo, Element.ALIGN_LEFT, false);
             if (par.getJustificativa() != null && !par.getJustificativa().isBlank()) {
                 PdfPCell cj = new PdfPCell(new Phrase(
                     "Justificativa: " + par.getJustificativa(),
                     FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8, CINZA)));
-                cj.setColspan(4);
+                cj.setColspan(3);
                 cj.setPadding(4);
                 cj.setBorderColor(PdfRelatorioBuilder.CINZA_BORDA);
                 t2.addCell(cj);

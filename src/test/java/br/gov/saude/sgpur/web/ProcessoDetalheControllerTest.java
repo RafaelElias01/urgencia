@@ -359,12 +359,11 @@ class ProcessoDetalheControllerTest {
         MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
         MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
         processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
-            LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
         processo.addParecer(parecer(processo, m2, null, LocalDate.now(), null));
         processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarRespondidos(processo)).thenReturn(1L);
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
         when(fluxoService.calcularSubrotuloStatus(processo)).thenReturn("Aguardando parecer (1/3)");
         when(fluxoService.calcularGating(processo)).thenReturn(
             new FluxoProcessoService.GatingAbas(true, false, false, false, false));
@@ -384,13 +383,12 @@ class ProcessoDetalheControllerTest {
         MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
         MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
         processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
-            LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
         processo.addParecer(parecer(processo, m2, ResultadoParecer.FAVORAVEL,
-            LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
         processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.of(StatusProcesso.DEFERIDO));
         when(processoService.contarRespondidos(processo)).thenReturn(2L);
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
         when(fluxoService.calcularSubrotuloStatus(processo)).thenReturn(
             "Maioria formada - pronto para decidir (Deferido)");
         when(fluxoService.calcularGating(processo)).thenReturn(
@@ -409,10 +407,9 @@ class ProcessoDetalheControllerTest {
         processo.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
         MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
         processo.addParecer(parecer(processo, m1, ResultadoParecer.FAVORAVEL,
-            LocalDate.now(), OrigemParecer.OPERADOR_EMAIL));
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarRespondidos(processo)).thenReturn(1L);
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
@@ -429,7 +426,6 @@ class ProcessoDetalheControllerTest {
         votadoPeloPortal.setId(100L);
         processo.addParecer(votadoPeloPortal);
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
@@ -442,7 +438,6 @@ class ProcessoDetalheControllerTest {
         MembroUrgenciaRenal m1 = membro(1L, "Equipe A", "Ana");
         processo.addParecer(parecer(processo, m1, null, null, null));
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
         when(conflitoEquipeMatcher.mesmaEquipe("Equipe A", "Equipe A")).thenReturn(true);
 
         mvc.perform(get("/processos/1"))
@@ -456,7 +451,6 @@ class ProcessoDetalheControllerTest {
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.empty());
         when(processoService.contarFavoraveis(processo)).thenReturn(2L);
         when(processoService.deferidoPeloCoordenador(processo)).thenReturn(true);
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
 
         mvc.perform(get("/processos/1"))
             .andExpect(status().isOk())
@@ -670,7 +664,6 @@ class ProcessoDetalheControllerTest {
             LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
         processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
         when(processoService.contarRespondidos(processo)).thenReturn(2L);
-        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
         when(processoService.sugerirDecisao(processo)).thenReturn(Optional.of(StatusProcesso.INDEFERIDO));
         when(fluxoService.calcularGating(processo)).thenReturn(
             new FluxoProcessoService.GatingAbas(true, true, true, true, false));

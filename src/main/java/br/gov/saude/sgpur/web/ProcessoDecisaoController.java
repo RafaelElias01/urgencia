@@ -278,10 +278,10 @@ public class ProcessoDecisaoController {
             return "redirect:/processos/" + id;
         }
         // Regras de negocio centralizadas em ProcessoValidator (mesmas mensagens
-        // do servico). A ancora do redirect distingue pausa/anexos (#respostas)
-        // das demais (topo), por isso os grupos sao consultados separadamente.
-        // Tudo dentro de UMA transacao curta: o validator navega
-        // processo.pareceres/anexos (LAZY) e nao ha mais transacao de classe.
+        // do servico). A ancora do redirect distingue pausa (#respostas) da
+        // contagem de votos (topo), por isso os grupos sao consultados
+        // separadamente. Tudo dentro de UMA transacao curta: o validator navega
+        // processo.pareceres (LAZY) e nao ha mais transacao de classe.
         Bloqueio bloqueio = txTemplate.execute(status -> {
             Processo atual = processoService.buscar(id);
             if (validator.edicaoBloqueada(atual)) {
@@ -294,10 +294,6 @@ public class ProcessoDecisaoController {
             var votos = validator.validarContagemVotos(atual, decisao);
             if (votos.isPresent()) {
                 return new Bloqueio(votos.get(), "");
-            }
-            var anexos = validator.validarAnexosResposta(atual, decisao);
-            if (anexos.isPresent()) {
-                return new Bloqueio(anexos.get(), "#respostas");
             }
             return null;
         });

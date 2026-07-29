@@ -55,7 +55,7 @@ class EmailTemplateServiceTest {
 
     @Test
     void emAnaliseNaoGeraEmailDeResposta() {
-        Processo p = processo(); // EM_ANALISE por padrao
+        Processo p = processo(); // sem decisao (status nulo) por padrao
         p.getPareceres().forEach(par -> par.setDataEnvio(LocalDate.now()));
         long respostas = service.gerar(p).stream()
             .filter(e -> e.chave().equals("deferido") || e.chave().equals("indeferido")).count();

@@ -211,8 +211,7 @@ public class SolicitanteController {
         // media historica real dos avaliadores (mesmo indicador de /membros),
         // nao uma promessa de prazo formal - so uma referencia pro solicitante.
         boolean emAnaliseAtiva = s.getProcessoGerado() != null
-            && (s.getProcessoGerado().getStatus() == StatusProcesso.ENVIADO
-                || s.getProcessoGerado().getStatus() == StatusProcesso.EM_ANALISE);
+            && s.getProcessoGerado().getStatus() == StatusProcesso.ENVIADO;
         model.addAttribute("previsaoPrazo", emAnaliseAtiva
             ? TempoRespostaService.formatarDias(tempoRespostaService.calcular().mediaGeralDias())
             : null);

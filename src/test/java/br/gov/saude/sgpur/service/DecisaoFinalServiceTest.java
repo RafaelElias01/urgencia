@@ -87,11 +87,11 @@ class DecisaoFinalServiceTest {
 
         verify(anexoStorage).salvarBytes(eq(p), eq(TipoAnexo.OFICIO_INDEFERIMENTO),
             anyString(), eq("oficio-indeferimento-01-2026.pdf"), eq("application/pdf"), eq(oficioBytes));
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.OFICIO_INDEFERIMENTO, 10L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.OFICIO_INDEFERIMENTO, 10L);
 
         verify(anexoStorage).salvarBytes(eq(p), eq(TipoAnexo.RELATORIO_FINAL),
             anyString(), eq("relatorio-processo-01-2026.pdf"), eq("application/pdf"), eq(relatorioBytes));
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.RELATORIO_FINAL, 20L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.RELATORIO_FINAL, 20L);
 
         // dataEmissaoOficio ja estava preenchida: nao deve setar de novo nem salvar o processo
         verify(processoService, never()).salvar(any());
@@ -125,7 +125,7 @@ class DecisaoFinalServiceTest {
 
         service.gerarDocumentos(p);
 
-        verify(anexoStorage).removerAntigosDoTipo(p.getId(), TipoAnexo.OFICIO_INDEFERIMENTO, 42L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.OFICIO_INDEFERIMENTO, 42L);
     }
 
     @Test
@@ -164,7 +164,7 @@ class DecisaoFinalServiceTest {
 
         verify(anexoStorage).salvarBytes(eq(p), eq(TipoAnexo.RELATORIO_FINAL),
             anyString(), eq("relatorio-processo-01-2026.pdf"), eq("application/pdf"), any());
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.RELATORIO_FINAL, 20L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.RELATORIO_FINAL, 20L);
         verify(processoService, never()).salvar(any());
     }
 
@@ -178,7 +178,7 @@ class DecisaoFinalServiceTest {
         service.gerarDocumentos(p);
 
         verify(oficioService, never()).gerar(any());
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.RELATORIO_FINAL, 20L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.RELATORIO_FINAL, 20L);
         verify(anexoStorage).salvarBytes(eq(p), eq(TipoAnexo.RELATORIO_FINAL),
             anyString(), anyString(), anyString(), any());
     }
@@ -189,7 +189,7 @@ class DecisaoFinalServiceTest {
     void statusEmAndamentoNaoGeraDocumentoAlgum() {
         for (StatusProcesso status : new StatusProcesso[] {
                 StatusProcesso.SOLICITADO, StatusProcesso.ENVIADO,
-                StatusProcesso.EM_ANALISE, StatusProcesso.SOLICITA_INFORMACAO}) {
+                StatusProcesso.SOLICITA_INFORMACAO}) {
             Processo p = processo(status);
 
             service.gerarDocumentos(p);
@@ -272,7 +272,7 @@ class DecisaoFinalServiceTest {
 
         verify(anexoStorage).salvarBytes(eq(p), eq(TipoAnexo.OFICIO_INDEFERIMENTO),
             anyString(), anyString(), anyString(), any());
-        verify(anexoStorage).removerAntigosDoTipo(1L, TipoAnexo.OFICIO_INDEFERIMENTO, 42L);
+        verify(anexoStorage).removerAntigosDoTipo(p, TipoAnexo.OFICIO_INDEFERIMENTO, 42L);
         verify(anexoStorage, never()).removerAntigosDoTipo(any(), eq(TipoAnexo.RELATORIO_FINAL), any());
     }
 }

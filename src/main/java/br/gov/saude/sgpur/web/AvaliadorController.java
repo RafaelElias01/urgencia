@@ -490,7 +490,7 @@ public class AvaliadorController {
 
     /**
      * Pareceres pendentes de voto do membro: sem resultado, ja enviados e cujo
-     * processo esta em status ativo para votacao (ENVIADO ou EM_ANALISE).
+     * processo esta em status ativo para votacao (ENVIADO).
      *
      * Regra UNICA — usada tanto pela lista do portal quanto pelo contador da
      * navbar ({@code GlobalModelAdvice}) para nao duplicar o criterio.
@@ -513,14 +513,14 @@ public class AvaliadorController {
 
     /**
      * Criterio de "pendente ativo para voto": parecer sem resultado, ja enviado,
-     * cujo processo ainda esta em status que aceita votacao (ENVIADO/EM_ANALISE).
+     * cujo processo ainda esta em status que aceita votacao (ENVIADO).
      * Extraido para ser reaproveitado tanto por {@link #pendentesDoMembro} (usado
      * pelo badge global) quanto pela consulta com fetch join usada em
      * {@link #lista()} - a MESMA regra de negocio, so a origem dos dados difere.
      */
     private static boolean pendenteAtivoParaVoto(Parecer par) {
         StatusProcesso s = par.getProcesso().getStatus();
-        return s == StatusProcesso.ENVIADO || s == StatusProcesso.EM_ANALISE;
+        return s == StatusProcesso.ENVIADO;
     }
 
     // -------------------------------------------------------------------------
@@ -575,7 +575,7 @@ public class AvaliadorController {
         }
 
         StatusProcesso status = parecer.getProcesso().getStatus();
-        if (status != StatusProcesso.ENVIADO && status != StatusProcesso.EM_ANALISE) {
+        if (status != StatusProcesso.ENVIADO) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                 "Este processo nao esta disponivel para avaliacao (status: "
                     + status.getDescricao() + ").");

@@ -31,9 +31,9 @@ import java.util.Set;
  *
  * <p><b>O que este componente NAO faz.</b> Ele nao contem regra de decisao
  * nenhuma. Toda a regra (maioria simples, excecao do coordenador CET-RS,
- * {@code pareceresRecebidosSemAnexo}, motivo institucional impessoal do
- * indeferimento, validacao final via {@code decidir}) continua exclusivamente
- * em {@link ProcessoService#tentarDecisaoAutomatica} / {@link ProcessoValidator}.
+ * motivo institucional impessoal do indeferimento, validacao final via
+ * {@code decidir}) continua exclusivamente em
+ * {@link ProcessoService#tentarDecisaoAutomatica} / {@link ProcessoValidator}.
  * O varredor apenas descobre <i>quem</i> avaliar e delega. Se um dia a regra
  * mudar, muda la e este componente segue correto.</p>
  *
@@ -73,8 +73,8 @@ public class DecisaoAutomaticaScheduler {
     static final String ACAO_AUDITORIA = "PROCESSO_DECIDIDO_VARREDURA";
 
     /**
-     * Status varridos. Inclui os dois status "em analise" (ENVIADO e o sinonimo
-     * legado EM_ANALISE) e tambem SOLICITA_INFORMACAO.
+     * Status varridos. Inclui ENVIADO ("em analise") e tambem
+     * SOLICITA_INFORMACAO.
      *
      * <p><b>Por que SOLICITA_INFORMACAO entra.</b> A pausa por informacao
      * complementar bloqueia a decisao — com UMA excecao ja aprovada e vigente
@@ -96,7 +96,6 @@ public class DecisaoAutomaticaScheduler {
      */
     static final Set<StatusProcesso> STATUS_VARRIDOS = Set.of(
         StatusProcesso.ENVIADO,
-        StatusProcesso.EM_ANALISE,
         StatusProcesso.SOLICITA_INFORMACAO);
 
     private final ProcessoRepository processoRepository;

@@ -126,8 +126,8 @@ class ProcessoExportacaoIntegrationTest {
 
         // Dois anexos com arquivo de verdade em disco + um cujo arquivo NAO existe
         Files.createDirectories(RAIZ_ANEXOS.resolve("07-2026 - Maria Souza da Silva"));
-        criarAnexo(p, TipoAnexo.SOLICITACAO_RECEBIDA, "solicitacao-original.pdf", true);
-        criarAnexo(p, TipoAnexo.CAPA_PROCESSO, "capa.pdf", true);
+        criarAnexo(p, TipoAnexo.DOCUMENTO_PACIENTE, "solicitacao-original.pdf", true);
+        criarAnexo(p, TipoAnexo.OUTRO, "capa.pdf", true);
         criarAnexo(p, TipoAnexo.COMPROVANTE_SNT, "comprovante-sumido.pdf", false);
     }
 

@@ -47,8 +47,8 @@ public class Parecer {
     private LocalDate dataResposta;
 
     /**
-     * Como o voto foi registrado: pelo operador (via e-mail) ou pelo proprio
-     * avaliador autenticado no portal. Nulo equivale a OPERADOR_EMAIL (legado).
+     * Como o voto foi registrado: sempre pelo proprio avaliador autenticado
+     * no portal.
      */
     @Enumerated(EnumType.STRING)
     @Column(length = 30)

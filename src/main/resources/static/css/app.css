@@ -54,6 +54,12 @@ body {
     background: linear-gradient(135deg, var(--rs-gray-50) 0%, var(--rs-gray-100) 100%);
     min-height: 100vh;
     color: var(--rs-gray-800);
+    /* display:flex + flex-direction:column faz o "mt-auto" do rodape
+       (layout :: footer) empurrar de verdade para o fim da tela em paginas
+       com pouco conteudo - sem isso mt-auto nao tem efeito algum, porque o
+       body nao e um flex container. */
+    display: flex;
+    flex-direction: column;
 }
 
 /* === Navbar === */

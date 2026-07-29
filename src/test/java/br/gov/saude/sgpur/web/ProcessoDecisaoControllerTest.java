@@ -24,10 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Testes do endpoint POST /processos/{id}/decidir - onde a decisao medica e
- * de fato gravada. Cobre o encadeamento de validacoes (pausa -> contagem ->
- * anexos), o bloqueio de processo encerrado, o motivo obrigatorio no
- * indeferimento, e que uma falha em gerarDocumentos nao propaga (so vira
- * flash de erro).
+ * de fato gravada. Cobre o encadeamento de validacoes (pausa -> contagem),
+ * o bloqueio de processo encerrado, o motivo obrigatorio no indeferimento, e
+ * que uma falha em gerarDocumentos nao propaga (so vira flash de erro).
  */
 @WebMvcTest(ProcessoDecisaoController.class)
 class ProcessoDecisaoControllerTest {
@@ -70,7 +69,6 @@ class ProcessoDecisaoControllerTest {
         // Por padrao, nenhuma validacao bloqueia (cada teste sobrescreve o que precisa).
         when(validator.validarPausaDecisao(any(), any())).thenReturn(Optional.empty());
         when(validator.validarContagemVotos(any(), any())).thenReturn(Optional.empty());
-        when(validator.validarAnexosResposta(any(), any())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -143,22 +141,6 @@ class ProcessoDecisaoControllerTest {
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/processos/1"))
             .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("Deferimento exige")));
-
-        verify(processoService, never()).decidir(anyLong(), any(), any());
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void anexosFaltantesBloqueiaERedirecionaParaAncoraRespostas() throws Exception {
-        when(validator.validarAnexosResposta(eq(processo), eq(StatusProcesso.DEFERIDO)))
-            .thenReturn(Optional.of("Anexe a resposta dos medicos antes de decidir. Sem anexo: Dr. Fulano."));
-
-        mvc.perform(post("/processos/1/decidir")
-                .param("decisao", "DEFERIDO")
-                .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#respostas"))
-            .andExpect(flash().attribute("erro", org.hamcrest.Matchers.containsString("Sem anexo")));
 
         verify(processoService, never()).decidir(anyLong(), any(), any());
     }

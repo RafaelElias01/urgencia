@@ -44,9 +44,9 @@ import java.util.Optional;
  * {@code SolicitacaoOnline} convertida pelo Portal do Solicitante - nao ha
  * mais cadastro manual "do zero". O Passo 1 (Recebimento) e sempre
  * automatico (ver {@code FluxoProcessoService}), por isso o antigo endpoint
- * {@code POST /{id}/recebimento} (upload de SOLICITACAO_RECEBIDA + geracao
- * da CAPA_PROCESSO) foi removido - nao existe mais nenhum processo real que
- * precise dele.
+ * {@code POST /{id}/recebimento} (upload da solicitacao original + geracao
+ * da capa do processo) foi removido - nao existe mais nenhum processo real
+ * que precise dele.
  *
  * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b>
  * Uma transacao aberta pelo controller e compartilhada (propagacao REQUIRED)
@@ -127,7 +127,7 @@ public class ProcessoDetalheController {
     /**
      * Status que o operador pode escolher como DECISAO final na tela de
      * detalhe. So as decisoes reais entram aqui - SOLICITADO/ENVIADO/
-     * EM_ANALISE/SOLICITA_INFORMACAO sao estados de andamento, nao decisoes.
+     * SOLICITA_INFORMACAO sao estados de andamento, nao decisoes.
      */
     @ModelAttribute("decisaoValores")
     public StatusProcesso[] decisaoValores() {

@@ -3,8 +3,6 @@ package br.gov.saude.sgpur.service;
 import br.gov.saude.sgpur.domain.*;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -26,14 +24,6 @@ class ProcessoValidatorTest {
         Parecer p = new Parecer(medico(coordenador));
         p.setResultado(resultado);
         return p;
-    }
-
-    private void anexarResposta(Processo processo, Parecer parecer) {
-        parecer.setId((long) (processo.getPareceres().indexOf(parecer) + 1));
-        Anexo a = new Anexo();
-        a.setTipo(TipoAnexo.RESPOSTA_AVALIADOR);
-        a.setParecer(parecer);
-        processo.addAnexo(a);
     }
 
     // ----- edicaoBloqueada -----
@@ -157,40 +147,6 @@ class ProcessoValidatorTest {
         assertThat(validator.sugerirDecisao(p)).contains(StatusProcesso.DEFERIDO);
     }
 
-    // ----- pareceresRecebidosSemAnexo -----
-
-    @Test
-    void pareceresRecebidosSemAnexoIgnoraVotoDireitoPeloPortal() {
-        Processo p = new Processo();
-        Parecer viaPortal = parecer(ResultadoParecer.FAVORAVEL, false);
-        viaPortal.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
-        p.addParecer(viaPortal); // sem anexo, mas nao deveria contar
-
-        assertThat(validator.pareceresRecebidosSemAnexo(p)).isEmpty();
-    }
-
-    @Test
-    void pareceresRecebidosSemAnexoAcusaOperadorEmailSemComprovante() {
-        Processo p = new Processo();
-        Parecer viaEmail = parecer(ResultadoParecer.FAVORAVEL, false);
-        viaEmail.setOrigem(OrigemParecer.OPERADOR_EMAIL);
-        viaEmail.setId(1L);
-        p.addParecer(viaEmail); // sem anexo
-
-        List<Parecer> semAnexo = validator.pareceresRecebidosSemAnexo(p);
-        assertThat(semAnexo).containsExactly(viaEmail);
-    }
-
-    @Test
-    void pareceresRecebidosSemAnexoVazioAposAnexarResposta() {
-        Processo p = new Processo();
-        Parecer viaEmail = parecer(ResultadoParecer.FAVORAVEL, false);
-        p.addParecer(viaEmail);
-        anexarResposta(p, viaEmail);
-
-        assertThat(validator.pareceresRecebidosSemAnexo(p)).isEmpty();
-    }
-
     // ----- validarPausaDecisao (bug real corrigido aqui) -----
 
     @Test
@@ -284,32 +240,10 @@ class ProcessoValidatorTest {
         assertThat(validator.validarMotivoIndeferimento(StatusProcesso.DEFERIDO, null)).isEmpty();
     }
 
-    // ----- validarAnexosResposta -----
-
-    @Test
-    void validarAnexosRespostaBloqueiaSePareceresSemAnexo() {
-        Processo p = new Processo();
-        Parecer viaEmail = parecer(ResultadoParecer.FAVORAVEL, false);
-        viaEmail.setId(1L);
-        p.addParecer(viaEmail);
-
-        assertThat(validator.validarAnexosResposta(p, StatusProcesso.DEFERIDO)).isPresent();
-    }
-
-    @Test
-    void validarAnexosRespostaLiberaComAnexoPresente() {
-        Processo p = new Processo();
-        Parecer viaEmail = parecer(ResultadoParecer.FAVORAVEL, false);
-        p.addParecer(viaEmail);
-        anexarResposta(p, viaEmail);
-
-        assertThat(validator.validarAnexosResposta(p, StatusProcesso.DEFERIDO)).isEmpty();
-    }
-
     // ----- validarDecisao (encadeamento completo) -----
 
     @Test
-    void validarDecisaoRetornaPrimeiroErroNaOrdemPausaContagemMotivoAnexos() {
+    void validarDecisaoRetornaPrimeiroErroNaOrdemPausaContagemMotivo() {
         // pausado E sem votos suficientes: deve reportar a pausa primeiro.
         Processo p = new Processo();
         p.setStatus(StatusProcesso.SOLICITA_INFORMACAO);
@@ -327,8 +261,6 @@ class ProcessoValidatorTest {
         Parecer p2 = parecer(ResultadoParecer.FAVORAVEL, false);
         p.addParecer(p1);
         p.addParecer(p2);
-        anexarResposta(p, p1);
-        anexarResposta(p, p2);
 
         assertThat(validator.validarDecisao(p, StatusProcesso.DEFERIDO, null)).isEmpty();
     }

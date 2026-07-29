@@ -45,8 +45,8 @@ public class EmailTemplateService {
 
     public List<EmailTemplate> gerar(Processo p) {
         List<EmailTemplate> lista = new ArrayList<>();
-        // Template de convite ao portal para processos em andamento (ENVIADO/EM_ANALISE)
-        if (p.getStatus() == StatusProcesso.ENVIADO || p.getStatus() == StatusProcesso.EM_ANALISE) {
+        // Template de convite ao portal para processos em andamento (ENVIADO)
+        if (p.getStatus() == StatusProcesso.ENVIADO) {
             lista.add(emailConvitePortal(p));
         }
         if (p.getStatus() == StatusProcesso.DEFERIDO) {
@@ -71,7 +71,7 @@ public class EmailTemplateService {
      * Convite individual ao avaliador para votar no Portal do Avaliador.
      * Destinado a cada medico separadamente. Contem APENAS iniciais do paciente
      * (imparcialidade) e link de acesso ao portal.
-     * Exibido na aba Envio quando o processo esta em ENVIADO/EM_ANALISE.
+     * Exibido na aba Envio quando o processo esta em ENVIADO.
      */
     public EmailTemplate emailConviteAvaliador(Processo p, MembroUrgenciaRenal membro) {
         String iniciais = Iniciais.de(p.getPacienteNome());

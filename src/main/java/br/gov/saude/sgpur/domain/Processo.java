@@ -153,6 +153,29 @@ public class Processo {
         this.anexos.add(anexo);
     }
 
+    /**
+     * Tira um anexo especifico da colecao em memoria, SEM reatribuir a
+     * referencia da lista (troque a referencia por uma nova {@code List} e
+     * quebra o orphan-removal no flush - bug real em producao no upload do
+     * Comprovante SNT, 2026-07-28, documentado em
+     * {@code ProcessoAnexoController.substituirAnexo}). Este metodo faz um
+     * {@code remove()} in-place na mesma instancia de colecao, preservando o
+     * wrapper que o Hibernate usa para rastrear a associacao.
+     *
+     * <p>Uso: quando um anexo ja foi excluido via
+     * {@code anexoRepository.delete(...)} na MESMA sessao/transacao, mas o
+     * {@code Processo} ainda o referencia nesta colecao - sem tirar essa
+     * instancia daqui, um merge cascade posterior (ex.:
+     * {@code processoRepository.save(processo)}, {@code cascade = ALL} inclui
+     * MERGE) tenta mesclar uma entidade ja marcada como REMOVIDA e o Hibernate
+     * recusa com {@code ObjectDeletedException: deleted instance passed to
+     * merge} (bug real reportado em 2026-07-29, reproduzido registrando o
+     * envio de um processo pela segunda vez apos o ADMIN reabrir).</p>
+     */
+    public void removerAnexo(Anexo anexo) {
+        this.anexos.remove(anexo);
+    }
+
     // ----- getters / setters -----
     public Long getId() {
         return id;

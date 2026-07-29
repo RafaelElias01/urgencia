@@ -99,9 +99,14 @@ public class ProcessoAnexoController {
         // da colecao gerenciada pelo Hibernate por uma ArrayList nova quebra o
         // orphan-removal no flush (HibernateException "collection with orphan
         // deletion was no longer referenced by the owning entity instance") - bug
-        // real em producao no upload do Comprovante SNT, 2026-07-28.
+        // real em producao no upload do Comprovante SNT, 2026-07-28. Desde
+        // 2026-07-29, removerAntigosDoTipo recebe o Processo (nao so o id) e tira
+        // cada anexo excluido da colecao em memoria via Processo.removerAnexo
+        // (remove() in-place, mesma garantia acima) - sem isso, um merge cascade
+        // posterior via processoService.salvar(p) recusava com ObjectDeletedException
+        // ao encontrar, na colecao, a instancia que acabou de ser deletada aqui.
         Anexo novo = anexoStorage.salvar(p, tipo, descricao, arquivo);
-        anexoStorage.removerAntigosDoTipo(p.getId(), tipo, novo.getId());
+        anexoStorage.removerAntigosDoTipo(p, tipo, novo.getId());
     }
 
     /**
@@ -278,22 +283,12 @@ public class ProcessoAnexoController {
     @PostMapping("/anexos/{anexoId}/excluir")
     @Transactional
     public String excluirAnexo(@PathVariable Long anexoId, RedirectAttributes ra) {
-        // Bloqueia a exclusao de RESPOSTA_AVALIADOR de parecer votado pelo portal
-        // (nao-repudio: o registro autenticado nao pode ser apagado pelo operador).
         Anexo anexoParaExcluir = anexoStorage.buscar(anexoId);
         // Processo encerrado: nenhum anexo pode ser removido (edicao travada).
         if (validator.edicaoBloqueada(anexoParaExcluir.getProcesso())) {
             Long pid = anexoParaExcluir.getProcesso().getId();
             ra.addFlashAttribute("erro", ProcessoValidator.MSG_ENCERRADO);
             return "redirect:/processos/" + pid + "#anexos";
-        }
-        if (anexoParaExcluir.getTipo() == TipoAnexo.RESPOSTA_AVALIADOR
-                && anexoParaExcluir.getParecer() != null
-                && anexoParaExcluir.getParecer().getOrigem() == OrigemParecer.AVALIADOR_SISTEMA) {
-            Long pid = anexoParaExcluir.getProcesso().getId();
-            ra.addFlashAttribute("erro",
-                "Nao e possivel remover a resposta de um avaliador que votou pelo portal (nao-repudio).");
-            return "redirect:/processos/" + pid + "#respostas";
         }
         Long processoId = anexoStorage.excluir(anexoId);
         auditoria.registrar("ANEXO_REMOVIDO", "Processo id " + processoId);

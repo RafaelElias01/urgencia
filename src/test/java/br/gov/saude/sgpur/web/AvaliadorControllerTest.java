@@ -256,7 +256,7 @@ class AvaliadorControllerTest {
         pendenteInativo.setDataEnvio(LocalDate.now());
 
         // O repositorio ja filtra resultado nulo + dataEnvio nao nula; o filtro de
-        // status (ENVIADO/EM_ANALISE) acontece no controller/advice.
+        // status (ENVIADO) acontece no controller/advice.
         // Duas consultas distintas fazem esse mesmo papel hoje: findPendentesComProcesso
         // (fetch join, usada por lista() para a PROPRIA pagina) e o metodo original
         // (usado por GlobalModelAdvice.pendentesAvaliador(), que gera o atributo

@@ -51,5 +51,6 @@
 <script th:replace="~{layout :: scripts}"></script>
 <script th:replace="~{layout :: relatorioPdfScript}"></script>
 <script th:if="${anos != null and !anos.isEmpty()}" th:src="@{/js/relatorio-anual.js}"></script>
+<div th:replace="~{layout :: footer}"></div>
 </body>
 </html>

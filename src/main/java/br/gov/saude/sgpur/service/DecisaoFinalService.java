@@ -50,8 +50,6 @@ public class DecisaoFinalService {
      * @throws IllegalStateException se a geracao de algum PDF falhar.
      */
     public void gerarDocumentos(Processo p) {
-        Long id = p.getId();
-
         if (p.getStatus() == StatusProcesso.INDEFERIDO) {
             if (p.getDataEmissaoOficio() == null) {
                 p.setDataEmissaoOficio(LocalDate.now());
@@ -65,7 +63,7 @@ public class DecisaoFinalService {
                 String nomeOf = "oficio-indeferimento-" + p.getNumero().replace("/", "-") + ".pdf";
                 var novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.OFICIO_INDEFERIMENTO,
                     "Oficio de indeferimento gerado na decisao", nomeOf, "application/pdf", of);
-                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.OFICIO_INDEFERIMENTO, novoAnexo.getId());
+                anexoStorage.removerAntigosDoTipo(p, TipoAnexo.OFICIO_INDEFERIMENTO, novoAnexo.getId());
             } catch (IOException e) {
                 log.error("Falha ao gerar oficio de indeferimento para processo {}", p.getNumero(), e);
                 throw new IllegalStateException(
@@ -80,7 +78,7 @@ public class DecisaoFinalService {
                 String nome = "relatorio-processo-" + p.getNumero().replace("/", "-") + ".pdf";
                 var novoAnexo = anexoStorage.salvarBytes(p, TipoAnexo.RELATORIO_FINAL,
                     "Relatorio final gerado na decisao", nome, "application/pdf", pdf);
-                anexoStorage.removerAntigosDoTipo(id, TipoAnexo.RELATORIO_FINAL, novoAnexo.getId());
+                anexoStorage.removerAntigosDoTipo(p, TipoAnexo.RELATORIO_FINAL, novoAnexo.getId());
             } catch (IOException e) {
                 log.error("Falha ao gerar relatorio final para processo {}", p.getNumero(), e);
                 throw new IllegalStateException(

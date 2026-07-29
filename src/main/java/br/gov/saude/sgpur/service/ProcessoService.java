@@ -142,7 +142,7 @@ public class ProcessoService {
     /**
      * Marca o processo como ENVIADO aos avaliadores (etapa 5 do fluxo).
      * So altera o status quando ainda esta em uma fase anterior a decisao
-     * (SOLICITADO / ENVIADO / EM_ANALISE / SOLICITA_INFORMACAO); nunca rebaixa
+     * (SOLICITADO / ENVIADO / SOLICITA_INFORMACAO); nunca rebaixa
      * um processo ja decidido.
      */
     @Transactional
@@ -188,9 +188,7 @@ public class ProcessoService {
      * Tenta aplicar a decisao automatica por maioria simples (2 de 3), se todas as
      * pre-condicoes estiverem satisfeitas:
      *   - Processo ainda em andamento (nao finalizado) e nao aguardando info;
-     *   - Maioria formada (>= 2 favoraveis ou >= 2 desfavoraveis);
-     *   - Nenhum parecer recebido sem o anexo comprobatorio (RESPOSTA_AVALIADOR /
-     *     ou origem AVALIADOR_SISTEMA que dispensa o anexo).
+     *   - Maioria formada (>= 2 favoraveis ou >= 2 desfavoraveis).
      * Se todas as condicoes estiverem ok, chama {@link #decidir} e retorna o
      * processo atualizado. Caso contrario retorna o processo sem alteracao.
      * Deve ser chamado apos {@link #atualizarStatusPorPareceres} e apos
@@ -216,10 +214,6 @@ public class ProcessoService {
             return p;
         }
         StatusProcesso decisao = sugestao.get();
-        // So decide automaticamente se nao ha pareceres recebidos sem anexo
-        if (!pareceresRecebidosSemAnexo(p).isEmpty()) {
-            return p;
-        }
         // DEFERIDO dispensa motivo. INDEFERIDO tambem finaliza automaticamente
         // (decisao de produto confirmada): como o motivo e obrigatorio para o
         // oficio, geramos um texto consolidando as justificativas dos
@@ -375,10 +369,6 @@ public class ProcessoService {
 
     public long contarRespondidos(Processo processo) {
         return validator.contarRespondidos(processo);
-    }
-
-    public List<Parecer> pareceresRecebidosSemAnexo(Processo processo) {
-        return validator.pareceresRecebidosSemAnexo(processo);
     }
 
     /**

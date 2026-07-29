@@ -206,24 +206,6 @@ class DecisaoAutomaticaSchedulerIntegrationTest {
     }
 
     /**
-     * Parecer legado com origem OPERADOR_EMAIL exige o anexo comprobatorio.
-     * Sem ele, o varredor NAO decide — deixa para o operador, como
-     * {@code tentarDecisaoAutomatica} ja fazia no caminho por evento.
-     */
-    @Test
-    void naoDecideComParecerLegadoSemAnexoDeResposta() {
-        Processo p = processo("07/2026", 7, StatusProcesso.ENVIADO);
-        Parecer legado = votar(p, medicoA, ResultadoParecer.NAO_FAVORAVEL);
-        legado.setOrigem(OrigemParecer.OPERADOR_EMAIL);
-        parecerRepo.saveAndFlush(legado);
-        votar(p, medicoB, ResultadoParecer.NAO_FAVORAVEL);
-
-        assertThat(scheduler.varrer()).isZero();
-        assertThat(processoRepo.findById(p.getId()).orElseThrow().getStatus())
-                .isEqualTo(StatusProcesso.ENVIADO);
-    }
-
-    /**
      * PAUSA respeitada: processo em SOLICITA_INFORMACAO com 2 desfavoraveis
      * NAO pode ser indeferido pelo varredor — o coordenador nao votou favoravel,
      * entao a pausa vale integralmente e a decisao espera a informacao

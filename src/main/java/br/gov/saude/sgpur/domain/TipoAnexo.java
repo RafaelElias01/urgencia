@@ -6,8 +6,6 @@ package br.gov.saude.sgpur.domain;
  */
 public enum TipoAnexo {
     SOLICITACAO_AVALIADOR("Solicitacao de avaliacao gerada pelo sistema"),
-    SOLICITACAO_RECEBIDA("E-mail/documento de solicitacao recebida"),
-    CAPA_PROCESSO("Capa do processo (dados do solicitante e medicos)"),
     DOCUMENTO_CLINICO_AVALIADOR("Documento clinico anonimizado para os avaliadores"),
     /**
      * STAGING (trava de anonimizacao): documento que veio do Portal do
@@ -27,9 +25,7 @@ public enum TipoAnexo {
     DOCUMENTO_PORTAL_NAO_ANONIMIZADO(
         "Documento do Portal do Solicitante pendente de anonimizacao (nao vai aos avaliadores)"),
     DOCUMENTO_PACIENTE("Documento do paciente"),
-    EMAIL_ENVIADO_AVALIADORES("Copia do e-mail enviado aos avaliadores"),
     EMAIL_PARECER_RECEBIDO("Copia do e-mail de parecer recebido do avaliador"),
-    RESPOSTA_AVALIADOR("Copia do e-mail de resposta de avaliador especifico"),
     ANEXO_AVALIADOR("Documento anexado pelo avaliador junto ao parecer (Portal do Avaliador)"),
     INFO_COMPLEMENTAR("Pedido/resposta de informacao complementar (solicitante)"),
     OFICIO_INDEFERIMENTO("Oficio de indeferimento"),

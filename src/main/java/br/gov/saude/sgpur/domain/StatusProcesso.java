@@ -11,15 +11,10 @@ package br.gov.saude.sgpur.domain;
  * medicos), passa a ENVIADO quando a solicitacao e enviada aos avaliadores e
  * termina em uma decisao. SOLICITA_INFORMACAO e um estado intermediario (um
  * medico pediu mais dados) que ainda nao e final.
- *
- * Compatibilidade: EM_ANALISE e mantido como sinonimo "legado" de ENVIADO,
- * para que processos antigos (gravados antes desta expansao) continuem
- * validos e sejam tratados como "em andamento" (nao finalizados).
  */
 public enum StatusProcesso {
     SOLICITADO("Solicitado"),
     ENVIADO("Enviado"),
-    EM_ANALISE("Em analise"),
     SOLICITA_INFORMACAO("Solicita informacao"),
     DEFERIDO("Deferido"),
     INDEFERIDO("Indeferido"),
@@ -37,8 +32,7 @@ public enum StatusProcesso {
 
     /**
      * Estados finais (encerram o processo): DEFERIDO, INDEFERIDO e CANCELADO.
-     * SOLICITADO, ENVIADO, EM_ANALISE e SOLICITA_INFORMACAO ainda estao em
-     * andamento.
+     * SOLICITADO, ENVIADO e SOLICITA_INFORMACAO ainda estao em andamento.
      */
     public boolean isFinalizado() {
         return this == DEFERIDO || this == INDEFERIDO || this == CANCELADO;
@@ -54,7 +48,6 @@ public enum StatusProcesso {
         return switch (this) {
             case SOLICITADO -> "inbox-fill";
             case ENVIADO -> "send-fill";
-            case EM_ANALISE -> "hourglass-split";
             case SOLICITA_INFORMACAO -> "question-circle-fill";
             case DEFERIDO -> "check-circle-fill";
             case INDEFERIDO -> "x-circle-fill";
@@ -67,7 +60,6 @@ public enum StatusProcesso {
         return switch (this) {
             case SOLICITADO -> "bg-secondary";
             case ENVIADO -> "bg-primary";
-            case EM_ANALISE -> "bg-warning text-dark";
             case SOLICITA_INFORMACAO -> "bg-info text-dark";
             case DEFERIDO -> "bg-success";
             case INDEFERIDO -> "bg-danger";

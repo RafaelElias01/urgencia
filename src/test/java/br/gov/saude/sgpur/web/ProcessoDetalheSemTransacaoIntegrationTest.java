@@ -122,7 +122,7 @@ class ProcessoDetalheSemTransacaoIntegrationTest {
         processoRepo.saveAndFlush(p);
         processoId = p.getId();
 
-        // Um parecer ja votado pelo portal, um votado como legado (operador) e
+        // Dois pareceres ja votados pelo portal (um favoravel, um desfavoravel) e
         // um ainda pendente - cobre os 3 estados exibidos na aba Respostas.
         Parecer votadoPortal = new Parecer(comEmail);
         votadoPortal.setProcesso(p);
@@ -133,13 +133,13 @@ class ProcessoDetalheSemTransacaoIntegrationTest {
         votadoPortal.setJustificativa("Justificativa do avaliador do portal.");
         parecerRepo.saveAndFlush(votadoPortal);
 
-        Parecer votadoOperador = new Parecer(outroComEmail);
-        votadoOperador.setProcesso(p);
-        votadoOperador.setDataEnvio(LocalDate.of(2026, 6, 2));
-        votadoOperador.setDataResposta(LocalDate.of(2026, 6, 4));
-        votadoOperador.setResultado(ResultadoParecer.NAO_FAVORAVEL);
-        votadoOperador.setOrigem(OrigemParecer.OPERADOR_EMAIL);
-        parecerRepo.saveAndFlush(votadoOperador);
+        Parecer votadoPortalDesfavoravel = new Parecer(outroComEmail);
+        votadoPortalDesfavoravel.setProcesso(p);
+        votadoPortalDesfavoravel.setDataEnvio(LocalDate.of(2026, 6, 2));
+        votadoPortalDesfavoravel.setDataResposta(LocalDate.of(2026, 6, 4));
+        votadoPortalDesfavoravel.setResultado(ResultadoParecer.NAO_FAVORAVEL);
+        votadoPortalDesfavoravel.setOrigem(OrigemParecer.AVALIADOR_SISTEMA);
+        parecerRepo.saveAndFlush(votadoPortalDesfavoravel);
 
         Parecer pendente = new Parecer(semEmail);
         pendente.setProcesso(p);
