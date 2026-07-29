@@ -162,6 +162,52 @@ class GlobalExceptionHandlerTest {
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, Model.class);
         assertStatusDoHandler("handleEntityNotFound", HttpStatus.NOT_FOUND,
             RuntimeException.class, Model.class);
+        assertStatusDoHandler("handleUnexpectedRollback", HttpStatus.INTERNAL_SERVER_ERROR,
+            org.springframework.transaction.UnexpectedRollbackException.class,
+            HttpServletRequest.class, Model.class);
+    }
+
+    /**
+     * Rede de seguranca contra a familia de bug "controller @Transactional +
+     * try/catch": a transacao vira rollback-only, o commit estoura e as
+     * escritas do metodo se perdem em silencio. O handler tem que devolver
+     * pagina de erro com 500 (visivel a monitoramento/AJAX) e uma mensagem que
+     * mande CONFERIR antes de repetir — "tente novamente" seco geraria
+     * duplicata. Reproduzir o bug de transacao de verdade e papel do
+     * AvaliadorVotoTransacaoIntegrationTest; aqui so o handler.
+     */
+    @Test
+    void handleUnexpectedRollbackRetornaPaginaDeErro500PedindoConferenciaAntesDeRepetir() {
+        var ex = new org.springframework.transaction.UnexpectedRollbackException(
+            "Transaction silently rolled back because it has been marked as rollback-only");
+
+        String view = handler.handleUnexpectedRollback(ex, request, model);
+
+        assertThat(view).isEqualTo("error");
+        verify(model).addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        verify(model).addAttribute("error", "Operacao nao concluida");
+        verify(model).addAttribute(org.mockito.ArgumentMatchers.eq("message"),
+            org.mockito.ArgumentMatchers.contains("confira se o dado ja consta no sistema"));
+        verify(model).addAttribute(org.mockito.ArgumentMatchers.eq("message"),
+            org.mockito.ArgumentMatchers.contains("pode duplicar o registro"));
+    }
+
+    /**
+     * O log e a unica pista para achar o endpoint culpado (sao ~34 blocos
+     * catch em 6 controllers @Transactional ainda nao refatorados). Se o
+     * handler nao ler metodo/URI da requisicao, o ERROR nao diz onde o dado
+     * foi perdido.
+     */
+    @Test
+    void handleUnexpectedRollbackLogaMetodoEUriDaRequisicao() {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/processos/1/decidir");
+        var ex = new org.springframework.transaction.UnexpectedRollbackException("rollback-only");
+
+        handler.handleUnexpectedRollback(ex, request, model);
+
+        verify(request).getMethod();
+        verify(request).getRequestURI();
     }
 
     private void assertStatusDoHandler(String metodo, HttpStatus esperado, Class<?>... args)

@@ -138,6 +138,61 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Transacao marcada como rollback-only e revertida no commit.
+     *
+     * <p><b>Sintoma de um defeito de codigo, nao de uma condicao de negocio.</b>
+     * Acontece quando um metodo de controller {@code @Transactional} chama um
+     * service {@code @Transactional} dentro de {@code try/catch}: o service
+     * lanca, o Spring marca a transacao COMPARTILHADA como rollback-only, o
+     * {@code catch} engole a excecao e devolve um flash amigavel — mas o commit
+     * no fim do metodo estoura esta excecao e <b>todas as escritas daquele
+     * metodo sao perdidas em silencio</b> (ja custou o voto de um avaliador e
+     * uma decisao de processo revertida sem o operador perceber).</p>
+     *
+     * <p>Enquanto os controllers {@code @Transactional} na classe nao forem
+     * refatorados, este handler e a rede de seguranca: loga em ERROR com a rota
+     * exata (para achar o endpoint culpado) e devolve <b>HTTP 500 com pagina de
+     * erro</b>, nao um redirect 302.</p>
+     *
+     * <p><b>Por que pagina de erro e nao redirect (como o de lock otimista):</b>
+     * <ul>
+     *   <li>e falha do servidor, com perda de dado — precisa aparecer como 5xx
+     *       para monitoramento/health-check e deixar {@code fetch().ok} falso
+     *       nos endpoints AJAX; um 302 mascara o defeito como fluxo normal;</li>
+     *   <li>a mensagem pede conferencia antes de repetir — merece uma tela que
+     *       para o usuario, nao um flash que some;</li>
+     *   <li>a view e renderizada na propria resposta, sem depender de
+     *       {@code rotaDeRetorno}/nova requisicao (que ainda poderia levar 403
+     *       para SOLICITANTE/AVALIADOR).</li>
+     * </ul></p>
+     */
+    @ExceptionHandler(org.springframework.transaction.UnexpectedRollbackException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public String handleUnexpectedRollback(
+            org.springframework.transaction.UnexpectedRollbackException ex,
+            HttpServletRequest request, Model model) {
+        log.error("Transacao revertida no commit (rollback-only) — escrita possivelmente PERDIDA. "
+            + "metodo={} uri={} usuario={}: {}",
+            request.getMethod(), request.getRequestURI(), usuarioAtual(), ex.getMessage(), ex);
+        model.addAttribute("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        model.addAttribute("error", "Operacao nao concluida");
+        model.addAttribute("message",
+            "A operacao foi desfeita e parte do que voce enviou pode nao ter sido gravada. "
+            + "Antes de repetir, volte e confira se o dado ja consta no sistema — "
+            + "repetir sem conferir pode duplicar o registro. "
+            + "Se persistir, contacte o suporte informando o horario.");
+        return "error";
+    }
+
+    /** Usuario autenticado (ou "anonimo") para dar contexto ao log de erro. */
+    private String usuarioAtual() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+            .getContext().getAuthentication();
+        return (auth != null && auth.getName() != null && !auth.getName().isBlank())
+            ? auth.getName() : "anonimo";
+    }
+
+    /**
      * Parametro mal-formado na URL/no form: {@code @PathVariable Long} com
      * texto, {@code @RequestParam} de enum com valor inexistente etc. E erro
      * do cliente (400), nao falha do servidor — sem este handler caia no

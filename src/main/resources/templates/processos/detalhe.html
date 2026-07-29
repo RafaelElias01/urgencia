@@ -663,7 +663,8 @@
                     <div class="alert alert-info py-2 mb-0 mt-2" th:if="${sugestao != null}">
                         <i class="bi bi-lightbulb"></i>
                         Sugestao automatica: <strong th:text="${sugestao.descricao}"></strong>
-                        (2 de 3 favoraveis defere o processo).
+                        (maioria simples de 2 em 3 votos, tanto para deferir quanto para
+                        indeferir; o voto favoravel do coordenador da CET-RS defere sozinho).
                     </div>
 
                     <!-- Finalizacao explicita da etapa -->
@@ -696,16 +697,26 @@
                          de que falta uma acao quando a decisao ja esta valendo. -->
                     <div th:unless="${processo.status.finalizado}">
                         <p class="small text-muted mb-3">
-                            A sugestao automatica (exibida no passo anterior) considera a
-                            <strong>maioria simples (2 de 3)</strong>. Quando a maioria e atingida
-                            e todos os anexos comprobatorios estao presentes, o sistema decide
-                            automaticamente; caso contrario, confira os pareceres e registre a
-                            decisao manualmente:
+                            <strong>O sistema decide sozinho</strong> assim que os votos formam
+                            <strong>maioria simples (2 de 3)</strong>, nos dois sentidos: 2
+                            favoraveis deferem, 2 desfavoraveis indeferem. O voto
+                            <strong>favoravel do coordenador da CET-RS defere sozinho</strong>,
+                            com um voto so. No indeferimento automatico o motivo gravado e um
+                            texto institucional padrao — para substitui-lo, o ADMIN reabre o
+                            processo e redecide por aqui.
                             <br>
-                            <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis.
-                            <strong>Indeferido</strong> — exige &ge;2 pareceres desfavoraveis
-                            (preencha o motivo). <strong>Cancelado</strong> — encerra o processo
-                            a qualquer momento.
+                            Use o formulario abaixo para <strong>Cancelado</strong> (que nunca e
+                            automatico), para redecidir apos uma reabertura, ou se a maioria ja
+                            existe e o processo continua em analise.
+                            <strong>Deferido</strong> — exige &ge;2 pareceres favoraveis (ou o
+                            coordenador favoravel). <strong>Indeferido</strong> — exige &ge;2
+                            pareceres desfavoraveis e o motivo preenchido.
+                            <br>
+                            Deferir/Indeferir fica bloqueado — aqui e no automatico — enquanto
+                            houver parecer antigo (registrado por e-mail) sem o anexo
+                            comprobatorio, ou o processo estiver pausado aguardando informacao
+                            complementar (salvo o voto favoravel do coordenador, que defere
+                            mesmo assim). Resolva a pendencia na aba <strong>3. Respostas</strong>.
                         </p>
                         <form th:action="@{/processos/{id}/decidir(id=${processo.id})}" method="post">
                             <div class="row g-2 align-items-end">

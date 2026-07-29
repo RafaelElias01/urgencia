@@ -634,6 +634,50 @@ class ProcessoDetalheControllerTest {
                 "/processos/1/documento-clinico/7/confirmar-anonimizacao")));
     }
 
+    // ----- aba Decisao: textos vs. comportamento real -----
+
+    /**
+     * A decisao automatica passou a valer nos DOIS sentidos (2 favoraveis
+     * deferem, 2 desfavoraveis indeferem — ver
+     * {@code ProcessoService.tentarDecisaoAutomatica}), mas a aba Decisao
+     * ainda dizia que so o deferimento era automatico. Este teste renderiza o
+     * template de verdade e trava o texto atualizado (inclusive a regra do
+     * coordenador e o motivo institucional padrao do indeferimento
+     * automatico), que e o que o operador le antes de decidir na mao.
+     */
+    @Test
+    @WithMockUser(roles = "OPERADOR")
+    void abaDecisaoExplicaQueOAutomaticoDefereEIndefere() throws Exception {
+        MembroUrgenciaRenal m1 = membro(1L, "HCPA", "Ana");
+        MembroUrgenciaRenal m2 = membro(2L, "HCC", "Bruno");
+        MembroUrgenciaRenal m3 = membro(3L, "HSL", "Carla");
+        processo.addParecer(parecer(processo, m1, ResultadoParecer.NAO_FAVORAVEL,
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
+        processo.addParecer(parecer(processo, m2, ResultadoParecer.NAO_FAVORAVEL,
+            LocalDate.now(), OrigemParecer.AVALIADOR_SISTEMA));
+        processo.addParecer(parecer(processo, m3, null, LocalDate.now(), null));
+        when(processoService.contarRespondidos(processo)).thenReturn(2L);
+        when(processoService.pareceresRecebidosSemAnexo(processo)).thenReturn(List.of());
+        when(processoService.sugerirDecisao(processo)).thenReturn(Optional.of(StatusProcesso.INDEFERIDO));
+        when(fluxoService.calcularGating(processo)).thenReturn(
+            new FluxoProcessoService.GatingAbas(true, true, true, true, false));
+
+        mvc.perform(get("/processos/1"))
+            .andExpect(status().isOk())
+            // sugestao automatica: nao pode falar so de deferimento
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "maioria simples de 2 em 3 votos, tanto para deferir quanto para")))
+            .andExpect(content().string(org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString("2 de 3 favoraveis defere o processo"))))
+            // formulario manual: quando ainda e necessario
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "favoravel do coordenador da CET-RS defere sozinho")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "texto institucional padrao")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "<strong>Cancelado</strong> (que nunca e")));
+    }
+
     /** Anexo em staging (veio do portal, ainda nao revisado) vinculado ao processo. */
     private Anexo anexoPendente(Long id) {
         Anexo a = new Anexo();
