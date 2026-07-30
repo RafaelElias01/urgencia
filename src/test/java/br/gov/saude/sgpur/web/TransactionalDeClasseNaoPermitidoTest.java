@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -33,6 +34,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Anotacao de METODO continua permitida e e o padrao correto hoje (ver
  * {@code AvaliadorController}, {@code ProcessoDetalheController.detalhe},
  * etc.) - este teste so barra o nivel de classe.
+ *
+ * <p>A deteccao e por NOME SIMPLES da anotacao, entao vale tanto para
+ * {@code org.springframework.transaction.annotation.Transactional} quanto para
+ * {@code jakarta.transaction.Transactional} - o {@code TransactionInterceptor}
+ * honra as duas igualmente, e a segunda e a outra opcao que o auto-import do
+ * IDE oferece. Ver {@link #temTransactionalDeClasse(Class)}.
  */
 class TransactionalDeClasseNaoPermitidoTest {
 
@@ -40,7 +47,7 @@ class TransactionalDeClasseNaoPermitidoTest {
     void nenhumControllerTemTransactionalDeNivelDeClasse() throws Exception {
         List<Class<?>> comAnotacaoDeClasse = new ArrayList<>();
         for (Class<?> classe : controllersDoPacoteWeb()) {
-            if (classe.isAnnotationPresent(Transactional.class)) {
+            if (temTransactionalDeClasse(classe)) {
                 comAnotacaoDeClasse.add(classe);
             }
         }
@@ -51,6 +58,63 @@ class TransactionalDeClasseNaoPermitidoTest {
                 + "especificos que realmente precisam de transacao, escolhendo caso a caso entre "
                 + "@Transactional simples, readOnly, NOT_SUPPORTED ou TransactionTemplate.")
             .isEmpty();
+    }
+
+    /**
+     * Detecta {@code @Transactional} de nivel de classe <b>por NOME SIMPLES</b>,
+     * nao por tipo.
+     *
+     * <p>Checar so {@code org.springframework.transaction.annotation.Transactional}
+     * deixava um buraco real: o auto-import do IDE oferece tambem
+     * {@code jakarta.transaction.Transactional} (a anotacao do JTA, que vem no
+     * classpath junto com o starter de JPA), e o {@code TransactionInterceptor}
+     * do Spring <b>honra as duas igualmente</b>. Um controller anotado com a
+     * versao jakarta teria exatamente o mesmo comportamento de transacao
+     * compartilhada - a familia de bug inteira de volta - com este teste
+     * continuando verde. O mesmo valeria para o {@code javax.transaction}
+     * legado.
+     *
+     * <p>Por nome simples, qualquer variante (spring, jakarta, javax ou uma
+     * futura) e barrada sem precisar manter uma lista de pacotes.
+     */
+    static boolean temTransactionalDeClasse(Class<?> classe) {
+        for (Annotation anotacao : classe.getAnnotations()) {
+            if (anotacao.annotationType().getSimpleName().equals("Transactional")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Classes-alvo do auto-teste abaixo. Sao classes ANINHADAS de proposito: o
+    // scanner ignora nomes com "$", entao elas nunca entram na varredura real e
+    // nao viram uma violacao falsa do proprio teste.
+    @Transactional
+    private static class ControllerFicticioComAnotacaoSpring {}
+
+    @jakarta.transaction.Transactional
+    private static class ControllerFicticioComAnotacaoJakarta {}
+
+    private static class ControllerFicticioSemAnotacao {}
+
+    /**
+     * Auto-teste da trava: sem isto, um detector quebrado (ex.: checando so um
+     * dos dois tipos de anotacao) passaria despercebido, porque o teste
+     * principal fica verde tanto quando nao ha violacao quanto quando ele
+     * simplesmente nao consegue enxergar a violacao.
+     */
+    @Test
+    void detectorPegaAsDuasAnotacoesTransactionalEIgnoraClasseLimpa() {
+        assertThat(temTransactionalDeClasse(ControllerFicticioComAnotacaoSpring.class))
+            .as("@org.springframework...Transactional de classe")
+            .isTrue();
+        assertThat(temTransactionalDeClasse(ControllerFicticioComAnotacaoJakarta.class))
+            .as("@jakarta.transaction.Transactional de classe - o Spring honra igual, "
+                + "entao a trava precisa pegar tambem")
+            .isTrue();
+        assertThat(temTransactionalDeClasse(ControllerFicticioSemAnotacao.class))
+            .as("classe sem anotacao nenhuma nao pode ser acusada")
+            .isFalse();
     }
 
     /**
