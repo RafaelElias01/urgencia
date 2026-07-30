@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.config;
+package br.gov.saude.sgpur.bootstrap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

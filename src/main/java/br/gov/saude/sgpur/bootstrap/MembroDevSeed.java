@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.config;
+package br.gov.saude.sgpur.bootstrap;
 
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;

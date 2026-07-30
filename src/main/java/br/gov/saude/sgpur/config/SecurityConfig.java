@@ -28,7 +28,7 @@ import java.io.IOException;
 /**
  * Seguranca da aplicacao: login por formulario com usuarios persistidos no
  * banco (ver UsuarioDetailsService). O primeiro ADMIN e criado por
- * {@link AdminBootstrap} somente quando a tabela usuario esta vazia (o
+ * {@link br.gov.saude.sgpur.bootstrap.AdminBootstrap} somente quando a tabela usuario esta vazia (o
  * DataSeed antigo, que sempre recriava dados de demo, foi removido).
  *
  * Perfis e rotas protegidas:
