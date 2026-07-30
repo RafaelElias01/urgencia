@@ -474,6 +474,31 @@ diretórios `src/`, `docs/`, `deploy/`, `scripts/`, `teste-pdfs/`, `.github/`.
 - `data/` é o H2 de dev + anexos locais (gitignored) — **nunca apagar** numa
   limpeza, é o sandbox de teste em uso.
 
+### Organização de pacotes em `src/main/java/` (reorganização enxuta de 2026-07-29)
+- **`bootstrap/`** (novo): tudo que roda uma vez no boot e não é `@Configuration`
+  de verdade — `AdminBootstrap`, `MembroDevSeed`, `SchemaMigration`,
+  `EnumCheckConstraintValidator` (+ seu par `EnumCheckConstraintAdvice`, que
+  antes vivia em `web/`). `config/` ficou só com `SecurityConfig`,
+  `AgendamentoConfig`, `EmailProperties` — configuração Spring de verdade.
+- **`service/dto/`** e **`web/dto/`** (novos): DTOs/records de apoio que
+  estavam soltos misturados com serviços/controllers de verdade —
+  `service/dto/EmailTemplate.java`, `PassoWizard.java`, `EtapaFluxo.java`;
+  `web/dto/AcaoResponse.java`, `EmailPreviewResponse.java`,
+  `IaTextoResponse.java`, `PainelLinha.java`. `Iniciais`, `NomePadraoAnexo` e
+  `ConflitoEquipeMatcher` **continuam em `service/`** — são utilitários de
+  regra de negócio de verdade, não DTOs.
+- **`@Auditavel`** (renomeado de `@LogAuditoria`, em
+  `service/auditoria/`): havia duas classes chamadas `LogAuditoria` — a
+  entidade JPA (`domain/LogAuditoria.java`, continua com esse nome) e essa
+  anotação de auditoria automática via AOP, mesmo nome simples forçando
+  imports qualificados e confundindo busca. Só a anotação foi renomeada; a
+  entidade não mudou.
+- Escopo desta reorganização foi deliberadamente **enxuto**: `service/` (35
+  arquivos) e `web/` (23 arquivos) continuam pacotes "achatados" — quebrá-los
+  em subpacotes temáticos (e-mail, PDF/relatório, processo) ficou fora de
+  escopo por exigir atualizar import em cascata num sistema de produção com
+  deploy automático; avaliar numa sessão dedicada, se fizer sentido.
+
 ## Convenções de código
 - Entidades JPA em `domain/` com getters/setters simples (sem Lombok).
 - Serviços em `service/`, controllers em `web/`, repos em `repository/`.
