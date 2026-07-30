@@ -282,6 +282,24 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   de apelidos por sigla (`ALIASES`); usa palavra/frase inteira (não substring).
   Instituições novas fora do `ALIASES` caem no match por tokens da própria
   sigla — ao cadastrar uma nova instituição relevante, enriquecer o `ALIASES`.
+- **Convite automático ao Portal do Avaliador (desde 2026-07-29):** registrar o
+  envio dispara, para **cada avaliador com parecer pendente**, o e-mail
+  `EmailTemplateService.emailConviteAvaliador` (só iniciais do paciente, link
+  para `{app.base-url}/avaliador`). Antes desse ajuste o método existia mas
+  **não tinha nenhum chamador** — era código morto, e o operador precisava
+  copiar/colar o texto pronto na mão. Implementado em
+  `RegistroEnvioService.enviarConvitesAvaliadores`, chamado pelo controller
+  **depois** de `registrar` ter commitado e **nunca de dentro da transação
+  dele**: avaliador sem e-mail cadastrado ou falha de SMTP viram flash `aviso`
+  nomeando quem ficou de fora, com o envio já gravado. Isso é o **oposto** de
+  `ProcessoService.finalizarResposta`, onde a falha de SMTP faz rollback de
+  propósito — lá o e-mail **é** a entrega ao solicitante; aqui é só o aviso de
+  que há trabalho no portal, e o operador reenvia pelo lembrete manual
+  (`POST /processos/{id}/lembrete-avaliador`). Usa
+  `pareceresPendentesComEmail` (resultado nulo + `dataEnvio` preenchida), então
+  num **reenvio quem já votou não recebe convite de novo**. Auditoria:
+  `CONVITE_AVALIADOR_ENVIADO` / `CONVITE_AVALIADOR_NAO_ENVIADO` (sem e-mail) /
+  `CONVITE_AVALIADOR_FALHA` (SMTP).
 - Numeração `NN/AAAA`: **manual em 2026**, **automática a partir de 2027**.
 - Fluxo por e-mail com anexos por etapa. **Identificação do paciente:** o
   e-mail/material aos **médicos avaliadores oculta o nome** do paciente (só

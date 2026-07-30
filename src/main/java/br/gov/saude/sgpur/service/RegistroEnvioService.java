@@ -1,6 +1,8 @@
 package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.Anexo;
+import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
+import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
 import org.slf4j.Logger;
@@ -37,15 +39,21 @@ public class RegistroEnvioService {
     private final SolicitacaoAvaliadorService solicitacaoAvaliadorService;
     private final AnexoStorageService anexoStorage;
     private final AuditoriaService auditoria;
+    private final EmailTemplateService emailTemplateService;
+    private final EmailSenderService emailSenderService;
 
     public RegistroEnvioService(ProcessoService processoService,
                                 SolicitacaoAvaliadorService solicitacaoAvaliadorService,
                                 AnexoStorageService anexoStorage,
-                                AuditoriaService auditoria) {
+                                AuditoriaService auditoria,
+                                EmailTemplateService emailTemplateService,
+                                EmailSenderService emailSenderService) {
         this.processoService = processoService;
         this.solicitacaoAvaliadorService = solicitacaoAvaliadorService;
         this.anexoStorage = anexoStorage;
         this.auditoria = auditoria;
+        this.emailTemplateService = emailTemplateService;
+        this.emailSenderService = emailSenderService;
     }
 
     /**
@@ -199,5 +207,59 @@ public class RegistroEnvioService {
         String msg = "Envio aos avaliadores registrado em "
             + hoje.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ".";
         return RegistroEnvioResultado.sucesso(msg, ignorados);
+    }
+
+    /**
+     * Resultado do disparo automatico dos convites ao Portal do Avaliador:
+     * quantos e-mails sairam e a lista de avisos por destinatario que ficou de
+     * fora (avaliador sem e-mail cadastrado, falha de SMTP). Nunca representa
+     * erro fatal - o envio aos avaliadores ja esta gravado quando isto roda.
+     */
+    public record ConvitesResultado(int enviados, List<String> avisos) {}
+
+    /**
+     * Manda a cada avaliador com parecer pendente o convite para votar no
+     * Portal do Avaliador ({@code EmailTemplateService.emailConviteAvaliador} -
+     * so iniciais do paciente, nunca o nome completo: imparcialidade).
+     *
+     * <p><b>Chamar SEMPRE depois de {@link #registrar(Long)} ter retornado
+     * {@code ok=true}, e NUNCA de dentro da transacao dele.</b> O envio de
+     * e-mail nao pode desfazer o registro do envio: o ato juridico relevante e
+     * o envio gravado (com o PDF consolidado e as datas nos pareceres), e o
+     * convite e uma cortesia que o operador consegue reenviar a qualquer
+     * momento pelo lembrete manual ({@code POST /lembrete-avaliador}). Por isso
+     * este metodo nao e {@code @Transactional} e nao propaga excecao: cada
+     * falha vira um aviso na tela. Isso e o oposto de
+     * {@code ProcessoService.finalizarResposta}, onde a falha de SMTP faz
+     * rollback de proposito - lah o e-mail E a entrega ao solicitante; aqui o
+     * e-mail e apenas o aviso de que ha trabalho no portal.
+     *
+     * <p>Usa {@code pareceresPendentesComEmail} (resultado nulo + dataEnvio
+     * preenchida), entao num reenvio quem ja votou NAO recebe convite de novo.
+     */
+    public ConvitesResultado enviarConvitesAvaliadores(Long processoId) {
+        Processo p = processoService.buscar(processoId);
+        List<String> avisos = new ArrayList<>();
+        int enviados = 0;
+        for (Parecer parecer : processoService.pareceresPendentesComEmail(processoId)) {
+            MembroUrgenciaRenal membro = parecer.getMembro();
+            if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+                avisos.add(membro.getNome() + " (sem e-mail cadastrado)");
+                auditoria.registrar("CONVITE_AVALIADOR_NAO_ENVIADO",
+                    "Processo " + p.getNumero() + " - " + membro.getNome() + " - sem e-mail cadastrado");
+                continue;
+            }
+            EmailTemplate template = emailTemplateService.emailConviteAvaliador(p, membro);
+            if (emailSenderService.enviar(membro.getEmail(), template.assunto(), template.corpo())) {
+                enviados++;
+                auditoria.registrar("CONVITE_AVALIADOR_ENVIADO",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            } else {
+                avisos.add(membro.getNome() + " (falha no envio do e-mail)");
+                auditoria.registrar("CONVITE_AVALIADOR_FALHA",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            }
+        }
+        return new ConvitesResultado(enviados, avisos);
     }
 }
