@@ -19,7 +19,7 @@ import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
-import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
+import br.gov.saude.sgpur.service.auditoria.Auditavel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
@@ -731,7 +731,7 @@ public class ProcessoDetalheController {
         }
     }
 
-    @LogAuditoria(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")
+    @Auditavel(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")
     @PostMapping("/{id}/excluir")
     public String excluir(@PathVariable Long id, RedirectAttributes ra) {
         Processo p = processoService.buscar(id);
