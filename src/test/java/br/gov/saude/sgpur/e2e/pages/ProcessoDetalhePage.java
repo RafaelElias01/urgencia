@@ -25,16 +25,9 @@ public class ProcessoDetalhePage {
         page.locator(".wizard-step[href='#" + paneId + "']").click();
     }
 
-    // ===== Passo 1: Recebimento =====
-
-    public ProcessoDetalhePage passo1_registrarRecebimento(FilePayload solicitacaoOriginal) {
-        narrar("Passo 1/5 - Recebimento: anexando a solicitacao original recebida...");
-        clicarPasso("pane-recebimento");
-        page.locator("#pane-recebimento input[name=arquivo]").setInputFiles(solicitacaoOriginal);
-        page.locator("#pane-recebimento button:has-text('Registrar recebimento')").click();
-        page.waitForLoadState();
-        return this;
-    }
+    // ===== Passo 1: Recebimento (SEMPRE automatico desde 2026-07-27 - todo
+    //       processo nasce de uma SolicitacaoOnline convertida pelo operador,
+    //       sem nenhuma acao manual de recebimento; ver passoConcluido(1)) =====
 
     // ===== Passo 2: Envio =====
 
@@ -59,7 +52,17 @@ public class ProcessoDetalhePage {
     //       do Avaliador - ver AvaliadorPage - nao ha mais acao do operador aqui) =====
 
     // ===== Passo 4: Decisao =====
-
+    //
+    // O sistema decide sozinho (ProcessoService.tentarDecisaoAutomatica,
+    // chamado por AvaliadorController logo apos cada voto) assim que a
+    // maioria simples se forma (2 favoraveis defere, 2 desfavoraveis
+    // indefere; ou o coordenador CET-RS vota favoravel sozinho) - inclusive
+    // gerando o oficio de indeferimento automaticamente. O formulario manual
+    // abaixo (`#decisaoSelect`) SO aparece quando o processo AINDA NAO esta
+    // finalizado (th:unless="${processo.status.finalizado}" no template) -
+    // usado para Cancelado (nunca automatico) ou para redecidir apos uma
+    // reabertura pelo ADMIN. No cenario feliz de 2/3 votos formando maioria,
+    // nunca chame este metodo - o processo ja chega finalizado sozinho.
     public ProcessoDetalhePage passo4_decidir(String decisao) {
         return passo4_decidir(decisao, null);
     }
@@ -78,6 +81,7 @@ public class ProcessoDetalhePage {
 
     // ===== Passo 5: Finalizacao =====
 
+    /** Anexa/substitui o comprovante SNT (obrigatorio so quando DEFERIDO - nao e gerado pelo sistema). */
     public ProcessoDetalhePage passo5_anexarComprovanteSnt(FilePayload comprovanteSnt) {
         narrar("Passo 5/5 - Finalizacao: anexando o comprovante de insercao no SNT...");
         clicarPasso("pane-finalizacao");
@@ -87,20 +91,19 @@ public class ProcessoDetalhePage {
         return this;
     }
 
-    public ProcessoDetalhePage passo5_anexarComprovanteEnvioSolicitante(FilePayload comprovante) {
-        narrar("Passo 5/5 - Finalizacao: anexando o comprovante de envio ao solicitante...");
-        clicarPasso("pane-finalizacao");
-        page.locator("#finalizacao form[action*='comprovante-envio-solicitante'] input[name=arquivo]").setInputFiles(comprovante);
-        page.locator("#finalizacao form[action*='comprovante-envio-solicitante'] button").click();
-        page.waitForLoadState();
-        return this;
-    }
-
+    /**
+     * Clica no botao unico "Enviar Resposta ao Solicitante"
+     * (POST /processos/{id}/finalizar): dispara o e-mail com o template
+     * certo (deferido/indeferido) + o anexo correspondente, tudo automatico
+     * - nao ha mais checkbox de confirmacao nem upload manual de
+     * "comprovante de envio" nesta etapa. So habilitado quando o documento
+     * obrigatorio da decisao (Oficio de Indeferimento ou Comprovante SNT) ja
+     * estiver anexado.
+     */
     public ProcessoDetalhePage passo5_confirmarRespostaAoSolicitante() {
-        narrar("Passo 5/5 - Finalizacao: confirmando o envio da resposta ao solicitante...");
+        narrar("Passo 5/5 - Finalizacao: enviando a resposta final ao solicitante...");
         clicarPasso("pane-finalizacao");
-        page.locator("#emailEnvSolicitante").check();
-        page.locator("#finalizacao form[action*='resposta-solicitante'] button").click();
+        page.locator("#finalizacao form[action*='/finalizar'] button").click();
         page.waitForLoadState();
         return this;
     }
