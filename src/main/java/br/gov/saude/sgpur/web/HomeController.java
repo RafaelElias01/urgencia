@@ -6,6 +6,7 @@ import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.MembroUrgenciaRenalService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
 import br.gov.saude.sgpur.service.TempoRespostaService.ResumoTempo;
+import br.gov.saude.sgpur.web.dto.PainelLinha;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;

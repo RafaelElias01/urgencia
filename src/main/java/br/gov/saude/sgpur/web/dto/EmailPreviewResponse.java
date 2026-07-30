@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.web;
+package br.gov.saude.sgpur.web.dto;
 
 import java.util.List;
 

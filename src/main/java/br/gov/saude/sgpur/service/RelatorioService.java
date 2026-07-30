@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.domain.Anexo;
 import br.gov.saude.sgpur.domain.Parecer;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.TipoAnexo;
+import br.gov.saude.sgpur.service.dto.EtapaFluxo;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
