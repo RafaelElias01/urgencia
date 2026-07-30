@@ -50,7 +50,7 @@ import java.util.Optional;
  *
  * <p><b>Sem @Transactional de nivel de classe (removido em 2026-07-29).</b>
  * Uma transacao aberta pelo controller e compartilhada (propagacao REQUIRED)
- * com TODO servico {@code @Transactional} chamado dentro dela: quando um
+ * com cada servico {@code @Transactional} chamado dentro dela: quando um
  * desses servicos lanca dentro de um {@code try/catch} do metodo, o
  * TransactionInterceptor da chamada aninhada marca a transacao inteira como
  * rollback-only. O {@code catch} devolve um flash amigavel, mas o commit no

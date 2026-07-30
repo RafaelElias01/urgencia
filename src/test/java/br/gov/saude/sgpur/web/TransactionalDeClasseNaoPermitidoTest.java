@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,7 +70,8 @@ class TransactionalDeClasseNaoPermitidoTest {
      * raizes inclui os controllers reais (o que importa) mais as classes de
      * teste do pacote (inofensivo: nenhuma tem {@code @Transactional} de classe).
      */
-    private static List<Class<?>> controllersDoPacoteWeb() throws IOException, ClassNotFoundException {
+    private static List<Class<?>> controllersDoPacoteWeb()
+            throws IOException, ClassNotFoundException, URISyntaxException {
         String pacote = "br.gov.saude.sgpur.web";
         String caminhoPacote = pacote.replace('.', '/');
         Enumeration<URL> raizes = Thread.currentThread().getContextClassLoader().getResources(caminhoPacote);
@@ -77,7 +79,14 @@ class TransactionalDeClasseNaoPermitidoTest {
         int raizesEncontradas = 0;
         while (raizes.hasMoreElements()) {
             raizesEncontradas++;
-            Path raiz = Path.of(raizes.nextElement().getPath());
+            // Path.of(url.toURI()), NAO Path.of(url.getPath()): no Windows o
+            // getPath() de uma URL file: comeca com barra antes da letra do
+            // drive ("/C:/Users/...") e Path.of estoura InvalidPath ("Illegal
+            // char <:> at index 2") - o teste erra no Windows e passa no CI
+            // Linux, escondendo a trava de arquitetura justamente na maquina
+            // onde o codigo e escrito. toURI() resolve o esquema file: nos dois
+            // sistemas.
+            Path raiz = Path.of(raizes.nextElement().toURI());
             try (Stream<Path> arquivos = Files.walk(raiz)) {
                 for (Path arquivo : arquivos.filter(p -> p.toString().endsWith(".class")).toList()) {
                     String nomeArquivo = raiz.relativize(arquivo).toString()

@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * <p>Fica separado de {@code SgpurApplication} de proposito: com
  * {@code @EnableScheduling} no proprio {@code @SpringBootApplication}, o pool
- * de agendamento subiria em TODO {@code @SpringBootTest} da suite, e qualquer
+ * de agendamento subiria em cada {@code @SpringBootTest} da suite, e qualquer
  * tarefa agendada futura passaria a rodar no meio dos testes, escrevendo no
  * banco em paralelo com as assercoes. Aqui, quando a propriedade esta
  * desligada, nem o agendador nem o
