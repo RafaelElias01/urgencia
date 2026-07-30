@@ -210,6 +210,19 @@ final class PdfCabecalhoStamper {
      * {@code /PatientName}) sobreviveriam. Por isso todas as chaves presentes
      * no original sao explicitamente removidas (valor {@code null}).
      *
+     * <p><b>{@code setInfoDictionary}, nao o {@code setMoreInfo} deprecado
+     * (OpenPDF 1.3.34):</b> decompilado o {@code .jar}, os dois fazem
+     * exatamente a mesma atribuicao (o corpo de {@code setMoreInfo} e um
+     * {@code putfield moreInfo} seguido de {@code setInfoDictionary(meta)}); a
+     * unica diferenca e {@code setMoreInfo} tambem ligar a flag interna
+     * {@code cleanMetadata}, que so importa quando o XMP e gerado
+     * automaticamente a partir do {@code /Info} no {@code close()} do
+     * stamper - e aqui o XMP e sempre setado explicitamente na linha de baixo
+     * ({@link #xmpNeutro}), entao essa flag nunca chega a ser lida. Comparado
+     * antes/depois com um PDF de teste "envenenado" (Title/Author/Subject com
+     * o nome do paciente): {@code /Info} e XMP do resultado identicos byte a
+     * byte nas duas versoes.
+     *
      * @param titulo texto seguro (sem nome completo de paciente) para o
      *               {@code Title} do PDF resultante
      */
@@ -223,7 +236,7 @@ final class PdfCabecalhoStamper {
         }
         info.put("Title", titulo == null ? "" : titulo);
         info.put("Producer", NOME_INSTITUICAO);
-        stamper.setMoreInfo(info);
+        stamper.setInfoDictionary(info);
         stamper.setXmpMetadata(xmpNeutro(titulo));
     }
 

@@ -241,7 +241,18 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   completo — imparcialidade). O mesmo texto institucional ("Central de
   Transplantes do Estado do Rio Grande do Sul") é usado no Ofício
   (`OficioService`), no Relatório Final (`RelatorioService`) e no Relatório
-  Anual (`RelatorioAnualService`) — trocar em um exige trocar nos 4 lugares. **É
+  Anual (`RelatorioAnualService`) — trocar em um exige trocar nos 4 lugares.
+  **`PdfCabecalhoStamper.anonimizarMetadados` usa `PdfStamper.setInfoDictionary`
+  (desde 2026-07-29), não o `setMoreInfo` deprecado no OpenPDF 1.3.34** — os
+  dois fazem exatamente a mesma coisa (confirmado decompilando o `.jar`:
+  `setMoreInfo` só chama `setInfoDictionary` e liga uma flag interna que só
+  importa quando o XMP é gerado automaticamente, e aqui o XMP é sempre setado
+  explícito logo depois). Cobertura em `PdfCabecalhoStamperTest`: lê o
+  `/Info` e o XMP do PDF resultante e confirma que um nome de paciente
+  "envenenando" até uma chave `/Info` **customizada** (fora do padrão) some
+  por completo — é a mesma proteção de imparcialidade que o texto visível já
+  tinha, mas nos metadados (o navegador mostra o `Title` na aba ao abrir um
+  PDF inline). **É
   obrigatório ao menos um documento clínico PDF anexado:** `registrarEnvio`
   **bloqueia** (flash `erro`, sem efetivar o envio) se não houver nenhum. A
   **solicitação original** (`SOLICITACAO_RECEBIDA`) **NUNCA** entra nesse PDF
