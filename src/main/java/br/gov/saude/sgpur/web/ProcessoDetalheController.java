@@ -15,11 +15,12 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.service.dto.PassoWizard;
 import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
-import br.gov.saude.sgpur.service.auditoria.LogAuditoria;
+import br.gov.saude.sgpur.service.auditoria.Auditavel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
@@ -484,9 +485,9 @@ public class ProcessoDetalheController {
         var passosWizard = fluxoService.montarPassosWizard(p);
         model.addAttribute("passosWizard", passosWizard);
         String abaAtivaPaneId = passosWizard.stream()
-            .filter(passo -> passo.estado() != br.gov.saude.sgpur.service.PassoWizard.Estado.CONCLUIDA)
+            .filter(passo -> passo.estado() != PassoWizard.Estado.CONCLUIDA)
             .findFirst()
-            .map(br.gov.saude.sgpur.service.PassoWizard::paneId)
+            .map(PassoWizard::paneId)
             .orElse(passosWizard.get(passosWizard.size() - 1).paneId());
         model.addAttribute("abaAtivaPaneId", abaAtivaPaneId);
 
@@ -731,7 +732,7 @@ public class ProcessoDetalheController {
         }
     }
 
-    @LogAuditoria(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")
+    @Auditavel(acao = "PROCESSO_EXCLUIDO", detalhe = "'Processo id ' + #args[0]")
     @PostMapping("/{id}/excluir")
     public String excluir(@PathVariable Long id, RedirectAttributes ra) {
         Processo p = processoService.buscar(id);

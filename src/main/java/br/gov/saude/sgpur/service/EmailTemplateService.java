@@ -4,6 +4,7 @@ import br.gov.saude.sgpur.config.EmailProperties;
 import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.StatusProcesso;
+import br.gov.saude.sgpur.service.dto.EmailTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

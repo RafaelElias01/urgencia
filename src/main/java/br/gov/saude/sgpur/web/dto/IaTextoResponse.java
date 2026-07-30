@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.web;
+package br.gov.saude.sgpur.web.dto;
 
 /**
  * Resposta das chamadas AJAX de assistencia por IA (sugestao de motivo,

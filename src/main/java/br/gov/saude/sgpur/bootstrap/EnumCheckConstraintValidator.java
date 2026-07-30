@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.config;
+package br.gov.saude.sgpur.bootstrap;
 
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.engine.spi.SessionFactoryImplementor;

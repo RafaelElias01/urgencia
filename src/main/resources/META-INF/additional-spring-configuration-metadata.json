@@ -11,13 +11,13 @@
       "name": "app.admin.username",
       "type": "java.lang.String",
       "description": "Login do usuario ADMIN inicial, criado por AdminBootstrap so quando a tabela usuario esta vazia.",
-      "sourceType": "br.gov.saude.sgpur.config.AdminBootstrap"
+      "sourceType": "br.gov.saude.sgpur.bootstrap.AdminBootstrap"
     },
     {
       "name": "app.admin.password",
       "type": "java.lang.String",
       "description": "Senha do usuario ADMIN inicial. Sem default em application-prod.yml (SGPUR_ADMIN_PASSWORD obrigatoria em producao).",
-      "sourceType": "br.gov.saude.sgpur.config.AdminBootstrap"
+      "sourceType": "br.gov.saude.sgpur.bootstrap.AdminBootstrap"
     },
     {
       "name": "app.base-url",

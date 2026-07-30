@@ -3,6 +3,7 @@ package br.gov.saude.sgpur.service;
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
+import br.gov.saude.sgpur.service.dto.EmailTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

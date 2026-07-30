@@ -1,6 +1,6 @@
-package br.gov.saude.sgpur.config;
+package br.gov.saude.sgpur.bootstrap;
 
-import br.gov.saude.sgpur.config.EnumCheckConstraintValidator.Divergencia;
+import br.gov.saude.sgpur.bootstrap.EnumCheckConstraintValidator.Divergencia;
 import br.gov.saude.sgpur.domain.SituacaoUrgencia;
 import br.gov.saude.sgpur.domain.StatusSolicitacaoOnline;
 import org.junit.jupiter.api.DisplayName;

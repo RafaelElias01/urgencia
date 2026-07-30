@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.service;
+package br.gov.saude.sgpur.service.dto;
 
 /**
  * Representa uma etapa do fluxo do processo para exibicao em tempo real.

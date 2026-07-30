@@ -282,26 +282,6 @@ class ProcessoDetalheSemTransacaoIntegrationTest {
     }
 
     /**
-     * Mesmo caminho de falha pela regra de negocio (nao pelo arquivo): confirmar
-     * a resposta de um processo DEFERIDO sem o comprovante SNT faz
-     * {@code ProcessoService.confirmarRespostaSolicitante} ({@code @Transactional})
-     * lancar {@code IllegalStateException}. Tem que virar flash de erro, nao 500.
-     */
-    @Test
-    @WithMockUser(username = "operador-it", roles = "OPERADOR")
-    void respostaSolicitanteSemComprovanteSntDevolveMensagemDeNegocioENao500() throws Exception {
-        mvc.perform(post("/processos/" + processoDeferidoId + "/resposta-solicitante")
-                        .param("emailEnviadoSolicitante", "true")
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(flash().attributeExists("erro"));
-
-        // A confirmacao NAO pode ter sido gravada (a regra bloqueou de verdade).
-        assertThat(processoRepo.findById(processoDeferidoId).orElseThrow()
-                .isEmailEnviadoSolicitante()).isFalse();
-    }
-
-    /**
      * Reabrir um processo que NAO esta encerrado lanca
      * {@code IllegalStateException} dentro de {@code ProcessoService.reabrir}
      * ({@code @Transactional}), tratada por {@code try/catch} no controller -

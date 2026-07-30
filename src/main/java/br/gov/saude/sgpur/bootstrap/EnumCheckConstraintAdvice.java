@@ -1,7 +1,7 @@
-package br.gov.saude.sgpur.web;
+package br.gov.saude.sgpur.bootstrap;
 
-import br.gov.saude.sgpur.config.EnumCheckConstraintValidator;
-import br.gov.saude.sgpur.config.EnumCheckConstraintValidator.Divergencia;
+import br.gov.saude.sgpur.web.HomeController;
+import br.gov.saude.sgpur.bootstrap.EnumCheckConstraintValidator.Divergencia;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;

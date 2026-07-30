@@ -9,6 +9,7 @@ import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.FluxoProcessoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
 import br.gov.saude.sgpur.service.TempoRespostaService;
+import br.gov.saude.sgpur.web.dto.PainelLinha;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

@@ -5,6 +5,7 @@ import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
+import br.gov.saude.sgpur.service.dto.EmailTemplate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -530,9 +531,39 @@ class ProcessoServiceTest {
     }
 
     /**
-     * reabrir() so desfaz o espelhamento de decidir() (APROVADA/REPROVADA).
-     * Status que nada tem a ver com a decisao — aqui PROCESSO_EXCLUIDO — nao
-     * podem ser sobrescritos por engano.
+     * Mesma regra pelo lado do cancelamento (CANCELADA -> CONVERTIDA). Sem
+     * isso, reabrir um processo que o solicitante cancelou deixava o Portal
+     * do Solicitante preso em "Cancelada" durante toda a reanalise, e
+     * {@code podeCancelar} (que exige ENVIADA/CONVERTIDA) impedia o
+     * solicitante de cancelar de novo um processo que, de fato, esta em
+     * andamento outra vez.
+     */
+    @Test
+    void reabrirDevolveSolicitacaoCanceladaParaConvertida() {
+        // Comeca em ENVIADO (nao finalizado) - decidir(CANCELADO) e quem leva
+        // o processo a CANCELADO; reabrir so faz sentido depois disso.
+        Processo p = new Processo();
+        p.setStatus(StatusProcesso.ENVIADO);
+        when(processoRepository.findById(34L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(34L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(34L, StatusProcesso.CANCELADO, null);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CANCELADA);
+
+        service.reabrir(34L);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.ENVIADO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
+    }
+
+    /**
+     * reabrir() so desfaz o espelhamento de decidir() (APROVADA/REPROVADA/
+     * CANCELADA). Status que nada tem a ver com a decisao — aqui
+     * PROCESSO_EXCLUIDO — nao podem ser sobrescritos por engano.
      */
     @Test
     void reabrirNaoSobrescreveStatusAlheioDaSolicitacao() {

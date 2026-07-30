@@ -2,6 +2,7 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.config.EmailProperties;
 import br.gov.saude.sgpur.domain.*;
+import br.gov.saude.sgpur.service.dto.EmailTemplate;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

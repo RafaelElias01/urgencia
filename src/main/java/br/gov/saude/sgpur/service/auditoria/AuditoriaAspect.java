@@ -15,7 +15,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Registra auditoria automaticamente para metodos anotados com
- * {@link LogAuditoria}, apos retorno normal. Reune o IP do cliente da
+ * {@link Auditavel}, apos retorno normal. Reune o IP do cliente da
  * requisicao HTTP corrente (mesma origem que {@code request.getRemoteAddr()}
  * usado no Portal do Avaliador) e delega a {@link AuditoriaService}, que ja
  * absorve qualquer falha de log sem interromper a acao principal.
@@ -31,13 +31,13 @@ public class AuditoriaAspect {
         this.auditoria = auditoria;
     }
 
-    @AfterReturning("@annotation(logAuditoria)")
-    public void registrar(JoinPoint joinPoint, LogAuditoria logAuditoria) {
-        auditoria.registrar(logAuditoria.acao(), detalhe(logAuditoria, joinPoint), ipDaRequisicao());
+    @AfterReturning("@annotation(auditavel)")
+    public void registrar(JoinPoint joinPoint, Auditavel auditavel) {
+        auditoria.registrar(auditavel.acao(), detalhe(auditavel, joinPoint), ipDaRequisicao());
     }
 
-    private String detalhe(LogAuditoria logAuditoria, JoinPoint joinPoint) {
-        String expr = logAuditoria.detalhe();
+    private String detalhe(Auditavel auditavel, JoinPoint joinPoint) {
+        String expr = auditavel.detalhe();
         if (expr == null || expr.isBlank()) {
             return null;
         }

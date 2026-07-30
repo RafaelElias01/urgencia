@@ -295,6 +295,13 @@ public class SolicitanteController {
      * antes do try so le (posse); sem transacao de classe para envenenar, uma
      * {@code IllegalStateException} de negocio (ex.: ja triada) devolve o
      * flash de erro sem risco de {@code UnexpectedRollbackException}.
+     *
+     * <p>O aviso aos avaliadores ({@code notificarAvaliadoresCancelamento})
+     * roda DEPOIS do commit do cancelamento e tem seu proprio {@code catch}:
+     * uma falha inesperada ali (nao so o caso ja tratado de "sem e-mail"/SMTP
+     * recusado) vira flash {@code aviso}, nunca 500 - o cancelamento em si ja
+     * esta gravado e nao pode ser "perdido" por um problema no aviso, que e
+     * so cortesia (o operador consegue reenviar depois).
      */
     @PostMapping("/{id}/cancelar")
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -308,17 +315,20 @@ public class SolicitanteController {
             if (processoCancelado == null) {
                 ra.addFlashAttribute("msg", "Solicitacao cancelada.");
             } else {
-                // Aviso aos avaliadores DEPOIS do commit do cancelamento: falha
-                // de SMTP nunca pode "descancelar" o processo (mesmo contrato do
-                // convite automatico ao registrar o envio).
-                List<String> naoAvisados =
-                    solicitacaoService.notificarAvaliadoresCancelamento(processoCancelado);
                 ra.addFlashAttribute("msg",
                     "Solicitacao cancelada. O processo foi encerrado e os avaliadores pendentes foram avisados.");
-                if (!naoAvisados.isEmpty()) {
+                try {
+                    List<String> naoAvisados =
+                        solicitacaoService.notificarAvaliadoresCancelamento(processoCancelado);
+                    if (!naoAvisados.isEmpty()) {
+                        ra.addFlashAttribute("aviso",
+                            "Nao foi possivel avisar por e-mail: " + String.join(", ", naoAvisados)
+                                + ". O processo ja consta como cancelado e saiu da lista deles no portal.");
+                    }
+                } catch (RuntimeException e) {
                     ra.addFlashAttribute("aviso",
-                        "Nao foi possivel avisar por e-mail: " + String.join(", ", naoAvisados)
-                            + ". O processo ja consta como cancelado e saiu da lista deles no portal.");
+                        "O cancelamento foi efetivado, mas houve uma falha inesperada ao avisar os avaliadores "
+                            + "pendentes. O processo ja consta como cancelado.");
                 }
             }
         } catch (IllegalStateException e) {

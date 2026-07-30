@@ -8,6 +8,7 @@ import br.gov.saude.sgpur.service.OficioService;
 import br.gov.saude.sgpur.service.ProcessoService;
 import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.service.RelatorioService;
+import br.gov.saude.sgpur.web.dto.IaTextoResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -139,37 +140,6 @@ public class ProcessoAnexoController {
         p.setDataEnvioOficio(dataEnvioOficio);
         processoService.salvar(p);
         ra.addFlashAttribute("msg", "Dados de finalizacao atualizados.");
-        return "redirect:/processos/" + id + "#finalizacao";
-    }
-
-    /**
-     * Confirma o envio da resposta ao solicitante (aba Resposta ao solicitante).
-     *
-     * <p>Sem {@code @Transactional}: o {@code try/catch} envolve
-     * {@code confirmarRespostaSolicitante} (metodo {@code @Transactional} que
-     * lanca {@code IllegalStateException} quando falta o comprovante SNT/oficio)
-     * - com transacao de controller o operador recebia 500 em vez dessa
-     * mensagem.
-     */
-    @PostMapping("/{id}/resposta-solicitante")
-    public String respostaSolicitante(@PathVariable Long id,
-                              @RequestParam(required = false, defaultValue = "false") boolean emailEnviadoSolicitante,
-                              RedirectAttributes ra) {
-        // Regra (comprovante SNT no Deferido / oficio no Indeferido) validada
-        // dentro do servico - ProcessoService.confirmarRespostaSolicitante -
-        // para nao existir so aqui na camada web.
-        Processo p = processoService.buscar(id);
-        if (!p.getStatus().isFinalizado()) {
-            ra.addFlashAttribute("erro", "Resposta ao solicitante so pode ser confirmada apos a decisao.");
-            return "redirect:/processos/" + id + "#finalizacao";
-        }
-        try {
-            processoService.confirmarRespostaSolicitante(id, emailEnviadoSolicitante);
-        } catch (IllegalStateException e) {
-            ra.addFlashAttribute("erro", e.getMessage());
-            return "redirect:/processos/" + id + "#finalizacao";
-        }
-        ra.addFlashAttribute("msg", "Finalizacao salva.");
         return "redirect:/processos/" + id + "#finalizacao";
     }
 

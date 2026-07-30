@@ -6,8 +6,8 @@ import br.gov.saude.sgpur.repository.ParecerRepository;
 import br.gov.saude.sgpur.repository.UsuarioRepository;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,13 +34,22 @@ public class GlobalModelAdvice {
     private final UsuarioRepository usuarioRepo;
     private final ParecerRepository parecerRepo;
     private final SolicitacaoOnlineService solicitacaoOnlineService;
-    @Autowired(required = false)
-    private MensagemSolicitacaoService mensagemService;
+    /**
+     * Opcional de proposito: {@code @Nullable} num construtor com um unico
+     * candidato e o idioma oficial do Spring para injecao de dependencia
+     * opcional (equivalente ao antigo campo {@code @Autowired(required =
+     * false)}, sem precisar de reflection de campo). Continua {@code null}
+     * quando o bean nao existe no contexto - a maioria dos {@code @WebMvcTest}
+     * que carregam este advice nao mocka {@code MensagemSolicitacaoService}.
+     */
+    private final MensagemSolicitacaoService mensagemService;
     private final boolean solicitanteHabilitado;
 
     public GlobalModelAdvice(UsuarioRepository usuarioRepo, ParecerRepository parecerRepo,
             SolicitacaoOnlineService solicitacaoOnlineService,
+            @Nullable MensagemSolicitacaoService mensagemService,
             @Value("${app.solicitante.habilitado:true}") boolean solicitanteHabilitado) {
+        this.mensagemService = mensagemService;
         this.usuarioRepo = usuarioRepo;
         this.parecerRepo = parecerRepo;
         this.solicitacaoOnlineService = solicitacaoOnlineService;

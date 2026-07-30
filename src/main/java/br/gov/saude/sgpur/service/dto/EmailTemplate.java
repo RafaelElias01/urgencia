@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.service;
+package br.gov.saude.sgpur.service.dto;
 
 /**
  * Texto de e-mail pronto para copiar/colar, referente a uma etapa do processo.

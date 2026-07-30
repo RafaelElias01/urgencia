@@ -1,7 +1,7 @@
-package br.gov.saude.sgpur.config;
+package br.gov.saude.sgpur.bootstrap;
 
-import br.gov.saude.sgpur.config.EnumCheckConstraintValidator.ColunaEnum;
-import br.gov.saude.sgpur.config.EnumCheckConstraintValidator.Resultado;
+import br.gov.saude.sgpur.bootstrap.EnumCheckConstraintValidator.ColunaEnum;
+import br.gov.saude.sgpur.bootstrap.EnumCheckConstraintValidator.Resultado;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

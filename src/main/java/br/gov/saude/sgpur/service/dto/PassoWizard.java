@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.service;
+package br.gov.saude.sgpur.service.dto;
 
 /**
  * Representa um dos 5 passos fixos do wizard horizontal na tela de detalhe

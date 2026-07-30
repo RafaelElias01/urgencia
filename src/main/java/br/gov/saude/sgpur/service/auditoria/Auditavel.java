@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface LogAuditoria {
+public @interface Auditavel {
 
     /** Codigo da acao gravado no log (ex.: "PROCESSO_EXCLUIDO"). */
     String acao();
