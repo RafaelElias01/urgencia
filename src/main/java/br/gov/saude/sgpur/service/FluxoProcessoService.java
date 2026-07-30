@@ -2,7 +2,9 @@ package br.gov.saude.sgpur.service;
 
 import br.gov.saude.sgpur.domain.*;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
-import br.gov.saude.sgpur.service.EtapaFluxo.Estado;
+import br.gov.saude.sgpur.service.dto.EtapaFluxo;
+import br.gov.saude.sgpur.service.dto.EtapaFluxo.Estado;
+import br.gov.saude.sgpur.service.dto.PassoWizard;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

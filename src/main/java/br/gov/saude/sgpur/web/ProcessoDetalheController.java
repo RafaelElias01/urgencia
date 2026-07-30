@@ -15,6 +15,7 @@ import br.gov.saude.sgpur.service.ProcessoValidator;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.service.MensagemSolicitacaoService;
 import br.gov.saude.sgpur.service.SolicitacaoOnlineService;
+import br.gov.saude.sgpur.service.dto.PassoWizard;
 import br.gov.saude.sgpur.repository.AnexoRepository;
 import br.gov.saude.sgpur.repository.ProcessoRepository;
 import br.gov.saude.sgpur.repository.SolicitacaoOnlineRepository;
@@ -484,9 +485,9 @@ public class ProcessoDetalheController {
         var passosWizard = fluxoService.montarPassosWizard(p);
         model.addAttribute("passosWizard", passosWizard);
         String abaAtivaPaneId = passosWizard.stream()
-            .filter(passo -> passo.estado() != br.gov.saude.sgpur.service.PassoWizard.Estado.CONCLUIDA)
+            .filter(passo -> passo.estado() != PassoWizard.Estado.CONCLUIDA)
             .findFirst()
-            .map(br.gov.saude.sgpur.service.PassoWizard::paneId)
+            .map(PassoWizard::paneId)
             .orElse(passosWizard.get(passosWizard.size() - 1).paneId());
         model.addAttribute("abaAtivaPaneId", abaAtivaPaneId);
 

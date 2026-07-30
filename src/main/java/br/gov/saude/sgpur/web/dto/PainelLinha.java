@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.web;
+package br.gov.saude.sgpur.web.dto;
 
 import br.gov.saude.sgpur.domain.Processo;
 import br.gov.saude.sgpur.domain.ResultadoParecer;

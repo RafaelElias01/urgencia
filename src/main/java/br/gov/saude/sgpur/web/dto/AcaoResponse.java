@@ -1,4 +1,4 @@
-package br.gov.saude.sgpur.web;
+package br.gov.saude.sgpur.web.dto;
 
 /**
  * Resposta generica das acoes AJAX que disparam efeitos colaterais (envio de
