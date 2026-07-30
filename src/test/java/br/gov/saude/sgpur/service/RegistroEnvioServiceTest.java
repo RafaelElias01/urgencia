@@ -209,11 +209,14 @@ class RegistroEnvioServiceTest {
 
         assertThat(resultado.ok()).isTrue();
         assertThat(resultado.avisos()).anyMatch(a -> a.contains("laudo-original.pdf"));
-        // So o documento anonimizado foi para a consolidacao
-        var captor = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        // So o documento anonimizado foi para a consolidacao. O captor e criado
+        // com ArgumentCaptor.captor() (Mockito 5.7+) em vez de
+        // forClass(List.class): forClass devolve o tipo cru e obriga a um cast
+        // com aviso de unchecked em cada uso.
+        org.mockito.ArgumentCaptor<java.util.List<byte[]>> captor = org.mockito.ArgumentCaptor.captor();
         verify(solicitacaoAvaliadorService).consolidar(captor.capture());
         assertThat(captor.getValue()).hasSize(1);
-        assertThat((byte[]) captor.getValue().get(0)).isEqualTo(bytesAnonimizado);
+        assertThat(captor.getValue().get(0)).isEqualTo(bytesAnonimizado);
     }
 
     /**
