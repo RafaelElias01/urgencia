@@ -437,11 +437,17 @@ public class ProcessoService {
             p.setMotivoIndeferimento(motivoIndeferimento);
         }
         Processo salvo = processoRepository.save(p);
-        // Espelha a decisao no status da SolicitacaoOnline de origem, se houver
+        // Espelha a decisao no status da SolicitacaoOnline de origem, se houver.
+        // CANCELADO vira CANCELADA, nao REPROVADA: "Reprovada" diria ao
+        // solicitante que a equipe analisou e negou o pedido dele, quando na
+        // verdade o processo foi cancelado (as vezes pelo proprio solicitante,
+        // via podeCancelar/cancelar no portal).
         solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
-            s.setStatus(decisao == StatusProcesso.DEFERIDO
-                ? StatusSolicitacaoOnline.APROVADA
-                : StatusSolicitacaoOnline.REPROVADA);
+            s.setStatus(switch (decisao) {
+                case DEFERIDO -> StatusSolicitacaoOnline.APROVADA;
+                case CANCELADO -> StatusSolicitacaoOnline.CANCELADA;
+                default -> StatusSolicitacaoOnline.REPROVADA;
+            });
             solicitacaoOnlineRepository.save(s);
         });
         return salvo;

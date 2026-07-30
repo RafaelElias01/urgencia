@@ -112,6 +112,39 @@ public class EmailTemplateService {
     }
 
     /**
+     * Avisa um avaliador que ainda nao votou de que o processo foi CANCELADO
+     * pelo solicitante e saiu da fila dele. SEM nome completo do paciente (so
+     * iniciais) - a regra de imparcialidade vale mesmo num aviso administrativo.
+     */
+    public EmailTemplate emailCancelamentoAvaliador(Processo p, MembroUrgenciaRenal membro) {
+        String iniciais = Iniciais.de(p.getPacienteNome());
+        String idProcesso = p.getNumero() + " CET-RS - Paciente " + iniciais;
+
+        String corpo = """
+            Prezado(a) %s,
+
+            O processo abaixo foi CANCELADO pela equipe solicitante e nao aguarda
+            mais o seu parecer. Ele ja foi retirado da sua lista no Portal do
+            Avaliador - nenhuma acao e necessaria da sua parte.
+
+            Processo %s
+
+            Pedimos desculpas por eventual analise ja iniciada.
+
+            O nome do paciente foi omitido para preservar a imparcialidade do
+            julgamento; identificado apenas pelas iniciais.
+
+            Atenciosamente,
+            %s
+            """.formatted(membro.getNome(), idProcesso, assinatura());
+
+        return new EmailTemplate("cancelamento-avaliador",
+            "Aviso de cancelamento - " + membro.getNome(), "slash-circle",
+            assunto("Processo cancelado - " + idProcesso),
+            corpo);
+    }
+
+    /**
      * Lembrete manual de avaliacao pendente, disparado pelo operador para um
      * avaliador especifico que ainda nao registrou parecer. SEM nome completo
      * do paciente (so iniciais), para preservar a imparcialidade do julgamento.

@@ -174,9 +174,10 @@ class SolicitanteControllerSemTransacaoIntegrationTest {
     }
 
     /**
-     * POST /solicitante/{id}/cancelar numa solicitacao que NAO esta mais
-     * ENVIADA (ja foi triada/devolvida): {@code SolicitacaoOnlineService.cancelar}
-     * lanca {@code IllegalStateException} dentro do try/catch de
+     * POST /solicitante/{id}/cancelar numa solicitacao DEVOLVIDA - fora das
+     * duas janelas de {@code podeCancelar} (ENVIADA, ou CONVERTIDA com processo
+     * ainda nao decidido): {@code SolicitacaoOnlineService.cancelar} lanca
+     * {@code IllegalStateException} dentro do try/catch de
      * {@link SolicitanteController#cancelar}. Confirma flash de erro (302),
      * nunca 500, e que o status da solicitacao permanece intacto.
      */
@@ -187,7 +188,7 @@ class SolicitanteControllerSemTransacaoIntegrationTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/solicitante"))
                 .andExpect(flash().attribute("erro",
-                        "So e possivel cancelar solicitacoes que ainda nao foram triadas pelo operador."));
+                        "Esta solicitacao nao pode mais ser cancelada."));
 
         SolicitacaoOnline depois = solicitacaoRepo.findById(solicitacaoJaTriadaId).orElseThrow();
         assertThat(depois.getStatus()).isEqualTo(StatusSolicitacaoOnline.DEVOLVIDA);

@@ -488,6 +488,27 @@ class ProcessoServiceTest {
         assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CONVERTIDA);
     }
 
+    /**
+     * CANCELADO espelha como CANCELADA, NAO como REPROVADA: "Reprovada" diria
+     * ao solicitante que a equipe analisou e negou o pedido, quando o processo
+     * so foi cancelado (as vezes por ele mesmo, pelo portal).
+     */
+    @Test
+    void decidirCanceladoEspelhaSolicitacaoComoCanceladaNaoReprovada() {
+        Processo p = comPareceres(ResultadoParecer.FAVORAVEL, null, null);
+        when(processoRepository.findById(33L)).thenReturn(java.util.Optional.of(p));
+        when(processoRepository.save(p)).thenReturn(p);
+
+        SolicitacaoOnline s = new SolicitacaoOnline();
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        when(solicitacaoOnlineRepository.findByProcessoGeradoId(33L)).thenReturn(java.util.Optional.of(s));
+
+        service.decidir(33L, StatusProcesso.CANCELADO, null);
+
+        assertThat(p.getStatus()).isEqualTo(StatusProcesso.CANCELADO);
+        assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CANCELADA);
+    }
+
     /** Mesma regra pelo lado do indeferimento (REPROVADA -> CONVERTIDA). */
     @Test
     void reabrirDevolveSolicitacaoReprovadaParaConvertida() {

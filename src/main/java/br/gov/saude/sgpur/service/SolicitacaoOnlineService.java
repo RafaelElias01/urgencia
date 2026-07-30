@@ -34,6 +34,9 @@ public class SolicitacaoOnlineService {
     private final AnexoStorageService anexoStorageProcesso;
     private final UsuarioRepository usuarioRepository;
     private final EmailSenderService emailSenderService;
+    private final EmailTemplateService emailTemplateService;
+    private final ProcessoService processoService;
+    private final AuditoriaService auditoria;
     private final String baseUrl;
 
     public SolicitacaoOnlineService(SolicitacaoOnlineRepository repository,
@@ -41,12 +44,18 @@ public class SolicitacaoOnlineService {
                                     AnexoStorageService anexoStorageProcesso,
                                     UsuarioRepository usuarioRepository,
                                     EmailSenderService emailSenderService,
+                                    EmailTemplateService emailTemplateService,
+                                    ProcessoService processoService,
+                                    AuditoriaService auditoria,
                                     @Value("${app.base-url:http://localhost:3000}") String baseUrl) {
         this.repository = repository;
         this.anexoStorage = anexoStorage;
         this.anexoStorageProcesso = anexoStorageProcesso;
         this.usuarioRepository = usuarioRepository;
         this.emailSenderService = emailSenderService;
+        this.emailTemplateService = emailTemplateService;
+        this.processoService = processoService;
+        this.auditoria = auditoria;
         this.baseUrl = baseUrl;
     }
 
@@ -316,21 +325,109 @@ public class SolicitacaoOnlineService {
     }
 
     /**
-     * Cancela a propria solicitacao, apenas enquanto ainda nao foi triada
-     * (status ENVIADA). Verifica posse (o dono precisa ser quem cancela).
+     * True se o solicitante ainda pode cancelar este pedido. Fonte UNICA da
+     * regra: a tela pergunta a este metodo se mostra o botao, e
+     * {@link #cancelar(Long, Long)} pergunta a ele antes de efetivar - sem isso
+     * as duas condicoes divergem e o botao aparece para um pedido que o servico
+     * vai recusar.
+     *
+     * <p>Duas janelas:
+     * <ul>
+     *   <li>{@code ENVIADA} - ainda nem foi triada pelo operador;</li>
+     *   <li>{@code CONVERTIDA} com o processo gerado <b>ainda nao decidido</b> -
+     *       o pedido virou processo mas ninguem bateu o martelo. O caso real e
+     *       o paciente ter sido transplantado, ter falecido ou o pedido ter
+     *       sido aberto por engano enquanto os 3 medicos ja analisam.</li>
+     * </ul>
+     *
+     * <p>Depois da decisao final (Deferido/Indeferido) NAO cancela mais: o
+     * desfecho ja existe, com oficio/comprovante e resposta ao solicitante.
+     */
+    public boolean podeCancelar(SolicitacaoOnline s) {
+        if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
+            return true;
+        }
+        if (s.getStatus() != StatusSolicitacaoOnline.CONVERTIDA || s.getProcessoGerado() == null) {
+            return false;
+        }
+        return !s.getProcessoGerado().getStatus().isFinalizado();
+    }
+
+    /**
+     * Cancela a propria solicitacao. Verifica posse (o dono precisa ser quem
+     * cancela) e a janela de {@link #podeCancelar(SolicitacaoOnline)}.
+     *
+     * <p>Quando o pedido ja virou processo, o cancelamento e delegado a
+     * {@code processoService.decidir(id, CANCELADO, null)} em vez de trocar o
+     * status na mao: e o mesmo caminho do cancelamento pelo operador, entao
+     * passa pelas mesmas travas (processo encerrado nao redecide) e grava
+     * {@code dataDecisao}. {@code decidir} ja espelha CANCELADO como
+     * {@code CANCELADA} na solicitacao de origem.
+     *
+     * @return o id do processo cancelado junto, ou {@code null} se o pedido
+     *         ainda nem tinha processo - o chamador usa isso para saber se
+     *         precisa avisar os avaliadores.
      */
     @Transactional
-    public void cancelar(Long id, Long usuarioLogadoId) {
+    public Long cancelar(Long id, Long usuarioLogadoId) {
         SolicitacaoOnline s = buscar(id);
         if (!s.getUsuarioSolicitante().getId().equals(usuarioLogadoId)) {
             throw new IllegalStateException("Voce so pode cancelar as suas proprias solicitacoes.");
         }
-        if (s.getStatus() != StatusSolicitacaoOnline.ENVIADA) {
-            throw new IllegalStateException(
-                "So e possivel cancelar solicitacoes que ainda nao foram triadas pelo operador.");
+        if (!podeCancelar(s)) {
+            // Mensagem especifica so quando o motivo real e "ja foi decidido" -
+            // dizer isso de um pedido sem processo confundiria o solicitante.
+            boolean processoJaDecidido = s.getProcessoGerado() != null
+                && s.getProcessoGerado().getStatus().isFinalizado();
+            throw new IllegalStateException(processoJaDecidido
+                ? "Este processo ja foi decidido pela equipe e nao pode mais ser cancelado."
+                : "Esta solicitacao nao pode mais ser cancelada.");
         }
-        s.setStatus(StatusSolicitacaoOnline.CANCELADA);
-        repository.save(s);
+        if (s.getStatus() == StatusSolicitacaoOnline.ENVIADA) {
+            s.setStatus(StatusSolicitacaoOnline.CANCELADA);
+            repository.save(s);
+            return null;
+        }
+        Long processoId = s.getProcessoGerado().getId();
+        processoService.decidir(processoId, StatusProcesso.CANCELADO, null);
+        return processoId;
+    }
+
+    /**
+     * Avisa por e-mail os avaliadores que ainda NAO votaram que o processo foi
+     * cancelado pelo solicitante - sem isso o medico abre o portal, analisa o
+     * caso e so descobre no fim que ele nem existe mais.
+     *
+     * <p>Mesmo contrato do convite automatico
+     * ({@code RegistroEnvioService.enviarConvitesAvaliadores}): NAO e
+     * {@code @Transactional}, roda DEPOIS de {@link #cancelar(Long, Long)} ter
+     * commitado e nunca lanca. O cancelamento e o ato relevante e ja esta
+     * gravado; falha de SMTP vira aviso na tela, jamais um rollback que
+     * "descancelaria" o processo.
+     *
+     * @return nomes dos avaliadores que NAO puderam ser avisados (sem e-mail
+     *         cadastrado ou falha no envio); vazio quando todos foram avisados.
+     */
+    public List<String> notificarAvaliadoresCancelamento(Long processoId) {
+        Processo p = processoService.buscar(processoId);
+        List<String> naoAvisados = new java.util.ArrayList<>();
+        for (Parecer parecer : processoService.pareceresPendentesComEmail(processoId)) {
+            MembroUrgenciaRenal membro = parecer.getMembro();
+            if (membro.getEmail() == null || membro.getEmail().isBlank()) {
+                naoAvisados.add(membro.getNome());
+                continue;
+            }
+            EmailTemplate template = emailTemplateService.emailCancelamentoAvaliador(p, membro);
+            if (emailSenderService.enviar(membro.getEmail(), template.assunto(), template.corpo())) {
+                auditoria.registrar("CANCELAMENTO_AVISO_AVALIADOR_ENVIADO",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            } else {
+                naoAvisados.add(membro.getNome());
+                auditoria.registrar("CANCELAMENTO_AVISO_AVALIADOR_FALHA",
+                    "Processo " + p.getNumero() + " - " + membro.getNome());
+            }
+        }
+        return naoAvisados;
     }
 
     /**

@@ -158,14 +158,73 @@ class SolicitanteControllerTest {
     void cancelarAPropriaSolicitacaoFunciona() throws Exception {
         when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
         when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
-        doNothing().when(solicitacaoService).cancelar(50L, 1L);
+        // null = ainda nao tinha processo gerado; ninguem para avisar.
+        when(solicitacaoService.cancelar(50L, 1L)).thenReturn(null);
 
         mvc.perform(post("/solicitante/50/cancelar").with(csrf()))
             .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/solicitante"));
+            .andExpect(redirectedUrl("/solicitante"))
+            .andExpect(flash().attribute("msg", "Solicitacao cancelada."));
 
         verify(solicitacaoService).cancelar(50L, 1L);
         verify(auditoria).registrar(eq("SOLICITACAO_ONLINE_CANCELADA"), any());
+        verify(solicitacaoService, never()).notificarAvaliadoresCancelamento(any());
+    }
+
+    /**
+     * Cancelamento de um pedido que ja virou processo: avisa os avaliadores
+     * pendentes DEPOIS que o cancelamento ja foi commitado pelo servico.
+     */
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void cancelarPedidoJaConvertidoAvisaAvaliadoresPendentes() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.cancelar(50L, 1L)).thenReturn(500L);
+        when(solicitacaoService.notificarAvaliadoresCancelamento(500L))
+            .thenReturn(java.util.List.of());
+
+        mvc.perform(post("/solicitante/50/cancelar").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString(
+                "avaliadores pendentes foram avisados")));
+
+        verify(solicitacaoService).notificarAvaliadoresCancelamento(500L);
+    }
+
+    /**
+     * Avaliador que nao pode ser avisado (sem e-mail / SMTP fora) vira flash
+     * "aviso" - o cancelamento em si continua valendo.
+     */
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void cancelarComAvisoNaoEntregueMantemCancelamentoEAvisaNaTela() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.cancelar(50L, 1L)).thenReturn(500L);
+        when(solicitacaoService.notificarAvaliadoresCancelamento(500L))
+            .thenReturn(java.util.List.of("Dr. A"));
+
+        mvc.perform(post("/solicitante/50/cancelar").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("cancelada")))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("Dr. A")));
+    }
+
+    /** Regra de exibicao do botao vem do servidor, nunca recalculada na tela. */
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void detalheExpoePodeCancelarNoModel() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscarParaDetalhe(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.podeCancelar(solicitacaoDoDono)).thenReturn(true);
+        when(solicitacaoService.diasEspera(solicitacaoDoDono))
+            .thenReturn(new SolicitacaoOnlineService.DiasEspera(0, "bg-secondary"));
+        when(mensagemService.listarPorSolicitacao(50L)).thenReturn(java.util.List.of());
+
+        mvc.perform(get("/solicitante/50"))
+            .andExpect(status().isOk())
+            .andExpect(model().attribute("podeCancelar", true));
     }
 
     @Test
