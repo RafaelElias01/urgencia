@@ -4,8 +4,9 @@ import br.gov.saude.sgpur.domain.MembroUrgenciaRenal;
 import br.gov.saude.sgpur.domain.Perfil;
 import br.gov.saude.sgpur.domain.Usuario;
 import br.gov.saude.sgpur.e2e.pages.AvaliadorPage;
-import br.gov.saude.sgpur.e2e.pages.NovoProcessoPage;
+import br.gov.saude.sgpur.e2e.pages.PortalSolicitantePage;
 import br.gov.saude.sgpur.e2e.pages.ProcessoDetalhePage;
+import br.gov.saude.sgpur.e2e.pages.SolicitacoesOnlineTriagemPage;
 import br.gov.saude.sgpur.repository.MembroUrgenciaRenalRepository;
 import br.gov.saude.sgpur.service.UsuarioService;
 import com.lowagie.text.Document;
@@ -30,14 +31,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  * diferentes):
  *
  * <ol>
- *   <li>Operador: login, cadastro do processo, Recebimento, Envio aos 3
- *       avaliadores.</li>
+ *   <li>Equipe Solicitante: login no Portal do Solicitante (/solicitante) e
+ *       envio do pedido de urgencia renal (todo Processo nasce assim desde
+ *       2026-07-27 - nao ha mais cadastro manual "do zero").</li>
+ *   <li>Operador: login, revisa a solicitacao na fila de triagem
+ *       (/processos/solicitacoes-online) e converte em processo - o
+ *       Recebimento ja nasce concluido automaticamente - e registra o Envio
+ *       aos 3 avaliadores.</li>
  *   <li>2 medicos avaliadores: cada um se autentica no Portal do Avaliador
  *       (/avaliador) e VOTA DE VERDADE no seu proprio processo - nao e o
  *       operador lancando o resultado por eles.</li>
- *   <li>Operador de volta: decide (maioria simples), finaliza (comprovantes
- *       + resposta ao solicitante) e abre o Relatorio Final em PDF gerado
- *       pelo sistema, confirmando que ele reflete a decisao.</li>
+ *   <li>Operador de volta: o sistema ja decidiu sozinho por maioria simples
+ *       assim que o 2o voto formou maioria (gerando o oficio de
+ *       indeferimento automaticamente) - o operador so confirma o envio da
+ *       resposta final ao solicitante e abre o Relatorio Final em PDF
+ *       gerado pelo sistema, confirmando que ele reflete a decisao.</li>
  * </ol>
  *
  * <p>E um "bot de navegacao": nenhuma chamada de servico ou endpoint e feita
@@ -75,13 +83,27 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
         return new FilePayload(nome, "application/pdf", pdf(texto));
     }
 
+    /** Senha previsivel para o teste, ja compativel com a password policy (8+, maiuscula/minuscula/numero/especial). */
+    private static final String SENHA_TESTE = "Senha123!";
+
     /** Cria um login AVALIADOR vinculado ao membro, com senha previsivel para o teste. */
     private void criarLoginAvaliador(String username, MembroUrgenciaRenal membro) {
         Usuario u = new Usuario();
         u.setUsername(username);
         u.setNome(membro.getNome());
         u.setPerfil(Perfil.AVALIADOR);
-        usuarioService.criar(u, "senha123", membro.getId());
+        usuarioService.criar(u, SENHA_TESTE, membro.getId());
+    }
+
+    /** Cria um login SOLICITANTE (equipe/e-mail vem do proprio cadastro, nao do formulario). */
+    private void criarLoginSolicitante(String username, String equipe, String email) {
+        Usuario u = new Usuario();
+        u.setUsername(username);
+        u.setNome(equipe);
+        u.setEmail(email);
+        u.setPerfil(Perfil.SOLICITANTE);
+        u.setEquipeSolicitante(equipe);
+        usuarioService.criar(u, SENHA_TESTE);
     }
 
     @Test
@@ -95,14 +117,30 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
         MembroUrgenciaRenal medico2 = medicos.get(1);
         criarLoginAvaliador("avaliador.e2e.1", medico1);
         criarLoginAvaliador("avaliador.e2e.2", medico2);
+        criarLoginSolicitante("solicitante.e2e", "Equipe Teste E2E", "solicitante.e2e@example.com");
 
         try {
+            // ===== Ator 0: Equipe Solicitante, pelo Portal do Solicitante =====
+            // Desde 2026-07-27 nao ha mais cadastro manual de processo "do zero" -
+            // todo Processo nasce de uma SolicitacaoOnline enviada por aqui e
+            // depois convertida pelo operador (ver Ator 1 abaixo).
+            Page janelaSolicitante = novoAtor();
+            login(janelaSolicitante, "solicitante.e2e", SENHA_TESTE);
+            new PortalSolicitantePage(janelaSolicitante)
+                .abrirNova()
+                .preencher("Paciente E2E da Silva", "123456789-00001",
+                    LocalDate.now(), "Quadro clinico grave, urgencia renal necessaria (cenario E2E).")
+                .enviar();
+            janelaSolicitante.context().close();
+
             // ===== Ator 1: Operador =====
-            login("admin", "admin123");
+            login("admin", "Admin123!");
             assertThat(page.url()).doesNotContain("/login");
 
-            ProcessoDetalhePage detalhe = new NovoProcessoPage(page)
+            ProcessoDetalhePage detalhe = new SolicitacoesOnlineTriagemPage(page)
                 .abrir()
+                .abrirPrimeiraPendente()
+                .revisarEConverter()
                 .preencher("01/2026", LocalDate.now(),
                     "Paciente E2E da Silva", "123456789-00001",
                     "Equipe Teste E2E", "solicitante.e2e@example.com")
@@ -111,7 +149,9 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
 
             Long processoId = extrairIdDaUrl(page.url());
 
-            detalhe.passo1_registrarRecebimento(pdfPayload("solicitacao.pdf", "Solicitacao original do paciente"));
+            // Passo 1 (Recebimento) e SEMPRE automatico desde 2026-07-27: todo
+            // processo ja nasce com essa etapa concluida, sem nenhuma acao manual
+            // do operador (o endpoint de registrar recebimento foi removido).
             assertThat(detalhe.passoConcluido(1)).isTrue();
 
             detalhe
@@ -127,7 +167,7 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             // close() e assincrono no driver do Playwright e pode disparar antes
             // de operacoes daquele context terminarem de fato).
             Page janelaMedico1 = novoAtor();
-            login(janelaMedico1, "avaliador.e2e.1", "senha123");
+            login(janelaMedico1, "avaliador.e2e.1", SENHA_TESTE);
             List<String> errosConsole = new java.util.ArrayList<>();
             janelaMedico1.onConsoleMessage(msg -> {
                 if ("error".equals(msg.type())) errosConsole.add(msg.text());
@@ -160,23 +200,28 @@ class FluxoCompletoProcessoIT extends PlaywrightTestBase {
             assertThat(errosPagina).isEmpty();
 
             Page janelaMedico2 = novoAtor();
-            login(janelaMedico2, "avaliador.e2e.2", "senha123");
+            login(janelaMedico2, "avaliador.e2e.2", SENHA_TESTE);
             new AvaliadorPage(janelaMedico2)
                 .abrirVotacao(processoId)
                 .votar("NAO_FAVORAVEL", "Concordo com a avaliacao anterior: sem indicacao de urgencia.");
             janelaMedico2.context().close();
 
             // ===== De volta ao Operador: maioria simples ja formada (2 de 3 desfavoraveis) =====
+            // O sistema DECIDE SOZINHO assim que o 2o parecer desfavoravel e
+            // registrado (ProcessoService.tentarDecisaoAutomatica, chamado
+            // pelo proprio AvaliadorController logo apos o voto) - inclusive
+            // gerando o oficio de indeferimento automaticamente. Por isso nao
+            // ha nenhum "passo4_decidir" manual aqui: ao recarregar a tela, os
+            // passos 3 (Respostas) e 4 (Decisao) ja chegam concluidos.
             page.reload();
             page.waitForLoadState();
             assertThat(detalhe.passoConcluido(3)).isTrue();
-
-            detalhe.passo4_decidir("INDEFERIDO", "Maioria dos avaliadores considerou o pedido desfavoravel.");
             assertThat(detalhe.passoConcluido(4)).isTrue();
 
-            detalhe
-                .passo5_anexarComprovanteEnvioSolicitante(pdfPayload("comprovante-resposta.pdf", "Comprovante de envio ao solicitante"))
-                .passo5_confirmarRespostaAoSolicitante();
+            // Passo 5: o oficio de indeferimento ja foi gerado automaticamente
+            // pela decisao acima - falta so o operador confirmar o envio da
+            // resposta final ao solicitante (unico botao, sem upload manual).
+            detalhe.passo5_confirmarRespostaAoSolicitante();
             assertThat(detalhe.passoConcluido(5)).isTrue();
 
             // Percorre a tela inteira (rolagem suave) para dar tempo de ver o

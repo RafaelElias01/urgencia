@@ -7,7 +7,18 @@ import com.microsoft.playwright.options.AriaRole;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Page Object do formulario "Novo processo" (/processos/novo). */
+/**
+ * Page Object do formulario "Novo processo" (/processos/novo).
+ *
+ * <p>Desde a mudanca de regra de negocio de 2026-07-27, nao existe mais
+ * cadastro manual "do zero": {@code GET/POST /processos} EXIGE
+ * {@code origemSolicitacaoOnlineId} (senao redireciona para a fila de
+ * triagem). Na pratica um operador chega neste formulario clicando em
+ * "Revisar e converter" no detalhe de uma solicitacao do Portal do
+ * Solicitante (ver {@link SolicitacoesOnlineTriagemPage#revisarEConverter()}),
+ * que ja navega para ca com o parametro certo - use {@link #abrir(Long)} so
+ * quando precisar pular direto para ca sabendo o id da solicitacao.
+ */
 public class NovoProcessoPage {
 
     private final Page page;
@@ -20,9 +31,10 @@ public class NovoProcessoPage {
         Legenda.mostrar(page, texto);
     }
 
-    public NovoProcessoPage abrir() {
-        page.navigate("/processos/novo");
-        narrar("Abrindo o formulario de novo processo...");
+    /** Navega direto para o formulario, ja associado a solicitacao de origem informada. */
+    public NovoProcessoPage abrir(Long origemSolicitacaoOnlineId) {
+        page.navigate("/processos/novo?origemSolicitacaoOnlineId=" + origemSolicitacaoOnlineId);
+        narrar("Abrindo o formulario de novo processo (pre-preenchido pela solicitacao online)...");
         return this;
     }
 
