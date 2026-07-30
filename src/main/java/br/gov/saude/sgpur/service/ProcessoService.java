@@ -454,25 +454,6 @@ public class ProcessoService {
     }
 
     /**
-     * Confirma (ou desmarca) o envio da resposta ao solicitante (aba 6). Ao
-     * marcar como enviada, exige o comprovante que sustenta a decisao final —
-     * SNT no Deferido, oficio no Indeferido (ProcessoValidator.
-     * validarRespostaSolicitante) — mesma checagem usada na camada web, aqui
-     * como defesa em profundidade: o metodo e publico e nao pode confiar
-     * apenas no guard do controller.
-     */
-    @Transactional
-    public Processo confirmarRespostaSolicitante(Long id, boolean emailEnviadoSolicitante) {
-        Processo p = buscar(id);
-        if (emailEnviadoSolicitante) {
-            validator.validarRespostaSolicitante(p)
-                .ifPresent(msg -> { throw new IllegalStateException(msg); });
-        }
-        p.setEmailEnviadoSolicitante(emailEnviadoSolicitante);
-        return processoRepository.save(p);
-    }
-
-    /**
      * Finaliza a resposta ao solicitante de forma automatica: envia o e-mail
      * com o template adequado (deferido/indeferido) + o anexo correspondente
      * (COMPROVANTE_SNT / OFICIO_INDEFERIMENTO), salva o texto da mensagem no
@@ -581,13 +562,21 @@ public class ProcessoService {
         // Devolve a solicitacao de origem para CONVERTIDA ("convertida em
         // processo, em andamento") — o unico status que o template do
         // solicitante resolve consultando processoGerado.status, refletindo
-        // de novo o andamento real. So mexe se ela estiver justamente no
-        // estado que decidir() gravou; CANCELADA / PROCESSO_EXCLUIDO /
-        // DEVOLVIDA / ENVIADA nao tem nada a ver com a decisao e nao podem
-        // ser sobrescritos aqui.
+        // de novo o andamento real. So mexe se ela estiver justamente num dos
+        // 3 estados que decidir() grava como espelho de uma decisao final
+        // (APROVADA/REPROVADA/CANCELADA — ver o switch em decidir() acima);
+        // PROCESSO_EXCLUIDO / DEVOLVIDA / ENVIADA nao tem nada a ver com a
+        // decisao e nao podem ser sobrescritos aqui.
+        //
+        // CANCELADA entrou nessa lista em 2026-07-29 (junto do cancelamento
+        // pelo solicitante, decidir(CANCELADO) -> CANCELADA): sem isso, reabrir
+        // um processo cancelado deixava a SolicitacaoOnline presa em
+        // "Cancelada" durante toda a reanalise, e o solicitante perdia a
+        // capacidade de cancelar de novo (podeCancelar exige ENVIADA/CONVERTIDA).
         solicitacaoOnlineRepository.findByProcessoGeradoId(id).ifPresent(s -> {
             if (s.getStatus() == StatusSolicitacaoOnline.APROVADA
-                    || s.getStatus() == StatusSolicitacaoOnline.REPROVADA) {
+                    || s.getStatus() == StatusSolicitacaoOnline.REPROVADA
+                    || s.getStatus() == StatusSolicitacaoOnline.CANCELADA) {
                 s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
                 solicitacaoOnlineRepository.save(s);
             }

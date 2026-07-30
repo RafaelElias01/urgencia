@@ -211,6 +211,28 @@ class SolicitanteControllerTest {
             .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("Dr. A")));
     }
 
+    /**
+     * Falha INESPERADA (nao o caso ja tratado de "sem e-mail"/SMTP recusado)
+     * dentro de notificarAvaliadoresCancelamento nao pode virar 500: o
+     * cancelamento ja esta commitado quando isto roda, e uma excecao ali e so
+     * um problema no aviso-cortesia, nunca no cancelamento em si.
+     */
+    @Test
+    @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")
+    void cancelarComFalhaInesperadaNoAvisoNaoDevolve500() throws Exception {
+        when(usuarioRepo.findByUsername("solicitante1")).thenReturn(Optional.of(dono));
+        when(solicitacaoService.buscar(50L)).thenReturn(solicitacaoDoDono);
+        when(solicitacaoService.cancelar(50L, 1L)).thenReturn(500L);
+        when(solicitacaoService.notificarAvaliadoresCancelamento(500L))
+            .thenThrow(new RuntimeException("falha inesperada simulada"));
+
+        mvc.perform(post("/solicitante/50/cancelar").with(csrf()))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/solicitante"))
+            .andExpect(flash().attribute("msg", org.hamcrest.Matchers.containsString("cancelada")))
+            .andExpect(flash().attribute("aviso", org.hamcrest.Matchers.containsString("falha inesperada")));
+    }
+
     /** Regra de exibicao do botao vem do servidor, nunca recalculada na tela. */
     @Test
     @WithMockUser(username = "solicitante1", roles = "SOLICITANTE")

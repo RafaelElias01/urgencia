@@ -121,55 +121,6 @@ class ProcessoAnexoControllerTest {
             && p.getDataEnvioOficio().equals(java.time.LocalDate.of(2026, 7, 2))));
     }
 
-    // ----- resposta-solicitante -----
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void respostaSolicitanteSemConfirmarNaoValidaESalva() throws Exception {
-        // Regra de validacao (SNT/oficio) agora vive dentro de
-        // ProcessoService.confirmarRespostaSolicitante - o controller so delega.
-        processo.setStatus(StatusProcesso.DEFERIDO);
-        when(processoService.confirmarRespostaSolicitante(1L, false)).thenReturn(processo);
-
-        mvc.perform(post("/processos/1/resposta-solicitante").with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#finalizacao"))
-            .andExpect(flash().attribute("msg", "Finalizacao salva."));
-
-        verify(processoService).confirmarRespostaSolicitante(1L, false);
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void respostaSolicitanteConfirmadaSemComprovanteEhBloqueada() throws Exception {
-        processo.setStatus(StatusProcesso.DEFERIDO);
-        when(processoService.confirmarRespostaSolicitante(1L, true))
-            .thenThrow(new IllegalStateException("Anexe o comprovante SNT antes de confirmar."));
-
-        mvc.perform(post("/processos/1/resposta-solicitante")
-                .param("emailEnviadoSolicitante", "true")
-                .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/processos/1#finalizacao"))
-            .andExpect(flash().attribute("erro", "Anexe o comprovante SNT antes de confirmar."));
-    }
-
-    @Test
-    @WithMockUser(roles = "OPERADOR")
-    void respostaSolicitanteConfirmadaComComprovanteSalva() throws Exception {
-        processo.setStatus(StatusProcesso.DEFERIDO);
-        processo.setEmailEnviadoSolicitante(true);
-        when(processoService.confirmarRespostaSolicitante(1L, true)).thenReturn(processo);
-
-        mvc.perform(post("/processos/1/resposta-solicitante")
-                .param("emailEnviadoSolicitante", "true")
-                .with(csrf()))
-            .andExpect(status().is3xxRedirection())
-            .andExpect(flash().attribute("msg", "Finalizacao salva."));
-
-        verify(processoService).confirmarRespostaSolicitante(1L, true);
-    }
-
     // ----- oficio-upload -----
 
     @Test
