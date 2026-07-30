@@ -37,13 +37,20 @@ class SolicitacaoOnlineServiceTest {
     UsuarioRepository usuarioRepository;
     @Mock
     EmailSenderService emailSenderService;
+    @Mock
+    EmailTemplateService emailTemplateService;
+    @Mock
+    ProcessoService processoService;
+    @Mock
+    AuditoriaService auditoria;
 
     SolicitacaoOnlineService service;
 
     @BeforeEach
     void setUp() {
         service = new SolicitacaoOnlineService(repository, anexoStorage, anexoStorageProcesso,
-            usuarioRepository, emailSenderService, "http://localhost:3000");
+            usuarioRepository, emailSenderService, emailTemplateService, processoService,
+            auditoria, "http://localhost:3000");
     }
 
     private Usuario usuarioSolicitante(Long id) {
@@ -124,7 +131,7 @@ class SolicitacaoOnlineServiceTest {
     }
 
     @Test
-    void cancelarSolicitacaoJaTriadaLancaExcecao() {
+    void cancelarSolicitacaoConvertidaSemProcessoLancaExcecao() {
         SolicitacaoOnline s = solicitacaoPedido();
         s.setId(11L);
         s.setUsuarioSolicitante(usuarioSolicitante(1L));
@@ -133,7 +140,7 @@ class SolicitacaoOnlineServiceTest {
 
         assertThatThrownBy(() -> service.cancelar(11L, 1L))
             .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("nao foram triadas");
+            .hasMessageContaining("nao pode mais ser cancelada");
     }
 
     @Test
@@ -144,9 +151,110 @@ class SolicitacaoOnlineServiceTest {
         s.setStatus(StatusSolicitacaoOnline.ENVIADA);
         when(repository.findById(12L)).thenReturn(java.util.Optional.of(s));
 
-        service.cancelar(12L, 1L);
+        Long processoCancelado = service.cancelar(12L, 1L);
 
         assertThat(s.getStatus()).isEqualTo(StatusSolicitacaoOnline.CANCELADA);
+        // Sem processo gerado, nao ha ninguem para avisar.
+        assertThat(processoCancelado).isNull();
+        org.mockito.Mockito.verifyNoInteractions(processoService);
+    }
+
+    // -------------------------------------------------------------------------
+    // Cancelamento depois de o pedido ja ter virado processo (2026-07-29).
+    // -------------------------------------------------------------------------
+
+    private SolicitacaoOnline convertidaCom(StatusProcesso statusProcesso) {
+        Processo p = new Processo();
+        p.setId(500L);
+        p.setNumero("07/2026");
+        p.setPacienteNome("Fulano de Tal");
+        p.setStatus(statusProcesso);
+
+        SolicitacaoOnline s = solicitacaoPedido();
+        s.setId(20L);
+        s.setUsuarioSolicitante(usuarioSolicitante(1L));
+        s.setStatus(StatusSolicitacaoOnline.CONVERTIDA);
+        s.setProcessoGerado(p);
+        return s;
+    }
+
+    @Test
+    void podeCancelarEnquantoOProcessoNaoFoiDecidido() {
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.SOLICITADO))).isTrue();
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.ENVIADO))).isTrue();
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.SOLICITA_INFORMACAO))).isTrue();
+    }
+
+    @Test
+    void naoPodeCancelarDepoisDaDecisaoFinal() {
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.DEFERIDO))).isFalse();
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.INDEFERIDO))).isFalse();
+        assertThat(service.podeCancelar(convertidaCom(StatusProcesso.CANCELADO))).isFalse();
+    }
+
+    /**
+     * Delega a ProcessoService.decidir em vez de trocar o status na mao: mesmo
+     * caminho do cancelamento pelo operador, com as mesmas travas.
+     */
+    @Test
+    void cancelarProcessoEmAnaliseDelegaParaDecidirEDevolveOIdDoProcesso() {
+        SolicitacaoOnline s = convertidaCom(StatusProcesso.ENVIADO);
+        when(repository.findById(20L)).thenReturn(java.util.Optional.of(s));
+
+        Long processoCancelado = service.cancelar(20L, 1L);
+
+        assertThat(processoCancelado).isEqualTo(500L);
+        org.mockito.Mockito.verify(processoService)
+            .decidir(500L, StatusProcesso.CANCELADO, null);
+    }
+
+    @Test
+    void cancelarProcessoJaDecididoLancaExcecaoComMensagemPropria() {
+        SolicitacaoOnline s = convertidaCom(StatusProcesso.DEFERIDO);
+        when(repository.findById(20L)).thenReturn(java.util.Optional.of(s));
+
+        assertThatThrownBy(() -> service.cancelar(20L, 1L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("ja foi decidido");
+        org.mockito.Mockito.verifyNoInteractions(processoService);
+    }
+
+    @Test
+    void notificaAvaliadoresPendentesDoCancelamento() {
+        Processo p = new Processo();
+        p.setId(500L);
+        p.setNumero("07/2026");
+        p.setPacienteNome("Fulano de Tal");
+        Parecer pendente = new Parecer(new MembroUrgenciaRenal("HCPA", "Dr. A", "a@hcpa.br"));
+        when(processoService.buscar(500L)).thenReturn(p);
+        when(processoService.pareceresPendentesComEmail(500L)).thenReturn(java.util.List.of(pendente));
+        when(emailTemplateService.emailCancelamentoAvaliador(any(), any()))
+            .thenReturn(new EmailTemplate("cancelamento-avaliador", "Aviso", "slash-circle",
+                "Assunto", "Corpo"));
+        when(emailSenderService.enviar(any(String.class), any(), any())).thenReturn(true);
+
+        assertThat(service.notificarAvaliadoresCancelamento(500L)).isEmpty();
+
+        org.mockito.Mockito.verify(emailSenderService).enviar("a@hcpa.br", "Assunto", "Corpo");
+    }
+
+    /**
+     * Avaliador sem e-mail ou falha de SMTP volta na lista de "nao avisados" -
+     * nunca lanca, porque o cancelamento ja esta commitado quando isto roda.
+     */
+    @Test
+    void avaliadorSemEmailVoltaComoNaoAvisadoSemLancar() {
+        Processo p = new Processo();
+        p.setId(500L);
+        p.setNumero("07/2026");
+        p.setPacienteNome("Fulano de Tal");
+        Parecer pendente = new Parecer(new MembroUrgenciaRenal("HCPA", "Dr. Sem Email", null));
+        when(processoService.buscar(500L)).thenReturn(p);
+        when(processoService.pareceresPendentesComEmail(500L)).thenReturn(java.util.List.of(pendente));
+
+        assertThat(service.notificarAvaliadoresCancelamento(500L))
+            .containsExactly("Dr. Sem Email");
+        org.mockito.Mockito.verifyNoInteractions(emailSenderService);
     }
 
     @Test

@@ -202,6 +202,9 @@ public class SolicitanteController {
         Usuario usuario = resolverUsuario(principal);
         SolicitacaoOnline s = conferirPosse(solicitacaoService.buscarParaDetalhe(id), usuario);
         model.addAttribute("solicitacao", s);
+        // Fonte unica da regra: o botao aparece exatamente quando cancelar()
+        // aceitaria (ver SolicitacaoOnlineService.podeCancelar).
+        model.addAttribute("podeCancelar", solicitacaoService.podeCancelar(s));
         model.addAttribute("diasEspera", solicitacaoService.diasEspera(s));
         model.addAttribute("precisaInformacaoComplementar", solicitacaoService.precisaInformacaoComplementar(s));
         model.addAttribute("jaEnviouInfoComplementar", solicitacaoService.jaEnviouInformacaoComplementarNestaRodada(s));
@@ -299,9 +302,25 @@ public class SolicitanteController {
         Usuario usuario = resolverUsuario(principal);
         resolverPropria(id, usuario);
         try {
-            solicitacaoService.cancelar(id, usuario.getId());
-            auditoria.registrar("SOLICITACAO_ONLINE_CANCELADA", "Solicitacao " + id);
-            ra.addFlashAttribute("msg", "Solicitacao cancelada.");
+            Long processoCancelado = solicitacaoService.cancelar(id, usuario.getId());
+            auditoria.registrar("SOLICITACAO_ONLINE_CANCELADA", "Solicitacao " + id
+                + (processoCancelado != null ? " - processo " + processoCancelado + " cancelado junto" : ""));
+            if (processoCancelado == null) {
+                ra.addFlashAttribute("msg", "Solicitacao cancelada.");
+            } else {
+                // Aviso aos avaliadores DEPOIS do commit do cancelamento: falha
+                // de SMTP nunca pode "descancelar" o processo (mesmo contrato do
+                // convite automatico ao registrar o envio).
+                List<String> naoAvisados =
+                    solicitacaoService.notificarAvaliadoresCancelamento(processoCancelado);
+                ra.addFlashAttribute("msg",
+                    "Solicitacao cancelada. O processo foi encerrado e os avaliadores pendentes foram avisados.");
+                if (!naoAvisados.isEmpty()) {
+                    ra.addFlashAttribute("aviso",
+                        "Nao foi possivel avisar por e-mail: " + String.join(", ", naoAvisados)
+                            + ". O processo ja consta como cancelado e saiu da lista deles no portal.");
+                }
+            }
         } catch (IllegalStateException e) {
             ra.addFlashAttribute("erro", e.getMessage());
         }

@@ -339,11 +339,20 @@
         <a th:href="@{/solicitante}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Voltar
         </a>
-        <form th:if="${solicitacao.status.name() == 'ENVIADA'}"
+        <!-- podeCancelar vem do servidor (SolicitacaoOnlineService.podeCancelar):
+             mesma regra que o endpoint aplica, para o botao nunca aparecer num
+             pedido que o servico vai recusar. A mensagem de confirmacao muda
+             conforme o pedido ja tenha virado processo em analise ou nao. -->
+        <form th:if="${podeCancelar}"
               th:action="@{/solicitante/{id}/cancelar(id=${solicitacao.id})}" method="post"
-              data-confirm-msg="Cancelar esta solicitacao? Ela nao sera analisada.">
+              th:attr="data-confirm-msg=${solicitacao.status.name() == 'ENVIADA'}
+                  ? 'Cancelar esta solicitacao? Ela nao sera analisada.'
+                  : 'Este pedido ja virou o processo ' + ${solicitacao.processoGerado.numero}
+                    + ' e esta em analise pelos medicos. Cancelar mesmo assim? A analise sera encerrada e nao ha como desfazer.'">
             <button type="submit" class="btn btn-outline-danger">
-                <i class="bi bi-x-circle"></i> Cancelar solicitacao
+                <i class="bi bi-x-circle"></i>
+                <span th:text="${solicitacao.status.name() == 'ENVIADA'}
+                    ? 'Cancelar solicitacao' : 'Cancelar processo'">Cancelar solicitacao</span>
             </button>
         </form>
     </div>

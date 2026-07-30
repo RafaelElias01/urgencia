@@ -178,6 +178,31 @@ não renomeados no rebrand SAUR). `artifactId` do Maven é `saur` (gera
   limpo) para o voto definitivo, e o fluxo de Respostas/Decisão é liberado. O
   solicitante só ENVIA; retomar a análise continua exclusivo do OPERADOR via
   `retomarAposInformacao`.
+- **Solicitante pode cancelar até a decisão final (desde 2026-07-29).** Antes, o
+  Portal do Solicitante só permitia cancelar enquanto a solicitação estava
+  `ENVIADA` (não triada). Agora `SolicitacaoOnlineService.podeCancelar` abre
+  duas janelas: `ENVIADA`, **ou** `CONVERTIDA` com o `Processo` gerado **ainda
+  não decidido** (`StatusProcesso.isFinalizado() == false`) — casos reais:
+  paciente transplantado, óbito, ou pedido aberto por engano enquanto os 3
+  médicos já analisam. Depois de Deferido/Indeferido **não cancela mais**.
+  `podeCancelar` é **fonte única**: a tela pergunta a ele se mostra o botão e
+  `cancelar` pergunta a ele antes de efetivar — não duplicar a condição no
+  template. Quando já há processo, `cancelar` **delega a
+  `ProcessoService.decidir(id, CANCELADO, null)`** em vez de trocar status na
+  mão (mesmo caminho do cancelamento pelo operador, mesmas travas,
+  `dataDecisao` gravada) e devolve o `processoId`; sem processo, devolve
+  `null`. Os **avaliadores pendentes são avisados por e-mail**
+  (`EmailTemplateService.emailCancelamentoAvaliador`, só iniciais) via
+  `notificarAvaliadoresCancelamento`, chamado pelo controller **depois** do
+  commit e **nunca** dentro da transação — falha de SMTP vira flash `aviso`,
+  jamais um rollback que "descancelaria" o processo (mesmo contrato do convite
+  automático ao registrar envio). Auditoria:
+  `CANCELAMENTO_AVISO_AVALIADOR_ENVIADO`/`_FALHA`.
+- **`decidir` espelha `CANCELADO` como `StatusSolicitacaoOnline.CANCELADA`**
+  (corrigido em 2026-07-29). Antes, o `switch` mandava tudo que não fosse
+  `DEFERIDO` para `REPROVADA` — um processo cancelado aparecia como
+  "Reprovada" no Portal do Solicitante, dizendo que a equipe analisou e negou
+  o pedido quando ele só foi cancelado (às vezes pelo próprio solicitante).
 - **Fluxo em 6 passos** (checklist `FluxoProcessoService` + abas na tela):
   **1 Recebimento · 2 Envio · 3 Respostas · 4 Decisão · 5 Ofício/Comprovante ·
   6 Resposta ao solicitante**. Cada etapa só fica **CONCLUIDA (verde)** na
