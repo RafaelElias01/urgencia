@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * Teste de integracao minimo do AuditoriaAspect: sobe um contexto Spring
- * pequeno (so o aspect + um bean de teste anotado com {@link LogAuditoria}),
+ * pequeno (so o aspect + um bean de teste anotado com {@link Auditavel}),
  * com {@code @EnableAspectJAutoProxy}, para confirmar que o pointcut
  * {@code @annotation(logAuditoria)} realmente intercepta chamadas ao metodo
  * anotado atraves de um proxy AOP de verdade - algo que a chamada direta em
@@ -52,7 +52,7 @@ class AuditoriaAspectProxyTest {
 
     @Component
     static class AlvoDeTeste {
-        @LogAuditoria(acao = "PROXY_TESTE_ACAO", detalhe = "'valor:' + #args[0]")
+        @Auditavel(acao = "PROXY_TESTE_ACAO", detalhe = "'valor:' + #args[0]")
         public String metodoAnotado(String valor) {
             return "ok-" + valor;
         }

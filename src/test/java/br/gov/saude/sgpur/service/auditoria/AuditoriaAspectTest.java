@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Testes do AuditoriaAspect. O aspect e chamado diretamente com um JoinPoint
- * mockado e a anotacao {@link LogAuditoria} real (obtida via reflexao de
+ * mockado e a anotacao {@link Auditavel} real (obtida via reflexao de
  * metodos de um "alvo" de teste), o que exercita toda a logica de negocio do
  * aspect - avaliacao SpEL do detalhe, fallback quando a expressao e invalida,
  * e captura do IP da requisicao HTTP corrente - sem precisar de um proxy AOP
@@ -30,19 +30,19 @@ class AuditoriaAspectTest {
 
     /** Classe alvo usada apenas para obter instancias reais da anotacao via reflexao. */
     static class Alvo {
-        @LogAuditoria(acao = "ACAO_SIMPLES")
+        @Auditavel(acao = "ACAO_SIMPLES")
         void semDetalhe(String x) {
         }
 
-        @LogAuditoria(acao = "ACAO_COM_SPEL", detalhe = "'Processo id ' + #args[0]")
+        @Auditavel(acao = "ACAO_COM_SPEL", detalhe = "'Processo id ' + #args[0]")
         void comDetalheSpel(Long id) {
         }
 
-        @LogAuditoria(acao = "ACAO_SPEL_INVALIDO", detalhe = "#args[0].propriedadeQueNaoExiste(")
+        @Auditavel(acao = "ACAO_SPEL_INVALIDO", detalhe = "#args[0].propriedadeQueNaoExiste(")
         void comSpelInvalido(String x) {
         }
 
-        @LogAuditoria(acao = "ACAO_DETALHE_LITERAL", detalhe = "'texto fixo sem SpEL'")
+        @Auditavel(acao = "ACAO_DETALHE_LITERAL", detalhe = "'texto fixo sem SpEL'")
         void comDetalheLiteral() {
         }
     }
@@ -61,9 +61,9 @@ class AuditoriaAspectTest {
         RequestContextHolder.resetRequestAttributes();
     }
 
-    private LogAuditoria anotacaoDe(String nomeMetodo, Class<?>... parametros) throws NoSuchMethodException {
+    private Auditavel anotacaoDe(String nomeMetodo, Class<?>... parametros) throws NoSuchMethodException {
         Method m = Alvo.class.getDeclaredMethod(nomeMetodo, parametros);
-        return m.getAnnotation(LogAuditoria.class);
+        return m.getAnnotation(Auditavel.class);
     }
 
     private JoinPoint joinPointComArgs(Object... args) {
@@ -74,7 +74,7 @@ class AuditoriaAspectTest {
 
     @Test
     void registrarSemDetalheDelegaComDetalheNulo() throws Exception {
-        LogAuditoria ann = anotacaoDe("semDetalhe", String.class);
+        Auditavel ann = anotacaoDe("semDetalhe", String.class);
         JoinPoint jp = joinPointComArgs("qualquer");
 
         aspect.registrar(jp, ann);
@@ -84,7 +84,7 @@ class AuditoriaAspectTest {
 
     @Test
     void registrarAvaliaExpressaoSpelComArgumentosDoMetodo() throws Exception {
-        LogAuditoria ann = anotacaoDe("comDetalheSpel", Long.class);
+        Auditavel ann = anotacaoDe("comDetalheSpel", Long.class);
         JoinPoint jp = joinPointComArgs(42L);
 
         aspect.registrar(jp, ann);
@@ -94,7 +94,7 @@ class AuditoriaAspectTest {
 
     @Test
     void registrarComDetalheLiteralNaoDependeDosArgumentos() throws Exception {
-        LogAuditoria ann = anotacaoDe("comDetalheLiteral");
+        Auditavel ann = anotacaoDe("comDetalheLiteral");
         JoinPoint jp = joinPointComArgs();
 
         aspect.registrar(jp, ann);
@@ -106,7 +106,7 @@ class AuditoriaAspectTest {
     void registrarComSpelInvalidoGravaAExpressaoCrua() throws Exception {
         // SpEL malformado (parenteses nao fechados) nunca deve quebrar a acao
         // principal - o aspect cai para gravar a expressao literal.
-        LogAuditoria ann = anotacaoDe("comSpelInvalido", String.class);
+        Auditavel ann = anotacaoDe("comSpelInvalido", String.class);
         JoinPoint jp = joinPointComArgs("valor");
 
         aspect.registrar(jp, ann);
@@ -121,7 +121,7 @@ class AuditoriaAspectTest {
         request.setRemoteAddr("198.51.100.7");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
-        LogAuditoria ann = anotacaoDe("semDetalhe", String.class);
+        Auditavel ann = anotacaoDe("semDetalhe", String.class);
         JoinPoint jp = joinPointComArgs("x");
 
         aspect.registrar(jp, ann);
@@ -135,7 +135,7 @@ class AuditoriaAspectTest {
         // RequestContextHolder nao tem atributos - nao deve lancar excecao.
         RequestContextHolder.resetRequestAttributes();
 
-        LogAuditoria ann = anotacaoDe("semDetalhe", String.class);
+        Auditavel ann = anotacaoDe("semDetalhe", String.class);
         JoinPoint jp = joinPointComArgs("x");
 
         aspect.registrar(jp, ann);
